@@ -1,3 +1,134 @@
+2013-10-24  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r154647
+
+    2013-08-23  Andy Estes  <aestes@apple.com>
+
+            Fix issues found by the Clang Static Analyzer
+            https://bugs.webkit.org/show_bug.cgi?id=120230
+
+            Reviewed by Darin Adler.
+
+            * Misc/WebNSFileManagerExtras.mm:
+            (-[NSFileManager _webkit_startupVolumeName]): Used HardAutorelease()
+            instead of WebCFAutorelease().
+            * Misc/WebNSObjectExtras.h: Removed definition of WebCFAutorelease().
+            * Misc/WebNSURLExtras.mm:
+            (-[NSURL _web_URLWithLowercasedScheme]): Used HardAutorelease()
+            instead of WebCFAutorelease().
+            * Plugins/Hosted/WebHostedNetscapePluginView.mm:
+            (-[WebHostedNetscapePluginView createPluginLayer]): Stop leaking
+            CGColors (CALayer retains its backgroundColor property despite the
+            property attributes claiming otherwise).
+            * Plugins/WebBasePluginPackage.mm:
+            (+[WebBasePluginPackage preferredLocalizationName]): Used
+            HardAutorelease() instead of WebCFAutorelease().
+            * WebView/WebDeviceOrientationProviderMock.mm:
+            (-[WebDeviceOrientationProviderMockInternal lastOrientation]): Stop
+            leaking WebDeviceOrientations.
+            * WebView/WebPDFRepresentation.mm:
+            (-[WebPDFRepresentation convertPostScriptDataSourceToPDF:]): Used
+            HardAutorelease() instead of WebCFAutorelease().
+            * WebView/WebView.mm:
+            (+[WebView _setCacheModel:]): Ditto.
+            (-[WebView _removeObjectForIdentifier:]): Ditto.
+
+2013-10-21  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r154078
+
+    2013-08-14  Tim Horton  <timothy_horton@apple.com>
+
+            Remotely hosted plugins don’t work in window-server-hosted WebKit1 views
+            https://bugs.webkit.org/show_bug.cgi?id=119709
+            <rdar://problem/14717572>
+
+            Reviewed by Anders Carlsson.
+
+            * Plugins/Hosted/NetscapePluginHostManager.h:
+            Add hostLayersInWindowServer argument to instantiatePlugin.
+
+            * Plugins/Hosted/NetscapePluginHostManager.mm:
+            (WebKit::NetscapePluginHostManager::instantiatePlugin):
+            Add hostLayersInWindowServer argument to instantiatePlugin, and pass it through to WebKitPluginHost.
+
+            * Plugins/Hosted/NetscapePluginHostProxy.mm:
+            (WKPCLayerHostingModeChanged):
+            Forward the notification that the plugin host changed its layer hosting mode
+            to the instance proxy.
+
+            * Plugins/Hosted/NetscapePluginInstanceProxy.h:
+            * Plugins/Hosted/NetscapePluginInstanceProxy.mm:
+            (WebKit::NetscapePluginInstanceProxy::setShouldHostLayersInWindowServer):
+            Ask the plugin host to re-host its layers when the layer hosting mode changes.
+
+            (WebKit::NetscapePluginInstanceProxy::layerHostingModeChanged):
+            Inform the WebHostedNetscapePluginView of the new layer hosting mode
+            when it changes. Also, store the new CAContext ID.
+
+            * Plugins/Hosted/WebHostedNetscapePluginView.h:
+            * Plugins/Hosted/WebHostedNetscapePluginView.mm:
+            (-[WebHostedNetscapePluginView windowHostsLayersInWindowServer]):
+            Determine whether the WebView's current window uses window-server hosting for its layers.
+
+            (-[WebHostedNetscapePluginView createPlugin]):
+            Drive-by spelling fix.
+            Factor _pluginLayer initialization out into createPluginLayer.
+            Instantiate the plugin with the appropriate layer hosting mode.
+
+            (-[WebHostedNetscapePluginView createPluginLayer]):
+
+            (-[WebHostedNetscapePluginView setHostsLayersInWindowServer:]):
+            Create a new _pluginLayer if the layer hosting mode changes.
+            Attach the new _pluginLayer to our parent layer.
+
+            (-[WebHostedNetscapePluginView updateAndSetWindow]):
+            Inform the NetscapePluginInstanceProxy if the layer hosting mode changes,
+            so it can inform the plugin host. We will asynchronously receive a reply
+            with the new hosting mode and renderContextID and switch to the new CAContext,
+            in setHostsLayersInWindowServer:.
+
+            * Plugins/Hosted/WebKitPluginClient.defs:
+            * Plugins/Hosted/WebKitPluginHost.defs:
+
+2013-10-21  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r154067
+
+    2013-08-14  Tim Horton  <timothy_horton@apple.com>
+
+            REGRESSION (r153877): Plugin scanning slows creation of WebViews
+            https://bugs.webkit.org/show_bug.cgi?id=119665
+            <rdar://problem/14716549>
+
+            Reviewed by Darin Adler.
+
+            * Plugins/WebPluginDatabase.h:
+            * Plugins/WebPluginDatabase.mm:
+            (+[WebPluginDatabase sharedDatabaseIfExists]): Added.
+
+            * WebCoreSupport/WebPlatformStrategies.mm:
+            (WebPlatformStrategies::refreshPlugins):
+            Only refresh the plugin database if it's already been loaded.
+
+2013-10-21  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r153877
+
+    2013-08-08  Tim Horton  <timothy_horton@apple.com>
+
+            navigator.plugins has plugins in it when plugins are disabled
+            https://bugs.webkit.org/show_bug.cgi?id=119607
+            <rdar://problem/14678030>
+
+            Reviewed by Anders Carlsson.
+
+            * WebCoreSupport/WebPlatformStrategies.mm:
+            (WebPlatformStrategies::getPluginInfo):
+            If plugins are disabled for the given page, give WebCore an empty list of
+            plugins. If WebKit1 had any application plugins, we'd return just them
+            instead.
+
 2013-09-04  Dean Jackson  <dino@apple.com>
 
         <rdar://problem/14910916> Disable CSS_SHAPES on safari-537-branch

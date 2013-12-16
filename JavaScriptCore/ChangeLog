@@ -1,3 +1,326 @@
+2013-11-08  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r158882
+
+    2013-11-07  Roger Fong  <roger_fong@apple.com>
+
+            Rollout part of r146669 which caused a performance regression.
+            <rdar://problem/15265457>.
+
+            Rubberstamped by Filip Pizlo.
+
+            * jit/JITStubs.cpp:
+            (JSC::DEFINE_STUB_FUNCTION):
+
+2013-10-28  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r157830
+
+    2013-10-22  Geoffrey Garen  <ggaren@apple.com>
+
+            REGRESSION: `if (false === (true && undefined)) console.log("wrong!");` logs "wrong!", shouldn't!
+            https://bugs.webkit.org/show_bug.cgi?id=123179
+
+            Reviewed by Mark Hahnenberg.
+
+            * parser/NodeConstructors.h:
+            (JSC::LogicalOpNode::LogicalOpNode):
+            * parser/ResultType.h:
+            (JSC::ResultType::forLogicalOp): Don't assume that && produces a boolean.
+            This is JavaScript (aka Sparta).
+
+2013-10-28  Brent Fulgham  <bfulgham@apple.com>
+
+        Debug build correction after r158124.
+
+        * runtime/JSObject.h:
+        (JSC::JSObject::setStructure): Use external hasIndexingHeader function since
+        the member function did not exist at the time of this branch.
+
+2013-10-28  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r157830
+
+    2013-10-22  Geoffrey Garen  <ggaren@apple.com>
+
+            REGRESSION: `if (false === (true && undefined)) console.log("wrong!");` logs "wrong!", shouldn't!
+            https://bugs.webkit.org/show_bug.cgi?id=123179
+
+            Reviewed by Mark Hahnenberg.
+
+            * parser/NodeConstructors.h:
+            (JSC::LogicalOpNode::LogicalOpNode):
+            * parser/ResultType.h:
+            (JSC::ResultType::forLogicalOp): Don't assume that && produces a boolean.
+            This is JavaScript (aka Sparta).
+
+2013-10-28  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r156302
+
+    2013-09-23  Patrick Gansterer  <paroga@webkit.org>
+
+            use NOMINMAX instead of #define min min
+            https://bugs.webkit.org/show_bug.cgi?id=73563
+
+            Reviewed by Brent Fulgham.
+
+            Use NOMINMAX instead of #define min/max as a cleaner
+            way of ensuring that Windows system header files don't
+            define min/max as macro in the first place.
+
+            * config.h:
+
+2013-10-28  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r154366
+
+    2013-08-20  Mark Hahnenberg  <mhahnenberg@apple.com>
+
+            <https://webkit.org/b/120079> Flattening a dictionary can cause CopiedSpace corruption
+
+            Reviewed by Oliver Hunt.
+
+            When we flatten an object in dictionary mode, we compact its properties. If the object 
+            had out-of-line storage in the form of a Butterfly prior to this compaction, and after 
+            compaction its properties fit inline, the object's Structure "forgets" that the object 
+            has a non-zero Butterfly pointer. During GC, we check the Butterfly and reportLiveBytes 
+            with bytes = 0, which causes all sorts of badness in CopiedSpace.
+
+            Instead, after we flatten a dictionary, if properties fit inline we should clear the 
+            Butterfly pointer so that the GC doesn't get confused later.
+
+            This patch does this clearing, and it also adds JSObject::checkStructure, which overrides
+            JSCell::checkStructure to add an ASSERT that makes sure that the Structure being assigned
+            agrees with the whether or not the object has a Butterfly. Also added an ASSERT to check
+            that the number of bytes reported to SlotVisitor::copyLater is non-zero.
+
+            * heap/SlotVisitorInlines.h:
+            (JSC::SlotVisitor::copyLater):
+            * runtime/JSObject.cpp:
+            (JSC::JSObject::notifyPresenceOfIndexedAccessors):
+            (JSC::JSObject::convertUndecidedToInt32):
+            (JSC::JSObject::convertUndecidedToDouble):
+            (JSC::JSObject::convertUndecidedToContiguous):
+            (JSC::JSObject::convertInt32ToDouble):
+            (JSC::JSObject::convertInt32ToContiguous):
+            (JSC::JSObject::genericConvertDoubleToContiguous):
+            (JSC::JSObject::switchToSlowPutArrayStorage):
+            (JSC::JSObject::setPrototype):
+            (JSC::JSObject::putDirectAccessor):
+            (JSC::JSObject::seal):
+            (JSC::JSObject::freeze):
+            (JSC::JSObject::preventExtensions):
+            (JSC::JSObject::reifyStaticFunctionsForDelete):
+            (JSC::JSObject::removeDirect):
+            * runtime/JSObject.h:
+            (JSC::JSObject::setButterfly):
+            (JSC::JSObject::putDirectInternal):
+            (JSC::JSObject::setStructure):
+            (JSC::JSObject::setStructureAndReallocateStorageIfNecessary):
+            * runtime/Structure.cpp:
+            (JSC::Structure::flattenDictionaryStructure):
+
+2013-10-28  Mark Lam  <mark.lam@apple.com>
+
+        Merge r155471.
+        https://bugs.webkit.org/show_bug.cgi?id=123409.
+
+        Reviewed by Geoffrey Garen.
+
+        Re-implemented fix based on the frame iteration mechanhism before the
+        StackVisitor was available.
+
+    2013-09-10  Joseph Pecoraro  <pecoraro@apple.com>
+
+            Web Inspector: [JSC] Caught exception is treated as uncaught
+            https://bugs.webkit.org/show_bug.cgi?id=93607
+
+            Reviewed by Geoff Garen.
+
+            Check up the entire call stack to see if there is an exception handler.
+
+            * interpreter/Interpreter.cpp:
+            (JSC::GetExceptionHandlerFunctor::GetExceptionHandlerFunctor):
+            (JSC::GetExceptionHandlerFunctor::handler):
+            (JSC::GetExceptionHandlerFunctor::operator()):
+
+2013-10-25  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r156214
+
+    2013-09-20  Mark Hahnenberg  <mhahnenberg@apple.com>
+
+            (un)shiftCountWithAnyIndexingType will start over in the middle of copying if it sees a hole
+            https://bugs.webkit.org/show_bug.cgi?id=121717
+
+            Reviewed by Oliver Hunt.
+
+            This bug caused the array to become corrupted. We now check for holes before we start moving things, 
+            and start moving things only once we've determined that there are none.
+
+            * runtime/JSArray.cpp:
+            (JSC::JSArray::shiftCountWithAnyIndexingType):
+            (JSC::JSArray::unshiftCountWithAnyIndexingType):
+
+2013-10-24  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r154647
+
+    2013-08-23  Andy Estes  <aestes@apple.com>
+
+            Fix issues found by the Clang Static Analyzer
+            https://bugs.webkit.org/show_bug.cgi?id=120230
+
+            Reviewed by Darin Adler.
+
+            * API/JSValue.mm:
+            (valueToString): Don't leak every CFStringRef when in Objective-C GC.
+            * API/ObjCCallbackFunction.mm:
+            (JSC::ObjCCallbackFunctionImpl::~ObjCCallbackFunctionImpl): Don't
+            release m_invocation's target since NSInvocation will do it for us on
+            -dealloc.
+            (objCCallbackFunctionForBlock): Tell NSInvocation to retain its target
+            and -release our reference to the copied block.
+            * API/tests/minidom.c:
+            (createStringWithContentsOfFile): Free buffer before returning.
+            * API/tests/testapi.c:
+            (createStringWithContentsOfFile): Ditto.
+
+2013-10-24  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r154346
+
+    2013-08-20  Michael Saboff  <msaboff@apple.com>
+
+            https://bugs.webkit.org/show_bug.cgi?id=120075
+            REGRESSION (r128400): BBC4 website not displaying pictures
+
+            Reviewed by Oliver Hunt.
+
+            * runtime/RegExpMatchesArray.h:
+            (JSC::RegExpMatchesArray::createStructure): Changed the array IndexingType to be ArrayWithSlowPutArrayStorage
+            so that the match results will be reified before any other modification to the results array.
+
+2013-10-24  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r154303
+
+    2013-08-18  Gavin Barraclough  <barraclough@apple.com>
+
+            https://bugs.webkit.org/show_bug.cgi?id=119995
+            Start removing custom implementations of getOwnPropertyDescriptor
+
+            Reviewed by Oliver Hunt.
+
+            This can now typically implemented in terms of getOwnPropertySlot.
+            Add a macro to PropertyDescriptor to define an implementation of GOPD in terms of GOPS.
+            Switch over most classes in JSC & the WebCore bindings generator to use this.
+
+            * API/JSCallbackObjectFunctions.h:
+            * debugger/DebuggerActivation.cpp:
+            * runtime/Arguments.cpp:
+            * runtime/ArrayConstructor.cpp:
+            * runtime/ArrayPrototype.cpp:
+            * runtime/BooleanPrototype.cpp:
+            * runtime/DateConstructor.cpp:
+            * runtime/DatePrototype.cpp:
+            * runtime/ErrorPrototype.cpp:
+            * runtime/JSActivation.cpp:
+            * runtime/JSArray.cpp:
+            * runtime/JSArrayBuffer.cpp:
+            * runtime/JSArrayBufferView.cpp:
+            * runtime/JSCell.cpp:
+            * runtime/JSDataView.cpp:
+            * runtime/JSDataViewPrototype.cpp:
+            * runtime/JSFunction.cpp:
+            * runtime/JSGenericTypedArrayViewInlines.h:
+            * runtime/JSNotAnObject.cpp:
+            * runtime/JSONObject.cpp:
+            * runtime/JSObject.cpp:
+            * runtime/NamePrototype.cpp:
+            * runtime/NumberConstructor.cpp:
+            * runtime/NumberPrototype.cpp:
+            * runtime/ObjectConstructor.cpp:
+                - Implement getOwnPropertySlot in terms of GET_OWN_PROPERTY_DESCRIPTOR_IMPL.
+            * runtime/PropertyDescriptor.h:
+                - Added GET_OWN_PROPERTY_DESCRIPTOR_IMPL macro.
+            * runtime/PropertySlot.h:
+            (JSC::PropertySlot::isValue):
+            (JSC::PropertySlot::isGetter):
+            (JSC::PropertySlot::isCustom):
+            (JSC::PropertySlot::isCacheableValue):
+            (JSC::PropertySlot::isCacheableGetter):
+            (JSC::PropertySlot::isCacheableCustom):
+            (JSC::PropertySlot::attributes):
+            (JSC::PropertySlot::getterSetter):
+                - Add accessors necessary to convert PropertySlot to descriptor.
+            * runtime/RegExpConstructor.cpp:
+            * runtime/RegExpMatchesArray.cpp:
+            * runtime/RegExpMatchesArray.h:
+            * runtime/RegExpObject.cpp:
+            * runtime/RegExpPrototype.cpp:
+            * runtime/StringConstructor.cpp:
+            * runtime/StringObject.cpp:
+                - Implement getOwnPropertySlot in terms of GET_OWN_PROPERTY_DESCRIPTOR_IMPL.
+
+2013-10-24  Oliver Hunt  <oliver@apple.com>
+
+        <https://webkit.org/b/119860> Crash during exception unwinding
+
+        Reviewed by Filip Pizlo.
+
+        Add an "Unreachable" NodeType, and then rearrange op_throw and op_throw_reference_error
+        to plant Throw or ThrowReferenceError followed by a flush and then the Unreachable node.
+
+        We need this so that Throw and ThrowReferenceError no longer need to be treated as
+        terminals and the subsequent flush keeps the activation (and other registers) live.
+
+        * dfg/DFGAbstractInterpreterInlines.h:
+        (JSC::DFG::::executeEffects):
+        * dfg/DFGByteCodeParser.cpp:
+        (JSC::DFG::ByteCodeParser::parseBlock):
+        * dfg/DFGClobberize.h:
+        (JSC::DFG::clobberize):
+        * dfg/DFGFixupPhase.cpp:
+        (JSC::DFG::FixupPhase::fixupNode):
+        * dfg/DFGNode.h:
+        (JSC::DFG::Node::isTerminal):
+        * dfg/DFGNodeType.h:
+        * dfg/DFGPredictionPropagationPhase.cpp:
+        (JSC::DFG::PredictionPropagationPhase::propagate):
+        * dfg/DFGSafeToExecute.h:
+        (JSC::DFG::safeToExecute):
+        * dfg/DFGSpeculativeJIT32_64.cpp:
+        (JSC::DFG::SpeculativeJIT::compile):
+        * dfg/DFGSpeculativeJIT64.cpp:
+        (JSC::DFG::SpeculativeJIT::compile):
+
+2013-10-21  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r154217
+
+    2013-08-16  Filip Pizlo  <fpizlo@apple.com>
+
+            DFG optimizes out strict mode arguments tear off
+            https://bugs.webkit.org/show_bug.cgi?id=119504
+
+            Reviewed by Mark Hahnenberg and Oliver Hunt.
+
+            Don't do the optimization for strict mode.
+
+            * dfg/DFGArgumentsSimplificationPhase.cpp:
+            (JSC::DFG::ArgumentsSimplificationPhase::run):
+            (JSC::DFG::ArgumentsSimplificationPhase::pruneObviousArgumentCreations):
+
+2013-09-04  Dean Jackson  <dino@apple.com>
+
+        <rdar://problem/14910916> Disable CSS_SHAPES on safari-537-branch
+
+        Reviewed by Beth Dakin.
+
+        * Configurations/FeatureDefines.xcconfig:
+
 2013-08-27  Lucas Forschler  <lforschler@apple.com>
 
         Merge r154633

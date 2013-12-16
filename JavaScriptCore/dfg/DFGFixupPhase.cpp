@@ -120,6 +120,7 @@ private:
         case ValueToInt32: {
             if (node->child1()->shouldSpeculateInteger()) {
                 setUseKindAndUnboxIfProfitable<Int32Use>(node->child1());
+                node->setOpAndDefaultFlags(Identity);
                 break;
             }
             
@@ -873,6 +874,7 @@ private:
         case CountExecution:
         case ForceOSRExit:
         case CheckWatchdogTimer:
+        case Unreachable:
             break;
 #else
         default:

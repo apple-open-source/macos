@@ -1,3 +1,487 @@
+2013-11-13  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r159248
+
+    2013-11-13  Anders Carlsson  <andersca@apple.com>
+
+            Plug-in processes hang around for 10 sec after Safari quits
+            https://bugs.webkit.org/show_bug.cgi?id=124314
+            <rdar://problem/15460613>
+
+            Reviewed by Simon Fraser.
+
+            Call stopRunLoop instead of instead of RunLoop::stop().
+
+            * PluginProcess/PluginProcess.cpp:
+            (WebKit::PluginProcess::didClose):
+
+2013-11-08  Matt Hanson  <matthew_hanson@apple.com>
+
+        Merge r158101.
+
+    2013-10-27  Brady Eidson  <beidson@apple.com>
+
+            WebIconDatabase can miss private browsing state changes.
+            <rdar://problem/15322318> and https://bugs.webkit.org/show_bug.cgi?id=123375
+
+            Reviewed by Alexey Proskuryakov.
+
+            * UIProcess/WebContext.cpp:
+            (WebKit::WebContext::willStartUsingPrivateBrowsing): Call setAnyPageGroupMightHavePrivateBrowsingEnabled(true) on each context.
+            (WebKit::WebContext::willStopUsingPrivateBrowsing): Call setAnyPageGroupMightHavePrivateBrowsingEnabled(false) on each context.
+            (WebKit::WebContext::setPrivateBrowsingEnabled): In addition to notifying other processes about private browsing
+              sessions, notify the context’s WebIconDatabase about the change in value.
+            * UIProcess/WebContext.h:
+
+            * UIProcess/WebIconDatabase.cpp:
+            (WebKit::WebIconDatabase::setDatabasePath): Prime the IconDatabase with an initial private browsing value.
+            (WebKit::WebIconDatabase::setAnyPageGroupMightHavePrivateBrowsingEnabled):
+            * UIProcess/WebIconDatabase.h:
+
+2013-11-08  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r157137
+
+    2013-10-08  Anders Carlsson  <andersca@apple.com>
+
+            WebProcess crash on SAP WebCycle web app
+            https://bugs.webkit.org/show_bug.cgi?id=122520
+            <rdar://problem/15030605>
+
+            Reviewed by Darin Adler.
+
+            Stop trying to use RunLoop to manage the top-level run loop and just have the child process and their
+            delegate subclasses start and stop the run loops. This fixes a bug with showModalDialog where we would
+            unintentionally call -[NSApp stop] when closing a modal dialog.
+
+            This also lets us move all knowledge of NSApplication from RunLoop. (Both the web process and plug-in process
+            need to use -[NSApp run] and -[NSApp stop:]).
+
+            * PluginProcess/EntryPoint/mac/LegacyProcess/PluginProcessMain.mm:
+            (WebKit::PluginProcessMainDelegate::doPreInitializationWork):
+            Remove call to RunLoop::setUseApplicationRunLoopOnMainRunLoop. Add a startRunLoop override that calls
+            -[NSApp run].
+
+            * PluginProcess/EntryPoint/mac/XPCService/PluginServiceEntryPoint.mm:
+            (PluginServiceInitializer):
+            Remove call to RunLoop::setUseApplicationRunLoopOnMainRunLoop.
+
+            * PluginProcess/PluginProcess.h:
+            Add stopRunLoop() override on Mac.
+
+            * PluginProcess/mac/PluginProcessMac.mm:
+            (WebKit::PluginProcess::stopRunLoop):
+            Call -[NSApp stop:] and tickle the event system.
+
+            * Shared/ChildProcess.cpp:
+            (WebKit::ChildProcess::stopRunLoop):
+            Add default implementation that just calls RunLoop::main()->stop().
+
+            (WebKit::ChildProcess::terminate):
+            Call stopRunLoop().
+
+            * Shared/ChildProcess.h:
+            * Shared/EntryPointUtilities/mac/LegacyProcess/ChildProcessEntryPoint.h:
+            Add startRunLoop member function and call it instead of RunLoop::run().
+
+            * Shared/EntryPointUtilities/mac/LegacyProcess/ChildProcessEntryPoint.mm:
+            (WebKit::ChildProcessMainDelegate::startRunLoop):
+            Call RunLoop::run().
+
+            * WebProcess/EntryPoint/mac/LegacyProcess/WebContentProcessMain.mm:
+            (WebKit::WebContentProcessMainDelegate::doPreInitializationWork):
+            Remove call to RunLoop::setUseApplicationRunLoopOnMainRunLoop.
+            Add startRunLoop override that calls -[NSApp run].
+
+            * WebProcess/EntryPoint/mac/XPCService/WebContentServiceEntryPoint.mm:
+            (WebContentServiceInitializer):
+            Remove call to RunLoop::setUseApplicationRunLoopOnMainRunLoop.
+
+            * WebProcess/WebProcess.cpp:
+            (WebKit::WebProcess::didClose):
+            Call stopRunLoop().
+
+            * WebProcess/WebProcess.h:
+            Add stopRunLoop override.
+
+            * WebProcess/mac/WebProcessMac.mm:
+            (WebKit::WebProcess::stopRunLoop):
+            Call -[NSApp stop:] and tickle the event system.
+
+2013-11-06  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r154763
+
+    2013-08-28  Anders Carlsson  <andersca@apple.com>
+
+            Allow the Flash plug-in to open its preference pane
+            https://bugs.webkit.org/show_bug.cgi?id=120431
+            <rdar://problem/14857039>
+
+            Reviewed by Andreas Kling.
+
+            Forward the -[NSWorkspace openFile:] call to the UI process and allow opening
+            the Flash preference pane (if Flash asks for it).
+
+            * PluginProcess/PluginProcess.h:
+            * PluginProcess/mac/PluginProcessMac.mm:
+            (WebKit::replacedNSWorkspace_openFile):
+            (WebKit::initializeCocoaOverrides):
+            (WebKit::PluginProcess::openFile):
+            * UIProcess/Plugins/PluginProcessProxy.h:
+            * UIProcess/Plugins/PluginProcessProxy.messages.in:
+            * UIProcess/Plugins/mac/PluginProcessProxyMac.mm:
+            (WebKit::PluginProcessProxy::openURL):
+            (WebKit::shouldOpenFile):
+            (WebKit::PluginProcessProxy::openFile):
+
+2013-11-04  Lucas Forschler  <lforschler@apple.com>
+
+        Merge change from <rdar://problem/15374298>
+        
+        * UIProcess/WebProcessProxy.cpp:
+        (WebKit::WebProcessProxy::getPlugins):
+
+2013-10-31  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r157056
+
+    2013-10-07  Tim Horton  <timothy_horton@apple.com>
+
+            Animated images are not restarted when page visibility changes
+            https://bugs.webkit.org/show_bug.cgi?id=122464
+            <rdar://problem/14293474>
+
+            Reviewed by Simon Fraser.
+
+            * WebProcess/WebPage/mac/TiledCoreAnimationDrawingArea.mm:
+            (WebKit::TiledCoreAnimationDrawingArea::resumePainting):
+            This is on Page now.
+
+2013-10-28  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r157561
+
+    2013-10-17  Mark Rowe  <mrowe@apple.com>
+
+            <rdar://problem/15183901> WebKit2 XPC services load the wrong frameworks when running
+            from the staged frameworks location.
+
+            Build the XPC services with DYLD_VERSIONED_FRAMEWORK_PATH when USE_STAGING_INSTALL_PATH
+            is set to YES. This is necessary because there's no way to specify environment variables
+            to be used when an XPC service is launched.
+
+            Reviewed by Anders Carlsson.
+
+            * Configurations/BaseTarget.xcconfig: Set OTHER_LDFLAGS_VERSIONED_FRAMEWORK_PATH to contain the
+            DYLD_VERSIONED_FRAMEWORK_PATH value when USE_STAGING_INSTALL_PATH is YES.
+            * Configurations/BaseXPCService.xcconfig: Include OTHER_LDFLAGS_VERSIONED_FRAMEWORK_PATH in the
+            value of OTHER_LDFLAGS.
+            * Configurations/PluginService.32.xcconfig: Ditto.
+            * Configurations/PluginService.64.xcconfig: Ditto.
+
+2013-10-28  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r156479
+
+    2013-09-25  Jer Noble  <jer.noble@apple.com>
+
+            [WK2] Crash at at com.apple.WebKit2: WebKit::VoidCallback::invalidate + 46
+            https://bugs.webkit.org/show_bug.cgi?id=121910
+
+            Reviewed by Darin Adler.
+
+            Store a copy of the VoidCallback passed to WKPage, and invalidate the callback
+            during dealloc. The VoidCallback class assumes that it will only ever be
+            invalidated or invoked once, so change the ASSERTs into an early return.
+
+            * UIProcess/GenericCallback.h:
+            (WebKit::VoidCallback::performCallback): Exit early if previously invalidated.
+            (WebKit::VoidCallback::invalidate): Ditto.
+            * UIProcess/mac/WKFullScreenWindowController.h:
+            * UIProcess/mac/WKFullScreenWindowController.mm:
+            (-[WKFullScreenWindowController dealloc]): Invalidate the repaint callback if present.
+            (-[WKFullScreenWindowController finishedExitFullScreenAnimation:]): Ditto & create a new callback.
+            (-[WKFullScreenWindowController completeFinishExitFullScreenAnimationAfterRepaint]): Clear the callback.
+
+2013-10-28  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r156302
+
+    2013-09-23  Patrick Gansterer  <paroga@webkit.org>
+
+            use NOMINMAX instead of #define min min
+            https://bugs.webkit.org/show_bug.cgi?id=73563
+
+            Reviewed by Brent Fulgham.
+
+            Use NOMINMAX instead of #define min/max as a cleaner
+            way of ensuring that Windows system header files don't
+            define min/max as macro in the first place.
+
+            * config.h:
+
+2013-10-25  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r155153
+
+    2013-09-05  Alexey Proskuryakov  <ap@apple.com>
+
+            WKFullScreenWindowController extends lifetime of WKView, deleting it at a wrong time
+            https://bugs.webkit.org/show_bug.cgi?id=120792
+            <rdar://problem/14884666>
+
+            Reviewed by Jer Noble.
+
+            * UIProcess/API/mac/WKView.mm: (-[WKView fullScreenWindowController]):
+            Use a newly minted initializer for the controller.
+
+            * UIProcess/mac/WKFullScreenWindowController.h: Removed unused web view accessors.
+            Changed the class to take web view at initialization time.
+
+            * UIProcess/mac/WKFullScreenWindowController.mm:
+            (-[WKFullScreenWindowController initWithWindow:webView:]): Initialize the controller
+            inone step.
+            (-[WKFullScreenWindowController dealloc]): WebView is now a raw pointer, no need
+            to zero it.
+            (-[WKFullScreenWindowController close]): Make sure to not leave a dangling WKView
+            pointer (this method is indirectly but inevitably called when WKView is deallocated).
+
+2013-10-24  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r154647
+
+    2013-08-23  Andy Estes  <aestes@apple.com>
+
+            Fix issues found by the Clang Static Analyzer
+            https://bugs.webkit.org/show_bug.cgi?id=120230
+
+            Reviewed by Darin Adler.
+
+            * UIProcess/API/mac/WKBrowsingContextController.mm:
+            (autoreleased): Don't leak CFURLs when in Objective-C GC.
+            * WebProcess/WebPage/mac/WKAccessibilityWebPageObject.mm:
+            (-[WKAccessibilityWebPageObject accessibilityAttributeValue:forParameter:]):
+            Don't leak CFStrings when in Objective-C GC.
+
+2013-10-21  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r154183
+
+    2013-08-16  Brady Eidson  <beidson@apple.com>
+
+            (NetworkProcess)  Sync XHRs should load using async ResourceHandles, not ResourceHandle::loadResourceSynchronously
+            https://bugs.webkit.org/show_bug.cgi?id=119493
+
+            Reviewed by Alexey Proskuryakov.
+
+            This patch does the following:
+              - Consolidates SchedulableLoader and NetworkResourceLoader into one class.
+              - Removes SyncNetworkResourceLoader.
+              - Adds a NetworkLoaderClient interface that customizes certain behaviors of the NetworkResourceLoader.
+              - Implements a SynchronousNetworkLoaderClient and AsynchronousNetworkLoaderClient for the two different types of loads.
+
+            The AsynchronousNetworkLoaderClient results in messaging back progress to the WebProcess as the load progresses.
+            The SynchronousNetworkLoaderClient accumulates the response, data, and error to be communicated back to the WebProcess
+            only when the load is complete.
+
+            Update small swaths of code to reflect that NetworkResourceLoader is the One True Loader (tm):
+            * NetworkProcess/HostRecord.cpp:
+            (WebKit::HostRecord::scheduleResourceLoader):
+            (WebKit::HostRecord::addLoaderInProgress):
+            (WebKit::removeLoaderFromQueue):
+            (WebKit::HostRecord::removeLoader):
+            (WebKit::HostRecord::servePendingRequestsForQueue):
+            (WebKit::HostRecord::limitsRequests):
+            * NetworkProcess/HostRecord.h:
+
+            * NetworkProcess/NetworkConnectionToWebProcess.cpp:
+            (WebKit::NetworkConnectionToWebProcess::didClose):
+            (WebKit::NetworkConnectionToWebProcess::performSynchronousLoad):
+            (WebKit::NetworkConnectionToWebProcess::removeLoadIdentifier):
+            * NetworkProcess/NetworkConnectionToWebProcess.h:
+
+            * NetworkProcess/NetworkProcess.cpp:
+            * NetworkProcess/NetworkResourceLoadScheduler.cpp:
+            (WebKit::NetworkResourceLoadScheduler::scheduleLoader):
+            (WebKit::NetworkResourceLoadScheduler::removeLoader):
+            (WebKit::NetworkResourceLoadScheduler::receivedRedirect):
+            (WebKit::NetworkResourceLoadScheduler::removeScheduledLoaders):
+            (WebKit::NetworkResourceLoadScheduler::scheduleRemoveLoader):
+            * NetworkProcess/NetworkResourceLoadScheduler.h:
+
+            Combine ScheduleableLoader and NetworkResourceLoader into NetworkResourceLoader:
+            * NetworkProcess/NetworkResourceLoader.cpp:
+            (WebKit::NetworkResourceLoader::NetworkResourceLoader):
+            (WebKit::NetworkResourceLoader::~NetworkResourceLoader):
+            (WebKit::NetworkResourceLoader::isSynchronous):
+            (WebKit::NetworkResourceLoader::start):
+            (WebKit::NetworkResourceLoader::didReceiveResponseAsync):
+            (WebKit::NetworkResourceLoader::didReceiveBuffer):
+            (WebKit::NetworkResourceLoader::didFinishLoading):
+            (WebKit::NetworkResourceLoader::didFail):
+            (WebKit::NetworkResourceLoader::willSendRequestAsync):
+            (WebKit::NetworkResourceLoader::continueWillSendRequest):
+            (WebKit::NetworkResourceLoader::didSendData):
+            (WebKit::NetworkResourceLoader::shouldUseCredentialStorage):
+            (WebKit::NetworkResourceLoader::didReceiveAuthenticationChallenge):
+            (WebKit::NetworkResourceLoader::consumeSandboxExtensions):
+            (WebKit::NetworkResourceLoader::invalidateSandboxExtensions):
+            (WebKit::NetworkResourceLoader::canAuthenticateAgainstProtectionSpaceAsync):
+            * NetworkProcess/NetworkResourceLoader.h:
+            (WebKit::NetworkResourceLoader::create):
+            (WebKit::NetworkResourceLoader::connectionToWebProcess):
+            (WebKit::NetworkResourceLoader::priority):
+            (WebKit::NetworkResourceLoader::request):
+            (WebKit::NetworkResourceLoader::isLoadingMainResource):
+            (WebKit::NetworkResourceLoader::setHostRecord):
+            (WebKit::NetworkResourceLoader::hostRecord):
+            (WebKit::NetworkResourceLoader::sendAbortingOnFailure):
+
+            Add an abstract NetworkLoaderClient to adapt a load to be either synchronous or asynchronous:
+            * NetworkProcess/NetworkLoaderClient.h:
+            (WebKit::NetworkLoaderClient::~NetworkLoaderClient):
+            (WebKit::NetworkLoaderClient::isSynchronous):
+            (WebKit::NetworkLoaderClient::NetworkLoaderClient):
+
+            The asynchronous loader client, primarily to message progress back to the WebProcess as it happens:
+            * NetworkProcess/AsynchronousNetworkLoaderClient.cpp: Added.
+            (WebKit::AsynchronousNetworkLoaderClient::AsynchronousNetworkLoaderClient):
+            (WebKit::AsynchronousNetworkLoaderClient::willSendRequest):
+            (WebKit::AsynchronousNetworkLoaderClient::canAuthenticateAgainstProtectionSpace):
+            (WebKit::AsynchronousNetworkLoaderClient::didReceiveResponse):
+            (WebKit::AsynchronousNetworkLoaderClient::didReceiveBuffer):
+            (WebKit::AsynchronousNetworkLoaderClient::didSendData):
+            (WebKit::AsynchronousNetworkLoaderClient::didFinishLoading):
+            (WebKit::AsynchronousNetworkLoaderClient::didFail):
+            * NetworkProcess/AsynchronousNetworkLoaderClient.h:
+            (WebKit::AsynchronousNetworkLoaderClient::create):
+
+            The synchronous loader client, primarily to accumulate results of the load to send back to the WebProcess all at once:
+            * NetworkProcess/SynchronousNetworkLoaderClient.cpp: Added.
+            (WebKit::SynchronousNetworkLoaderClient::SynchronousNetworkLoaderClient):
+            (WebKit::SynchronousNetworkLoaderClient::~SynchronousNetworkLoaderClient):
+            (WebKit::SynchronousNetworkLoaderClient::willSendRequest):
+            (WebKit::SynchronousNetworkLoaderClient::canAuthenticateAgainstProtectionSpace):
+            (WebKit::SynchronousNetworkLoaderClient::didReceiveResponse):
+            (WebKit::SynchronousNetworkLoaderClient::didReceiveBuffer):
+            (WebKit::SynchronousNetworkLoaderClient::didFinishLoading):
+            (WebKit::SynchronousNetworkLoaderClient::didFail):
+            (WebKit::SynchronousNetworkLoaderClient::sendDelayedReply):
+            * NetworkProcess/SynchronousNetworkLoaderClient.h: Added.
+            (WebKit::SynchronousNetworkLoaderClient::create):
+
+            * NetworkProcess/SchedulableLoader.cpp: Removed.
+            * NetworkProcess/SchedulableLoader.h: Removed.
+            * NetworkProcess/SyncNetworkResourceLoader.cpp: Removed.
+            * NetworkProcess/SyncNetworkResourceLoader.h: Removed.
+
+            * WebKit2.xcodeproj/project.pbxproj:
+
+2013-10-21  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r154085
+
+    2013-08-14  Dean Jackson  <dino@apple.com>
+
+            <https://webkit.org/b/119827> Allow primary plug-in detection to run more than once if necessary
+
+            Reviewed by Tim Horton.
+
+            We occasionally see cases where the primary plug-in detection runs before the plugins have been added
+            to the page, especially if they do so in response to a load event. Tweak the algorithm so that it can
+            run an arbitrary number of times if it fails.
+
+            While here, also have the detection run if there has ever been a plugin in the page as opposed to any
+            current views. We may have snapshotted a plugin by now and deleted its view.
+
+            * WebProcess/WebPage/WebPage.cpp:
+            (WebKit::WebPage::WebPage): initialise new members.
+            (WebKit::WebPage::addPluginView): Mark that we've seen a plugin.
+            (WebKit::WebPage::resetPrimarySnapshottedPlugIn): Reset new members.
+            (WebKit::WebPage::determinePrimarySnapshottedPlugIn): Exit early if we've never
+            seen a plugin, rather than if we don't have any active views. Also, if we didn't find anything set
+            a timer to run again (maximum of two attempts at the moment).
+            * WebProcess/WebPage/WebPage.h: New members - m_numberOfPrimarySnapshotDetectionAttempts
+            and m_hasSeenPlugin.
+
+2013-10-21  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r154077
+
+    2013-08-14  Dean Jackson  <dino@apple.com>
+
+            <https://webkit.org/b/119820> Add pluginView-related logging to WebPage
+
+            Reviewed by Tim Horton.
+
+            Add some more diagnostic output to help track down bugs.
+
+            * WebProcess/WebPage/WebPage.cpp:
+            (WebKit::WebPage::addPluginView): More logging.
+            (WebKit::WebPage::removePluginView): Ditto.
+
+2013-10-21  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r153848
+
+    2013-08-08  Dean Jackson  <dino@apple.com>
+
+            Add logging to the primary plugin detection
+            https://bugs.webkit.org/show_bug.cgi?id=119594
+
+            Reviewed by Tim Horton.
+
+            Add some simple logging to our primary plug-in detection.
+
+            * WebProcess/WebPage/WebPage.cpp:
+            (WebKit::WebPage::determinePrimarySnapshottedPlugIn):
+
+2013-10-21  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r154067
+
+    2013-08-14  Tim Horton  <timothy_horton@apple.com>
+
+            REGRESSION (r153877): Plugin scanning slows creation of WebViews
+            https://bugs.webkit.org/show_bug.cgi?id=119665
+            <rdar://problem/14716549>
+
+            Reviewed by Darin Adler.
+
+            * WebProcess/WebCoreSupport/WebPlatformStrategies.cpp:
+            (WebKit::WebPlatformStrategies::refreshPlugins):
+            Don't repopulate the plugin cache in refreshPlugins, just invalidate it.
+            It will be repopulated the next time something tries to use it.
+
+2013-10-21  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r153877
+
+    2013-08-08  Tim Horton  <timothy_horton@apple.com>
+
+            navigator.plugins has plugins in it when plugins are disabled
+            https://bugs.webkit.org/show_bug.cgi?id=119607
+            <rdar://problem/14678030>
+
+            Reviewed by Anders Carlsson.
+
+            * UIProcess/WebProcessProxy.cpp:
+            (WebKit::WebProcessProxy::getPlugins):
+            Return a list of all plugins, and a list of only application plugins.
+
+            * UIProcess/WebProcessProxy.h:
+            * UIProcess/WebProcessProxy.messages.in:
+            * WebProcess/WebCoreSupport/WebPlatformStrategies.h:
+            * WebProcess/WebCoreSupport/WebPlatformStrategies.cpp:
+            (WebKit::WebPlatformStrategies::getPluginInfo):
+            Add applicationPlugin parameter to getPlugins, and storage for the returned list.
+
+            (WebKit::WebPlatformStrategies::populatePluginCache):
+            If plugins are disabled for the given page, give WebCore the list that
+            only includes application plugins. Otherwise, give it the whole list
+            as we are doing currently.
+
 2013-09-04  Dean Jackson  <dino@apple.com>
 
         <rdar://problem/14910916> Disable CSS_SHAPES on safari-537-branch

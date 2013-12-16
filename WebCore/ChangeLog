@@ -1,3 +1,1214 @@
+2013-11-20  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r159481
+
+    2013-11-18  Zalan Bujtas  <zalan@apple.com>
+
+            use after free in WebCore::DocumentOrderedMap::remove / WebCore::TreeScope::removeElementById
+            https://bugs.webkit.org/show_bug.cgi?id=121324
+
+            Reviewed by Ryosuke Niwa.
+
+            Update the document ordered map for an image element before dispatching load or error events
+            when it's inserted into a document.
+
+            Test: fast/dom/modify-node-and-while-in-the-callback-too-crash.html
+
+            * dom/DocumentOrderedMap.cpp: defensive fix to avoid use after free issues.
+            (WebCore::DocumentOrderedMap::remove):
+            * html/HTMLImageElement.cpp:
+            (WebCore::HTMLImageElement::insertedInto):
+            * loader/ImageLoader.cpp:
+            (WebCore::ImageLoader::updateFromElement): setting m_failedLoadURL makes
+            repeated updateFromElement calls return early.
+
+2013-11-13  Dean Jackson  <dino@apple.com>
+
+        <rdar://problem/15292359>
+        Fix incorrect merge of r157299 made in r158605.
+
+        * platform/graphics/DisplayRefreshMonitor.cpp:
+        (WebCore::DisplayRefreshMonitor::removeClient): Remember to remove clients
+        from m_clientsToBeNotified.
+        * platform/graphics/DisplayRefreshMonitor.h: Might as well make the code
+        more consistent with ToT while I'm here.
+
+2013-11-08  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r152867
+
+    2013-07-18  Jer Noble  <jer.noble@apple.com>
+
+            New PDFPlugin doesn't support WebKitOmitPDFSupport, acts as if Plug-ins are off
+            https://bugs.webkit.org/show_bug.cgi?id=118858
+
+            Reviewed by Eric Carlson.
+
+            Expand the scope of rejecting non video/ or audio/ MIME types when
+            filling the MIME type cache.
+
+            * platform/graphics/mac/MediaPlayerPrivateQTKit.mm:
+            (WebCore::shouldRejectMIMEType): Added utility function.
+
+2013-11-07  Chris Fleizach  <cfleizach@apple.com>
+
+        Merge r158743
+
+    2013-11-06  Chris Fleizach  <cfleizach@apple.com> 
+ 
+        AX: Audio and Video attachments are not output to VoiceOver 
+        https://bugs.webkit.org/show_bug.cgi?id=123479 
+
+        Reviewed by Mario Sanchez Prada. 
+
+        Video and audio elements don't appear as distinct objects in the AX hierarchy, 
+        nor are they treated as replaceable objects when emitting the text. We should 
+        treat these characters like attachments, for one. On the Mac platform, we should 
+        also identify them with special subroles. 
+
+        Tests: platform/mac/accessibility/media-emits-object-replacement.html 
+              platform/mac/accessibility/media-role-descriptions.html 
+ 
+        * accessibility/AccessibilityNodeObject.cpp: 
+        (WebCore::AccessibilityNodeObject::isGenericFocusableElement): 
+        * accessibility/AccessibilityObject.h: 
+        * accessibility/AccessibilityRenderObject.cpp: 
+        (WebCore::AccessibilityRenderObject::computeAccessibilityIsIgnored): 
+        (WebCore::AccessibilityRenderObject::determineAccessibilityRole): 
+        * accessibility/mac/WebAccessibilityObjectWrapperMac.mm: 
+        (createAccessibilityRoleMap): 
+        (-[WebAccessibilityObjectWrapper subrole]): 
+        (-[WebAccessibilityObjectWrapper roleDescription]): 
+        * editing/TextIterator.cpp: 
+        (WebCore::isRendererReplacedElement): 
+
+2013-11-06  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r158617
+
+    2013-11-04  Chris Fleizach  <cfleizach@apple.com>
+
+            AX: Mail attachments at the start of an email are not output by VoiceOver
+            https://bugs.webkit.org/show_bug.cgi?id=123697
+
+            Reviewed by Ryosuke Niwa.
+
+            VoiceOver is expecting that "replaced elements" (attachments in a Mail message in this case) to be
+            represented by the replacement character when asking for a stringForRange.
+
+            However, when that replaced element is at the beginning of the document, the logic does not work because
+            there is a few code places that will take that first Position and advance it forward, not accounting for replaced elements.
+            When using the TextIterator normally, it does account for these, so that's why it's only affecting as at the beginning of the document.
+
+            Also a "replaced element" can be more than just renderer->isReplaced(), hence the externing of the isRendererReplacedElement method
+            and using that it in pertinent places.
+
+            Tests: platform/mac/accessibility/object-replacement-with-no-rendered-children-at-node-start.html
+                   platform/mac/accessibility/object-replacement-with-rendered-children-at-node-start.html
+
+            * accessibility/AccessibilityObject.cpp:
+            (WebCore::replacedNodeNeedsCharacter):
+            * accessibility/mac/WebAccessibilityObjectWrapperMac.mm:
+            (nsStringForReplacedNode):
+            * dom/Position.cpp:
+            (WebCore::Position::isCandidate):
+            * dom/PositionIterator.cpp:
+            * dom/Range.cpp:
+            (WebCore::Range::firstNode):
+            * editing/TextIterator.cpp:
+            (WebCore::isRendererReplacedElement):
+            * editing/TextIterator.h:
+
+2013-11-06  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r158629
+
+    2013-11-04  Samuel White  <samuel_white@apple.com>
+
+            AX: AXShowMenu doesn't always work.
+            https://bugs.webkit.org/show_bug.cgi?id=123649
+
+            Reviewed by Chris Fleizach.
+
+            No new tests, the change occurs in a code path that forces the context menu to show which
+            locks up DRT if we try to test it (platform menu is shown). The change itself gives the mouse
+            event handler a chance to handle our platform mouse event BEFORE the event ends up in the show
+            context menu machinery. This is necessary because without it, the element will not become
+            focused. Without focus, accessibility shows different/less menu items than a mouse click. The
+            end result is that context menus shown via accessibility are consistent with menus shown via click.
+
+            * page/ContextMenuController.cpp:
+            (WebCore::ContextMenuController::showContextMenuAt):
+
+2013-11-06  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r154391
+
+    2013-08-21  Brent Fulgham  <bfulgham@apple.com>
+
+            <https://webkit.org/b/120113> [Windows] Enable CSS_IMAGE_SET
+
+            Reviewed by Anders Carlsson.
+
+            We can now activate:
+            fast/css/image-set-parsing.html
+            fast/css/image-set-parsing-invalid.html
+
+            * WebCore.vcxproj/WebCore.vcxproj: Add missing image set implementation files.
+            * WebCore.vcxproj/WebCore.vcxproj.filters: Ditto.
+            * css/CSSAllInOne.cpp: Add missing CSSImageSetValue.cpp
+            * rendering/style/StyleAllInOne.cpp: Add missing StyeCachedImageSet.cpp
+
+2013-11-04  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r155130
+
+    2013-09-05  Brent Fulgham  <bfulgham@apple.com>
+
+            [Windows] Unreviewed build/link improvement after r155127 to be
+            consistent about using debug-build support libraries.
+
+            Now that <rdar://problem/9898937> is resolved, we should be linking
+            to debug AVFoundationCF as well.
+
+            * page/CaptionUserPreferencesMediaAF.cpp: Link to AVFoundationCF_debug
+            when building with the DEBUG_ALL target.
+            * platform/graphics/avfoundation/InbandTextTrackPrivateAVF.cpp: Ditto.
+            * platform/graphics/avfoundation/cf/AVFoundationCFSoftLinking.h: Ditto.
+
+2013-11-04  Brent Fulgham  <bfulgham@apple.com>
+
+        Merge r157773
+
+2013-10-21  Brent Fulgham  <bfulgham@apple.com>
+
+        [WIN] Properly support reverse animations without needing software fallback.
+        https://bugs.webkit.org/show_bug.cgi?id=85121
+
+        Reviewed by Dean Jackson.
+
+        Testing is provided by existing animation tests.
+
+        * platform/animation/TimingFunction.h:
+        (WebCore::CubicBezierTimingFunction::createReversed): Added.
+        * platform/graphics/ca/GraphicsLayerCA.cpp:
+        (WebCore::GraphicsLayerCA::addAnimation): The early return when performing a reverse or
+        autoreverse animation is no longer needed.
+        * platform/graphics/ca/PlatformCAAnimation.h:
+        * platform/graphics/ca/mac/PlatformCAAnimationMac.mm:
+        (toCAMediaTimingFunction): Use new reversed function.
+        * platform/graphics/ca/win/PlatformCAAnimationWin.cpp:
+        (toCACFTimingFunction): Ditto.
+        (PlatformCAAnimation::setTimingFunction): Pass 'reverse' flag.
+        (PlatformCAAnimation::setTimingFunctions): Ditto.
+
+2013-11-04  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r154180
+
+    2013-08-15  Brent Fulgham  <bfulgham@apple.com>
+
+            [Windows] Prevent dangling CACFLayer when switching to/from Tiled backing.
+            https://bugs.webkit.org/show_bug.cgi?id=119818
+
+            Reviewed by Darin Adler.
+
+            Covered by existing: compositing/tiling/empty-to-tiled.html
+
+            * platform/graphics/ca/win/PlatformCALayerWin.cpp:
+            (PlatformCALayer::~PlatformCALayer): Remove deleted layer from its
+            parent layer 
+
+2013-11-04  Dean Jackson  <dino@apple.com>
+
+        <rdar://problem/15292359>
+        Merge r157299
+
+    2013-10-10  Darin Adler  <darin@apple.com>
+
+            Use after free in WebCore::DisplayRefreshMonitorClient::fireDisplayRefreshIfNeeded
+            https://bugs.webkit.org/show_bug.cgi?id=121033
+
+            Reviewed by Dean Jackson.
+
+            For safe iteration, use a set rather than a vector, and remove the clients from
+            the set if they are removed during iteration.
+
+            Test: fast/animation/request-animation-frame-remove-client.html
+
+            * platform/graphics/DisplayRefreshMonitor.cpp:
+            (WebCore::DisplayRefreshMonitor::DisplayRefreshMonitor): Initialize the
+            m_clientsToBeNotified pointer to null.
+            (WebCore::DisplayRefreshMonitor::removeClient): If there is a m_clientsToBeNotified
+            set, remove from it as well as the real m_clients set.
+            (WebCore::DisplayRefreshMonitor::displayDidRefresh): Use a HashSet instead of a
+            vector for the copy of the clients set we iterate.
+
+            * platform/graphics/DisplayRefreshMonitor.h: Moved some of the BlackBerry-specific
+            part of this out of the header. Added a new HashSet pointer, m_clientsToBeNotified,
+            to be used to remove clients during the notification process. Also added a FIXME.
+
+            * platform/graphics/blackberry/DisplayRefreshMonitorBlackBerry.cpp: Moved the
+            DisplayAnimationClient class in here.
+
+2013-11-04  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r157436
+
+    2013-10-14  Ryosuke Niwa  <rniwa@webkit.org>
+
+            Crash in WebCore::BidiResolver<WebCore::InlineIterator, WebCore::BidiRun>::createBidiRunsForLine
+            https://bugs.webkit.org/show_bug.cgi?id=122776
+
+            Reviewed by Darin Adler.
+
+            Merge https://chromium.googlesource.com/chromium/blink/+/aca89bc4d984705a1f94b623dae0ab03e239a248
+
+            Fix modification of whitespace endpoints to not assume it's operating on RenderTexts
+
+            During line layout, we use midpoints to identify RenderObjects, or parts of
+            RenderObjects, that don't need InlineBoxes, usually because of collapsed whitespace.
+
+            Prior to actually creating BidiRuns (the precursor to InlineBoxes), we use
+            checkMidpoints to fix up our lineMidpointState to handle the case where we start
+            ignoring spaces in our line, but don't stop until somewhere on the following line.
+            Previously, this function assumed that the final midpoint (called an endpoint)
+            was a RenderText, but this assumption is wrong if we have a beginning midpoint
+            created by shouldSkipWhitespaceAfterStartObject (which handles inlines and list
+            markers) and no endpoint on that line. In that case, we'd instead adjust the
+            position backwards on the beginning midpoint, which would cause us to fail to
+            create an InlineBox for the inline or list marker. In the new test added, this
+            would actually trigger a crash due to an assumption when visually re-ordering
+            BidiRuns that a non-empty line would actually contain at least one such run.
+
+            Test: fast/text/whitespace/whitespace-and-margin-wrap-after-list-marker-crash.html
+
+            * rendering/RenderBlockLineLayout.cpp:
+            (WebCore::checkMidpoints):
+
+2013-11-01  Brent Fulgham  <bfulgham@apple.com>
+
+        Merge r157070
+
+    2013-10-04  Ojan Vafai  <ojan@chromium.org> and Martin Robinson  <mrobinson@igalia.com>
+
+            [MathML] Remove RenderTree modification during layout and refactor the StretchyOp code
+            https://bugs.webkit.org/show_bug.cgi?id=121416
+
+            Reviewed by David Hyatt.
+
+            Tests: mathml/presentation/mo-minus.html
+                mathml/presentation/mo-stacked-glyphs.html
+                mathml/presentation/mo-stretchy-vertical-bar.html
+                mathml/very-large-stretchy-operators.html
+
+            MathML stretched operators by both modifying the width of the operator
+            and adding children to the operator node in the render tree.
+
+            Instead we make the operator width equal to the widest glyph possible that we use
+            to represent the operator.  Additionally instead of rendering stretchy glyphs via
+            stacked operator pieces in separate render tree nodes, keep only one node for the
+            glyph, and use a custom paint method to paint the stacked representation.
+
+            With this patch, rendering seems roughly equivalent on Mac and markedly better
+            on Linux.
+
+            * css/mathml.css:
+            Not sure what this line-height:0 was here for, but it caused bugs with the new code
+
+            * mathml/MathMLTextElement.cpp:
+            (WebCore::MathMLTextElement::attach):
+            (WebCore):
+            (WebCore::MathMLTextElement::childrenChanged):
+            Need to update the anonymous render tree below <mo> elements when their
+            children change or when the renderer is first attached.
+
+            * mathml/MathMLTextElement.h:
+            (MathMLTextElement):
+            * rendering/mathml/RenderMathMLBlock.cpp:
+            (WebCore::RenderMathMLBlock::RenderMathMLBlock):
+            * rendering/mathml/RenderMathMLBlock.h:
+            Now that the preferred width doesn't depend on the height, we don't
+            need to override computePreferredLogicalWidths at all.
+
+            * rendering/mathml/RenderMathMLFenced.cpp:
+            (WebCore::RenderMathMLFenced::makeFences):
+            (WebCore::RenderMathMLFenced::styleDidChange):
+            Need to update the anonymous renderers for the anonymous RenderMathMLOperators.
+
+            * rendering/mathml/RenderMathMLOperator.cpp:
+            (WebCore::RenderMathMLOperator::expandedStretchHeight):
+            Store the non-expanded stretch height so that we can detect when the height
+            actually changed.
+
+            (WebCore::RenderMathMLOperator::stretchToHeight):
+            Only update the style on the anonymous render tree since this is called
+            from RenderMathMLRow::layout
+
+            (WebCore::RenderMathMLOperator::styleDidChange):
+            (WebCore::RenderMathMLOperator::glyphBoundsForCharacter): A helper to get glyph boundaries.
+            (WebCore::RenderMathMLOperator::glyphHeightForCharacter): Ditto for glyph width.
+            (WebCore::RenderMathMLOperator::advanceForCharacter): The advance is different from the width,
+            and we want the width of the operator to be the advance instead of the tight bounding width.
+            (WebCore::RenderMathMLOperator::computePreferredLogicalWidths): Use the max of all possible glyphs
+            we can use to render this operator.
+            (WebCore::RenderMathMLOperator::computeLogicalHeight): Return the stretched operator height, if appropriate.
+            (WebCore::RenderMathMLOperator::updateFromElement): We add a child for rendering the non-scaled
+            version of the glyph.
+            (WebCore::RenderMathMLOperator::firstCharacterForStretching): Helper to figure out what character
+            is the character used for stretching operations.
+            (WebCore::RenderMathMLOperator::findAcceptableStretchyCharacter): Helper to find an acceptable set
+            of glyph pieces for stretching characters.
+            (WebCore::RenderMathMLOperator::updateStyle): Resize the operator to the appropriate height and hide
+            the child if we are using the stretchy style.
+            (WebCore::RenderMathMLOperator::firstLineBoxBaseline):
+            (WebCore::RenderMathMLOperator::paintCharacter): Helper to paint a single character component of the
+            stretchy glyph.
+            (WebCore::RenderMathMLOperator::fillWithExtensionGlyph): Helper to paint the extender glue between
+            features of the stretchy glyph.
+            (WebCore::RenderMathMLOperator::paint): Properly paint stretchy glyphs.
+            * rendering/mathml/RenderMathMLOperator.h: Update method declarations.
+
+2013-11-01  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r158334
+
+    2013-10-30  Brent Fulgham  <bfulgham@apple.com>
+
+            [Win] Legible Output callbacks should happen on notification queue
+            https://bugs.webkit.org/show_bug.cgi?id=123545
+
+            Reviewed by Eric Carlson.
+
+            Modify the callback creation for Legible Output items so that they
+            are made on our notification queue. The use of the main queue was a
+            holdover from some temporary code used during earlier development.
+
+            * platform/graphics/avfoundation/cf/MediaPlayerPrivateAVFoundationCF.cpp:
+            (WebCore::AVFWrapper::AVFWrapper): Assert this happens on the main thread.
+            (WebCore::AVFWrapper::~AVFWrapper): Ditto.
+            (WebCore::destroyAVFWrapper): Ditto.
+            (WebCore::AVFWrapper::createPlayer): Ditto.
+            (WebCore::AVFWrapper::createPlayerItem): Ditto.
+            Also, instruct LegibleOutput callbacks to happen on our notification
+            queue, rather than the main thread.
+            (WebCore::AVFWrapper::createAVCFVideoLayer): Assert this happens on the main thread.
+            (WebCore::AVFWrapper::destroyVideoLayer): Ditto.
+            (WebCore::AVFWrapper::createImageGenerator): Ditto.
+            (WebCore::AVFWrapper::destroyImageGenerator): Ditto.
+
+2013-10-31  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r157183
+
+    2013-10-09  Chris Fleizach  <cfleizach@apple.com>
+
+            AX: VoiceOver double speaks all items in <li> nodes
+            https://bugs.webkit.org/show_bug.cgi?id=122564
+
+            Reviewed by Brent Fulgham.
+
+            Test: platform/mac/accessibility/native-list-item-should-not-expose-label.html
+
+            * accessibility/AccessibilityNodeObject.cpp:
+            (WebCore::AccessibilityNodeObject::visibleText):
+
+2013-10-31  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r157056
+
+    2013-10-07  Tim Horton  <timothy_horton@apple.com>
+
+            Animated images are not restarted when page visibility changes
+            https://bugs.webkit.org/show_bug.cgi?id=122464
+            <rdar://problem/14293474>
+
+            Reviewed by Simon Fraser.
+
+            Always kickstart animated images when the page visibility changes,
+            which can occur via window occlusion, and which is independent of in-window
+            state, which we were previously using to advance animation.
+
+            No new tests; attempts to make a test have resulted only in a flaky, timing-dependent test.
+
+            * page/Frame.cpp:
+            (WebCore::Frame::resumeActiveDOMObjectsAndAnimations):
+            Move this call to resumeAnimatingImages() up to Page.
+
+            * page/FrameView.cpp:
+            (WebCore::FrameView::setIsInWindow):
+            Move this call to resumeAnimatingImages() up to Page.
+
+            * WebCore.exp.in
+            * page/FrameView.h:
+            * page/Page.h:
+            Move resumeAnimatingImages() itself up to Page.
+
+            * page/Page.cpp:
+            (WebCore::Page::setIsInWindow):
+            Resume animated images when we move in-window.
+
+            (WebCore::Page::setVisibilityState):
+            Resume animated images when we become visible.
+            This is the one we were previously missing.
+
+            (WebCore::Page::resumeActiveDOMObjectsAndAnimations):
+            Resume animated images when we're told to.
+
+            (WebCore::Page::resumeAnimatingImages):
+            Kickstart any animated images in all frames.
+
+2013-10-28  Brent Fulgham  <bfulgham@apple.com>
+
+        
+        Merge r155221.
+
+ 
+    2013-09-06  Brent Fulgham  <bfulgham@apple.com>
+
+            [Windows] StructuredExceptionHandlerSuppressor Causes Bad Interactions with Support Libraries
+            https://bugs.webkit.org/show_bug.cgi?id=120901
+
+            Reviewed by Anders Carlsson.
+
+            Change from old "crash on any exception" implementation to a new version that leaves normal
+            exception handling infrastructure in place for use by support libraries. We check exceptions
+            and decide whether to abort or not based on the failure type.
+
+            * WebCore.vcxproj/WebCore.vcxproj: Add new implementation files.
+            * WebCore.vcxproj/WebCore.vcxproj.filters: Ditto.
+            * platform/graphics/ca/win/LayerChangesFlusher.cpp:
+            (WebCore::LayerChangesFlusher::hookCallback): Allocate handler struct on stack.
+            * platform/win/StructuredExceptionHandlerSuppressor.cpp: Added.
+            (exceptionShouldTerminateProgram): New.
+            (exceptionHandler): New.
+            (WebCore::StructuredExceptionHandlerSuppressor::StructuredExceptionHandlerSuppressor): Moved
+            from header, and updated to add our new exception handler.
+            (WebCore::StructuredExceptionHandlerSuppressor::~StructuredExceptionHandlerSuppressor): Moved
+            from header.
+            * platform/win/StructuredExceptionHandlerSuppressor.h: Move implementation of constructor and
+            destructor from header file.
+            * platform/win/makesafeseh.asm: Added.
+
+2013-10-28  Brent Fulgham  <bfulgham@apple.com>
+
+        Merge r155215.
+
+     2013-09-06  Brent Fulgham  <bfulgham@apple.com>
+
+            [Windows] Unreviewed gardening: Spell 'Suppressor' properly
+
+            * WebCore.vcxproj/WebCore.vcxproj: Change StructuredExceptionHandlerSupressor to StructuredExceptionHandlerSuppressor
+            * WebCore.vcxproj/WebCore.vcxproj.filters: Ditto
+            * platform/graphics/ca/win/LayerChangesFlusher.cpp:
+            (WebCore::LayerChangesFlusher::hookCallback): Ditto
+            * platform/win/StructuredExceptionHandlerSuppressor.h: Copied from platform/win/StructuredExceptionHandlerSupressor.h.
+            * platform/win/StructuredExceptionHandlerSupressor.h: Removed.
+
+2013-10-28  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r157298
+
+    2013-10-10  Dean Jackson  <dino@apple.com>
+
+            Use after free in WebCore::DisplayRefreshMonitorClient::fireDisplayRefreshIfNeeded
+            http://webkit.org/b/121033
+
+            Reviewed by Darin Adler.
+
+            Add an ASSERT to detect if an animation client will be removed
+            during the callback dispatch.
+
+            Test: fast/animation/request-animation-frame-remove-client.html
+
+            * platform/graphics/DisplayRefreshMonitor.cpp:
+            (WebCore::DisplayRefreshMonitor::displayDidRefresh):
+
+2013-10-28  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r155554
+
+    2013-09-11  Myles C. Maxfield  <mmaxfield@apple.com>
+
+            Fix nested unicode-bidi: isolate
+            https://bugs.webkit.org/show_bug.cgi?id=120504
+
+            Reviewed by Darin Adler.
+
+            When we have a nested isolate renderer if the outer isolate has a text
+            and this text is not the first child, the isolated chain is not
+            rendered correctly. This happens because constructBidiRunsForSegment
+            uses always the first inner isolated renderer as isolated inline
+            container. This patch fixes the behavior described changing
+            containingIsolate to find the right isolated container.
+
+            Merged from Blink: https://chromium.googlesource.com/chromium/blink/+/840a57050eade39dd04dde0c6603e129b783151c
+
+            Tests: fast/text/international/unicode-bidi-isolate-nested-first-child-text.html
+                   fast/text/international/unicode-bidi-isolate-nested-simple.html
+
+            * rendering/InlineIterator.h:
+            (WebCore::containingIsolate):
+            * rendering/RenderBlockLineLayout.cpp:
+            (WebCore::constructBidiRunsForSegment):
+
+2013-10-28  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r155665
+
+    2013-09-12  Tim Horton  <timothy_horton@apple.com>
+
+            [mac] Cache rendered image in PDFDocumentImage
+            https://bugs.webkit.org/show_bug.cgi?id=121207
+
+            Reviewed by Simon Fraser.
+
+            Tests: fast/images/pdf-as-image-too-big.html
+
+            * loader/cache/CachedImage.cpp:
+            (WebCore::CachedImage::createImage):
+            PDFDocumentImage takes a ImageObserver now so that it can report
+            decoded data size changes to the memory cache.
+
+            * platform/graphics/Image.h:
+            (WebCore::Image::isPDFDocumentImage): Added.
+
+            * platform/graphics/cg/PDFDocumentImage.cpp:
+            (WebCore::PDFDocumentImage::PDFDocumentImage):
+            PDFDocumentImage takes a ImageObserver now so that it can report
+            decoded data size changes to the memory cache.
+
+            (WebCore::PDFDocumentImage::applyRotationForPainting):
+            Fix up some comments, and use GraphicsContext instead of CG API.
+
+            (WebCore::PDFDocumentImage::cacheParametersMatch):
+            Determine whether our cached image is still valid, given the new
+            destination's size, CTM scale, and source rect.
+
+            (WebCore::transformContextForPainting): Added.
+
+            (WebCore::PDFDocumentImage::updateCachedImageIfNeeded):
+            Cache a rendered bitmap of the PDF. Invalidate the cache if cacheParametersMatch
+            decides that the parameters don't match, unless we're painting in low quality mode,
+            in which case we'll scale the existing image (and then fully repaint when the
+            high-quality repaint timer fires).
+            Inform the memory cache of our new size.
+
+            (WebCore::PDFDocumentImage::draw):
+            Update the cached image if needed.
+            Paint the cached image into the context if it's available (which it might not be,
+            if the image is way too big and the allocation fails). Otherwise, paint straight
+            into the context as we previously did.
+
+            (WebCore::PDFDocumentImage::destroyDecodedData):
+            Throw away the cached image if requested.
+
+            (WebCore::PDFDocumentImage::decodedSize):
+            (WebCore::PDFDocumentImage::drawPDFPage):
+            Drive-by use GraphicsContext instead of CG directly.
+
+            * platform/graphics/cg/PDFDocumentImage.h:
+            (WebCore::PDFDocumentImage::create):
+            Override isPDFDocumentImage().
+            Add storage for the cached image buffer and various cache parameters.
+
+            * rendering/ImageQualityController.cpp:
+            (WebCore::ImageQualityController::shouldPaintAtLowQuality):
+            PDFDocumentImage is also interested in/capable of low-quality painting now.
+
+2013-10-28  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r155664
+
+    2013-09-12  Tim Horton  <timothy_horton@apple.com>
+
+            Image doesn't always repaint at high quality in all tiles after a live resize
+            https://bugs.webkit.org/show_bug.cgi?id=121244
+
+            Reviewed by Darin Adler.
+
+            Currently, ImageQualityController removes an image from its low-quality-images
+            list from inside shouldPaintAtLowQuality, if this is the first paint outside
+            of a live resize, but does not force the renderer to repaint in its entirety.
+
+            However, there's no guarantee we've invalidated the whole renderer, so this can
+            leave some parts of the image painted in low-quality.
+
+            This just removes a short-circuit, instead using the ordinary high-quality-repaint
+            timer to ensure that the entire renderer is repainted.
+
+            No new test; all attempts have failed, as this depends on tiled drawing
+            and a live resize occurring.
+
+            * rendering/ImageQualityController.cpp:
+            (WebCore::ImageQualityController::shouldPaintAtLowQuality):
+
+2013-10-28  Lucas Forschler  <lforschler@apple.com>
+
+    Rollout 158067.
+
+2013-10-25  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r155608
+
+    2013-09-12  Zalan Bujtas  <zalan@apple.com>
+
+            Crash in ScrollingStateStickyNode::updateConstraints
+            https://bugs.webkit.org/show_bug.cgi?id=119638
+
+            Reviewed by Simon Fraser.
+
+            Ensure when a scrolling state node is removed from the state tree,
+            we remove both the current node and all its children from the
+            associated m_stateNodeMap lookup table.
+
+            Test: fast/css/sticky/multiple-layers-sticky-crash.html
+
+            * page/scrolling/ScrollingStateNode.cpp:
+            (WebCore::ScrollingStateNode::removeChild):
+            (WebCore::ScrollingStateNode::willBeRemovedFromStateTree):
+            * page/scrolling/ScrollingStateNode.h:
+
+2013-10-25  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r155546
+
+    2013-09-10  Simon Fraser  <simon.fraser@apple.com>
+
+            REGRESSION (143483): overflow:hidden doesn't quash big repaints from text-indent: -9999px
+            https://bugs.webkit.org/show_bug.cgi?id=121137
+
+            Reviewed by Ryosuke Niwa.
+
+            The change in r143483 made it so that negative text-indent gets added
+            to visual oveflow even when we have overflow:hidden, which is really bad
+            because it causes large repaints (and large layers) for a common-on-the-web
+            pattern.
+
+            Revert the change, and add a new test to make sure it doesn't regress.
+
+            I can't reproduce the bug it was trying to fix with the change reverted.
+
+            Tests: compositing/geometry/negative-text-indent-with-overflow-hidden-layer.html
+                   fast/repaint/negative-text-indent-with-overflow-hidden.html
+
+            * rendering/RenderBlock.cpp:
+            (WebCore::RenderBlock::computeOverflow):
+
+2013-10-25  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r155468
+
+    2013-09-10  Tim Horton  <timothy_horton@apple.com>
+
+            [mac] PDFDocumentImage should use PDFKit to draw
+            https://bugs.webkit.org/show_bug.cgi?id=120651
+            <rdar://problem/12810731>
+
+            Unreviewed hopeful build fix.
+
+            * platform/graphics/mac/PDFDocumentImageMac.mm:
+
+2013-10-25  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r155461
+
+    2013-09-10  Tim Horton  <timothy_horton@apple.com>
+
+            [mac] PDFDocumentImage should use PDFKit to draw
+            https://bugs.webkit.org/show_bug.cgi?id=120651
+            <rdar://problem/12810731>
+
+            Reviewed by Alexey Proskuryakov.
+
+            Use PDFKit to draw PDF-in-<img> on Mac, so that annotations in PDF are painted.
+
+            Test: fast/images/pdf-as-image-with-annotations.html
+
+            * WebCore.xcodeproj/project.pbxproj:
+            Add PDFDocumentImageMac.mm.
+
+            * platform/graphics/cg/PDFDocumentImage.cpp:
+            (WebCore::PDFDocumentImage::PDFDocumentImage):
+            We don't need to initialize m_document anymore because it's now a RetainPtr.
+            Initialize m_hasPage to false.
+
+            (WebCore::PDFDocumentImage::~PDFDocumentImage):
+            We don't need to manually release our CGPDFDocumentRef anymore because it's now a RetainPtr.
+
+            (WebCore::PDFDocumentImage::size):
+            Use expandedIntSize for explicitness.
+
+            (WebCore::PDFDocumentImage::applyRotationForPainting):
+            Rename adjustCTM to applyRotationForPainting, and move the one non-rotation related transformation out.
+            We need to do this because PDFKit applies the rotation transformation itself, so we don't need to.
+            Also, explicitly use std::min instead of importing the whole std namespace.
+
+            (WebCore::PDFDocumentImage::dataChanged):
+            Assert that we don't re-enter dataChanged after we've created a document,
+            because it seems like that shouldn't happen - we only create a document when
+            we've supposedly received all data, and it would be nice if we didn't have
+            all this varying code to deal with SharedBuffers changing out from under each other.
+            Factor the code to create a CGPDFDocumentRef out into createPDFDocument, so we can
+            replace it with a different implementation that creates a PDFDocument.
+
+            (WebCore::PDFDocumentImage::setCurrentPage):
+            Make all page-number-related things unsigned, since they are in CG and PDFKit,
+            and add m_hasPage to denote whether we've acquired a valid page yet.
+            Factor code to retrieve the PDF box bounds into computeBoundsForCurrentPage.
+            Remove setCurrentPage itself, as we never use a page other than the first page;
+            we will call computeBoundsForCurrentPage and set hasPage in dataChanged, now.
+
+            (WebCore::PDFDocumentImage::draw):
+            Fix a weird comment.
+            Factor code that actually draws the PDF out into drawPDFPage.
+
+            The rest of the functions in this file are only built for USE(CG) && !PLATFORM(MAC):
+
+            (WebCore::PDFDocumentImage::createPDFDocument):
+            Factored out of dataChanged(). Use the PLATFORM(MAC) way of making a
+            CGDataProvider from a SharedBuffer everywhere; we're already using it on
+            iOS, and it should also work for Windows, the only other USE(CG) platform.
+            Since we only createPDFDocument() after all data has been received, remove
+            the comment about the SharedBuffer being secretly written to behind its back.
+
+            (WebCore::PDFDocumentImage::computeBoundsForCurrentPage):
+            Factored out of setCurrentPage().
+            Use deg2rad since we have it.
+
+            (WebCore::PDFDocumentImage::pageCount):
+            (WebCore::PDFDocumentImage::drawPDFPage):
+            Factored out of draw().
+            Reduced an unnecessary transform (we were effectively doing mediaBox.origin - cropBox.origin - mediaBox.origin).
+
+            * platform/graphics/cg/PDFDocumentImage.h:
+            Unindent all the things, as we don't indent the first level inside a namespace scope.
+            Forward-declare PDFDocument.
+            Make m_currentPage unsigned as it should be.
+            Add m_hasPage.
+            Make m_document a PDFDocument on PLATFORM(MAC) and a CGPDFDocumentRef on other platforms.
+
+            * platform/graphics/mac/PDFDocumentImageMac.mm: Added.
+            Soft-link in PDFKit and specifically the PDFDocument class.
+
+            (WebCore::PDFDocumentImage::createPDFDocument):
+            Create our PDFDocument from the SharedBuffer's NSData directly. This shouldn't be a problem
+            (with respect to the SharedBuffer's data being appended to in secret), because we've waited
+            for the document to finish loading before getting here.
+
+            (WebCore::PDFDocumentImage::computeBoundsForCurrentPage):
+            Ask PDFKit for the page's media and crop boxes; it automatically performs the correct fallback.
+            Ask PDFKit for the page's rotation.
+
+            (WebCore::PDFDocumentImage::pageCount):
+            Ask PDFKit for the page count.
+
+            (WebCore::PDFDocumentImage::drawPDFPage):
+            Paint the current page of the PDF. Note that we do not apply the rotation here
+            via applyRotationForPainting because PDFKit will do it itself.
+            Save and restore two bits of CG state which aren't saved and restored with the
+            graphics state, as PDFKit can mutate them above us (<rdar://problem/14951759>).
+
+            * platform/mac/SoftLinking.h:
+            I couldn't find any clients of SOFT_LINK_FRAMEWORK_IN_CORESERVICES_UMBRELLA,
+            so I made it the more generic SOFT_LINK_FRAMEWORK_IN_UMBRELLA, taking the name
+            of the umbrella framework and the subframework, so I could use it to soft link
+            Quartz.framework's PDFKit.framework.
+
+2013-10-25  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r155127
+
+    2013-09-04  Anders Carlsson  <andersca@apple.com>
+
+            Vector::releaseBuffer should return an OwnPtr
+            https://bugs.webkit.org/show_bug.cgi?id=120718
+
+            Reviewed by Andreas Kling.
+
+            Change FormStreamFields::currentData to an OwnPtr.
+
+            * platform/network/cf/FormDataStreamCFNet.cpp:
+            (WebCore::closeCurrentStream):
+            (WebCore::advanceCurrentStream):
+            (WebCore::formCreate):
+
+2013-10-25  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r154915
+
+    2013-08-30  Brent Fulgham  <bfulgham@apple.com>
+
+            [Windows] Update to incorporate additional suggestions
+            https://bugs.webkit.org/show_bug.cgi?id=120448
+
+            Reviewed by Darin Adler
+
+            * platform/graphics/avfoundation/cf/MediaPlayerPrivateAVFoundationCF.cpp: Add
+            notes as to why AVFoundationCF needs this extra method call.
+            * platform/graphics/avfoundation/cf/MediaPlayerPrivateAVFoundationCF.h: Use OVERRIDE
+            * rendering/RenderVideo.cpp: Replace ternary operator with logical &&.
+
+2013-10-25  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r154914
+
+    2013-08-30  Brent Fulgham  <bfulgham@apple.com>
+
+            [Windows] Vide element in page always uses non-hw accelerated mode.
+            https://bugs.webkit.org/show_bug.cgi?id=120448
+
+            Reviewed by Darin Adler
+
+            This patch is unfortunately larger than my original idea, but seems to make the
+            layout system happier. Instead of switching into composited mode when building
+            the media player, we now build the original layout tree with compositing active
+            if the underlying media element requires it. The AVFoundationCF player needs to
+            have the compositor available at construction time so it can attach to the
+            rendering device. Otherwise it falls back to CPU-only mode.
+
+            * platform/graphics/MediaPlayer.cpp:
+            (WebCore::MediaPlayer::requiresImmediateCompositing): Added
+            * platform/graphics/MediaPlayer.h:
+            * platform/graphics/MediaPlayerPrivate.h:
+            (WebCore::MediaPlayerPrivateInterface::requiresImmediateCompositing): Added
+            * platform/graphics/avfoundation/cf/MediaPlayerPrivateAVFoundationCF.cpp:
+            (WebCore::MediaPlayerPrivateAVFoundationCF::createAVPlayer): Added
+            * platform/graphics/avfoundation/cf/MediaPlayerPrivateAVFoundationCF.h:
+            (WebCore::MediaPlayerPrivateAVFoundationCF::requiresImmediateCompositing):
+            * rendering/RenderLayerCompositor.cpp:
+            (WebCore::RenderLayerCompositor::requiresCompositingForVideo): Uses new
+            'requiresImmediateCompositing' to short-circuit check for whether a
+            compositor is required.
+            * rendering/RenderVideo.cpp:
+            (WebCore::RenderVideo::requiresImmediateCompositing):
+            * rendering/RenderVideo.h:
+
+2013-10-25  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r154890
+
+    2013-08-30  Brent Fulgham  <bfulgham@apple.com>
+
+            [Windows] Video inside page always uses non-hardware accelerated playback
+            https://bugs.webkit.org/show_bug.cgi?id=120448
+
+            Reviewed by Eric Carlson.
+
+            * platform/graphics/avfoundation/cf/MediaPlayerPrivateAVFoundationCF.cpp:
+            (WebCore::MediaPlayerPrivateAVFoundationCF::createAVPlayer): Check for
+            D3D device. If it doesn't exist, switch to compositing mode and try again.
+
+2013-10-25  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r154856
+
+    2013-08-29  Tim Horton  <timothy_horton@apple.com>
+
+            SVG clipping, masking, and gradients-on-text do not respect the device scale factor
+            https://bugs.webkit.org/show_bug.cgi?id=120377
+            <rdar://problem/14777944>
+
+            Reviewed by Simon Fraser.
+
+            Tests: svg/custom/masking-clipping-hidpi.svg
+
+            calculateTransformationToOutermostCoordinateSystem should include the page's
+            device scale factor in its transform.
+
+            * rendering/svg/SVGRenderingContext.cpp:
+            (WebCore::SVGRenderingContext::calculateTransformationToOutermostCoordinateSystem):
+
+2013-10-24  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r154694
+
+    2013-08-27  Brent Fulgham  <bfulgham@apple.com>
+
+            [Windows] Correct method call for characteristic update.
+
+            Reviewed by Eric Carlson.
+
+            * platform/graphics/avfoundation/cf/MediaPlayerPrivateAVFoundationCF.cpp:
+            (WebCore::MediaPlayerPrivateAVFoundationCF::tracksChanged):
+            [Windows] Correct method call (should have been "characteristicsChanged", not
+            "player()->characteristicChanged()"
+
+2013-10-24  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r154693
+
+    2013-08-26  Brent Fulgham  <bfulgham@apple.com>
+
+            [Windows] some track language tags are not recognized
+            https://bugs.webkit.org/show_bug.cgi?id=120335
+
+            Reviewed by Eric Carlson.
+
+            * platform/graphics/avfoundation/cf/MediaPlayerPrivateAVFoundationCF.cpp: Revise implementation
+            to match logic in platform/graphics/avfoundation/objc/MediaPlayerPrivateAVFoundationObjc.mm
+
+2013-10-24  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r154681
+
+    2013-08-27  Joseph Pecoraro  <pecoraro@apple.com>
+
+            Web Inspector: Column Breakpoint not working, may be off by 1
+            https://bugs.webkit.org/show_bug.cgi?id=120334
+
+            Reviewed by David Kilzer.
+
+            JavaScriptCore changed to 1-based column numbers at some point. We
+            need to update the ScriptDebugger assumption that they were 0-based.
+
+            Test: inspector-protocol/debugger/column-breakpoint.html
+
+            * bindings/js/ScriptDebugServer.cpp:
+            (WebCore::ScriptDebugServer::createCallFrame):
+            (WebCore::ScriptDebugServer::updateCallFrameAndPauseIfNeeded):
+2013-10-24  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r154647
+
+    2013-08-23  Andy Estes  <aestes@apple.com>
+
+            Fix issues found by the Clang Static Analyzer
+            https://bugs.webkit.org/show_bug.cgi?id=120230
+
+            Reviewed by Darin Adler.
+
+            * WebCore.xcodeproj/project.pbxproj: Removed FoundationExtras.h.
+            * accessibility/mac/WebAccessibilityObjectWrapperMac.mm: Removed CFAutoreleaseHelper().
+            (AXTextMarkerRange): Used HardAutorelease() instead of
+            CFAutoreleaseHelper().
+            (AXTextMarkerRangeStart): Ditto.
+            (AXTextMarkerRangeEnd): Ditto.
+            (textMarkerForVisiblePosition): Ditto.
+            * platform/graphics/avfoundation/objc/MediaPlayerPrivateAVFoundationObjC.mm:
+            (-[WebCoreAVFMovieObserver initWithCallback:]): Called [super init]
+            first so that we don't later use ivars from the wrong self.
+            (-[WebCoreAVFLoaderDelegate initWithCallback:]): Ditto.
+            * platform/mac/FoundationExtras.h: Removed.
+            * platform/mac/KURLMac.mm:
+            (WebCore::KURL::operator NSURL *): Used WTF's HardAutorelease().
+            * platform/mac/WebCoreNSURLExtras.mm:
+            (WebCore::mapHostNameWithRange): Used HardAutorelease() instead of
+            WebCoreCFAutorelease().
+            (WebCore::URLWithData): Ditto.
+            (WebCore::userVisibleString): Ditto.
+            (WebCore::URLByRemovingComponentAndSubsequentCharacter): Used Vector<>
+            with an inline capacity rather than heap-allocating a buffer.
+            * platform/mac/WebCoreObjCExtras.h: Used HardAutorelease() instead of
+            WebCoreCFAutorelease().
+            * platform/text/mac/StringImplMac.mm:
+            (WTF::StringImpl::operator NSString *): Used WTF's HardAutorelease().
+
+2013-10-24  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r154527
+
+    2013-08-23  Eric Carlson  <eric.carlson@apple.com>
+
+            [Mac] some track language tags are not recognized
+            https://bugs.webkit.org/show_bug.cgi?id=119643
+
+            Reviewed by Jere Noble.
+
+            No new tests, existing tests updated.
+
+            * html/HTMLMediaElement.cpp:
+            (WebCore::HTMLMediaElement::HTMLMediaElement): Initialize m_captionDisplayMode from settings
+                if possible.
+            (WebCore::HTMLMediaElement::configureTextTrackGroup): Don't enable a default track when preferences
+                say captions should be disabled. Don't disable an already visible track if we don't find
+                a match unless preferences say captions should be disabled. m_forcedOrAutomaticSubtitleTrackLanguage ->
+                m_subtitleTrackLanguage.
+            (WebCore::HTMLMediaElement::mediaPlayerCharacteristicChanged): If the language of the primary
+                audio track changes, only kick off a text track recalc if caption preference are set to "automatic".
+            * html/HTMLMediaElement.h:
+
+            * platform/graphics/avfoundation/MediaPlayerPrivateAVFoundation.cpp:
+            (WebCore::MediaPlayerPrivateAVFoundation::MediaPlayerPrivateAVFoundation): Initialize m_characteristicsChanged
+                and m_delayCharacteristicsChangedNotification.
+            (WebCore::MediaPlayerPrivateAVFoundation::setHasVideo): Call characteristicsChanged.
+            (WebCore::MediaPlayerPrivateAVFoundation::setHasAudio): Ditto.
+            (WebCore::MediaPlayerPrivateAVFoundation::setHasClosedCaptions): Ditto.
+            (WebCore::MediaPlayerPrivateAVFoundation::characteristicsChanged): New, allows us to coalesce 
+                calls to the media player when we know several characteristics may change.
+            (WebCore::MediaPlayerPrivateAVFoundation::setDelayCharacteristicsChangedNotification): Enable or
+                disable notification delay.
+            * platform/graphics/avfoundation/MediaPlayerPrivateAVFoundation.h:
+
+            * platform/graphics/avfoundation/objc/MediaPlayerPrivateAVFoundationObjC.mm:
+            (WebCore::MediaPlayerPrivateAVFoundationObjC::tracksChanged): Always call languageOfPrimaryAudioTrack(),
+                a track may have changed so we may have a new language.
+            (WebCore::MediaPlayerPrivateAVFoundationObjC::languageOfPrimaryAudioTrack): Call [AVAssetTrack languageCode]
+                if [AVAssetTrack extendedLanguageTag] returns NULL in case the media file has an old
+                QuickTime language code.
+
+2013-10-24  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r154308
+
+    2013-08-19  Ryosuke Niwa  <rniwa@webkit.org>
+
+            <https://webkit.org/b/119930> input[type=range]: Fix a crash by changing input type in 'input' event handler
+
+            Reviewed by Kent Tamura.
+
+            Merge https://chromium.googlesource.com/chromium/blink/+/99afc9b55ce176b4f5fe053070e19dbebc1891a5
+
+            In SliderThumbElement::setPositionFromPoint, renderer() can be NULL after HTMLInputElement::setValueFromRenderer,
+            which dispatches 'input' event. Also, make a local vairable 'input' a RefPtr just in case.
+
+            Also add null-poinetr checks for the host element as SliderThumbElement only weakly holds onto the host element.
+
+            Test: fast/forms/range/range-type-change-oninput.html
+
+            * html/shadow/SliderThumbElement.cpp:
+            (WebCore::SliderThumbElement::isDisabledFormControl):
+            (WebCore::SliderThumbElement::matchesReadOnlyPseudoClass):
+            (WebCore::SliderThumbElement::matchesReadWritePseudoClass):
+            (WebCore::SliderThumbElement::setPositionFromPoint):
+            (WebCore::SliderThumbElement::hostInput):
+
+2013-10-21  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r154289
+
+    2013-08-19  Ryosuke Niwa  <rniwa@webkit.org>
+
+            ASSERTION FAILED: !node || node->isShadowRoot() in WebCore::EventRetargeter::eventTargetRespectingTargetRules
+            https://bugs.webkit.org/show_bug.cgi?id=119720
+
+            Reviewed by Andy Estes.
+
+            Merge https://chromium.googlesource.com/chromium/blink/+/4ce9bfbf54410179cd0f18b3d1a912045fc0ec3d
+
+            * dom/EventRetargeter.h:
+            (WebCore::EventRetargeter::eventTargetRespectingTargetRules):
+
+2013-10-21  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r154183
+
+    2013-08-16  Brady Eidson  <beidson@apple.com>
+
+            (NetworkProcess)  Sync XHRs should load using async ResourceHandles, not ResourceHandle::loadResourceSynchronously
+            https://bugs.webkit.org/show_bug.cgi?id=119493
+
+            Reviewed by Alexey Proskuryakov.
+
+            No new tests (Covered by plenty of existing tests).
+
+            * WebCore.exp.in:
+            * WebCore.xcodeproj/project.pbxproj:
+
+            * platform/network/SynchronousLoaderClient.h: Make platformBadResponseError public
+
+            * platform/network/mac/ResourceHandleMac.mm:
+            (WebCore::ResourceHandle::platformLoadResourceSynchronously): Add comments/FIXMEs spelling out how wrong this code is.
+
+2013-10-21  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r153975
+
+    2013-08-12  Ryosuke Niwa  <rniwa@webkit.org>
+
+            Fix NULL de-refernce in HTMLAnchorElement::sendPings when settings doesn't exist
+            https://bugs.webkit.org/show_bug.cgi?id=119716
+
+            Reviewed by Darin Adler.
+
+            Merge https://chromium.googlesource.com/chromium/blink/+/d5783da353ab783e9994b8fbecd91880be5192a1
+
+            No new tests since the test in the Blink change doesn't reproduce crash on WebKit.
+
+            * html/HTMLAnchorElement.cpp:
+            (WebCore::HTMLAnchorElement::sendPings):
+
+2013-10-21  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r153920
+
+    2013-08-09  Jer Noble  <jer.noble@apple.com>
+
+            Crash in com.apple.WebKit.WebContent at com.apple.MediaToolbox.
+            https://bugs.webkit.org/show_bug.cgi?id=119645
+
+            Reviewed by Eric Carlson.
+
+            Work around crash caused by <rdar://problem/14688471> by releasing
+            m_request as soon as keys have been added to it.
+
+            * Modules/encryptedmedia/CDMPrivateAVFoundation.mm:
+            (WebCore::CDMSessionAVFoundation::update):
+
+2013-10-21  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r153913
+
+    2013-08-09  Alexey Proskuryakov  <ap@apple.com>
+
+            REGRESSION (r142755): window.open creates an invisible window when width and height are 0
+            https://bugs.webkit.org/show_bug.cgi?id=119633
+
+            Reviewed by Darin Adler.
+
+            Test: fast/dom/Window/open-zero-size-as-default.html
+
+            Relying on each WebKit to refuse setting size to zero was fragile - because this
+            required each one to have the check, and because by the time the client was called,
+            the initially zero size was not necessarily zero.
+
+            * loader/FrameLoader.cpp: (WebCore::createWindow): When sizes are zero, keep the
+            size the window was created with, because that's the default one by definition.
+
+            * page/DOMWindow.cpp: (WebCore::DOMWindow::adjustWindowRect): It's too late to
+            check for zero size now, it's been mangled to adjust for the difference between
+            window and viewport size.
+
+2013-10-21  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r153909
+
+    2013-08-09  Dean Jackson  <dino@apple.com>
+
+            Captions menu needs to reset text-align
+            https://bugs.webkit.org/show_bug.cgi?id=119637
+
+            Reviewed by Eric Carlson.
+
+            Reset the text-align property on the menu so that it
+            doesn't get the inherited value. The full fix for all
+            controls is http://webkit.org/b/116100.
+
+            * css/mediaControlsQuickTime.css:
+            (video::-webkit-media-controls-closed-captions-container):
+
+2013-10-21  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r153877
+
+    2013-08-08  Tim Horton  <timothy_horton@apple.com>
+
+            navigator.plugins has plugins in it when plugins are disabled
+            https://bugs.webkit.org/show_bug.cgi?id=119607
+            <rdar://problem/14678030>
+
+            Reviewed by Anders Carlsson.
+
+            Test: plugins/navigator-plugins-disabled.html
+
+            * page/Settings.cpp:
+            (WebCore::Settings::setPluginsEnabled):
+            Refresh the plugin database when plugins are enabled or disabled.
+            This is necessary to ensure that navigator.plugins will have the
+            correct set of plugins after dynamically changing whether plugins
+            are enabled, which makes the test for this patch possible (but it
+            makes sense in the browser as well).
+
 2013-09-06  Lucas Forschler  <lforschler@apple.com>
 
         Merge r155203

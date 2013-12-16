@@ -135,6 +135,15 @@ void DatabaseCryptoCore::setup(const DbBlob *blob, CssmClient::Key master)
 	mHaveMaster = true;
 }
 
+bool DatabaseCryptoCore::get_encryption_key(CssmOwnedData &data)
+{
+    bool result = false;
+    if (isValid()) {
+        data = mEncryptionKey->keyData();
+        result = true;
+    }
+    return result;
+}
 
 //
 // Given a putative passphrase, determine whether that passphrase

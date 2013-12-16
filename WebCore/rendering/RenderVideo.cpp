@@ -296,6 +296,12 @@ void RenderVideo::acceleratedRenderingStateChanged()
 }
 #endif  // USE(ACCELERATED_COMPOSITING)
 
+bool RenderVideo::requiresImmediateCompositing() const
+{
+    MediaPlayer* player = mediaElement()->player();
+    return player && player->requiresImmediateCompositing();
+}
+
 #if ENABLE(FULLSCREEN_API)
 static const RenderBlock* rendererPlaceholder(const RenderObject* renderer)
 {

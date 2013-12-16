@@ -37,6 +37,7 @@
 #include "InjectedBundleBackForwardList.h"
 #include "InjectedBundleUserMessageCoders.h"
 #include "LayerTreeHost.h"
+#include "Logging.h"
 #include "NetscapePlugin.h"
 #include "NotificationPermissionRequestManager.h"
 #include "PageBanner.h"
@@ -228,6 +229,7 @@ PassRefPtr<WebPage> WebPage::create(uint64_t pageID, const WebPageCreationParame
 
 WebPage::WebPage(uint64_t pageID, const WebPageCreationParameters& parameters)
     : m_viewSize(parameters.viewSize)
+    , m_hasSeenPlugin(false)
     , m_useFixedLayout(false)
     , m_drawsBackground(true)
     , m_drawsTransparentBackground(false)
@@ -242,6 +244,7 @@ WebPage::WebPage(uint64_t pageID, const WebPageCreationParameters& parameters)
 #if ENABLE(PRIMARY_SNAPSHOTTED_PLUGIN_HEURISTIC)
     , m_readyToFindPrimarySnapshottedPlugin(false)
     , m_didFindPrimarySnapshottedPlugin(false)
+    , m_numberOfPrimarySnapshotDetectionAttempts(0)
     , m_determinePrimarySnapshottedPlugInTimer(RunLoop::main(), this, &WebPage::determinePrimarySnapshottedPlugInTimerFired)
 #endif
 #if PLATFORM(MAC)
@@ -3101,7 +3104,9 @@ void WebPage::addPluginView(PluginView* pluginView)
     ASSERT(!m_pluginViews.contains(pluginView));
 
     m_pluginViews.add(pluginView);
+    m_hasSeenPlugin = true;
 #if ENABLE(PRIMARY_SNAPSHOTTED_PLUGIN_HEURISTIC)
+    LOG(Plugins, "Primary Plug-In Detection: triggering detection from addPluginView(%p)", pluginView);
     m_determinePrimarySnapshottedPlugInTimer.startOneShot(0);
 #endif
 }
@@ -3111,6 +3116,9 @@ void WebPage::removePluginView(PluginView* pluginView)
     ASSERT(m_pluginViews.contains(pluginView));
 
     m_pluginViews.remove(pluginView);
+#if ENABLE(PRIMARY_SNAPSHOTTED_PLUGIN_HEURISTIC)
+    LOG(Plugins, "Primary Plug-In Detection: removePluginView(%p)", pluginView);
+#endif
 }
 
 void WebPage::sendSetWindowFrame(const FloatRect& windowFrame)
@@ -4125,6 +4133,7 @@ void WebPage::didFinishLoad(WebFrame* frame)
         return;
 
     m_readyToFindPrimarySnapshottedPlugin = true;
+    LOG(Plugins, "Primary Plug-In Detection: triggering detection from didFinishLoad (marking as ready to detect).");
     m_determinePrimarySnapshottedPlugInTimer.startOneShot(0);
 #else
     UNUSED_PARAM(frame);
@@ -4137,6 +4146,8 @@ static int primarySnapshottedPlugInSearchGap = 200;
 static float primarySnapshottedPlugInSearchBucketSize = 1.1;
 static int primarySnapshottedPlugInMinimumWidth = 400;
 static int primarySnapshottedPlugInMinimumHeight = 300;
+static unsigned maxPrimarySnapshottedPlugInDetectionAttempts = 2;
+static int deferredPrimarySnapshottedPlugInDetectionDelay = 3;
 
 #if ENABLE(PRIMARY_SNAPSHOTTED_PLUGIN_HEURISTIC)
 void WebPage::determinePrimarySnapshottedPlugInTimerFired()
@@ -4155,14 +4166,24 @@ void WebPage::determinePrimarySnapshottedPlugIn()
     if (!m_page->settings()->plugInSnapshottingEnabled())
         return;
 
-    if (!m_readyToFindPrimarySnapshottedPlugin)
-        return;
+    LOG(Plugins, "Primary Plug-In Detection: began.");
 
-    if (m_pluginViews.isEmpty())
+    if (!m_readyToFindPrimarySnapshottedPlugin) {
+        LOG(Plugins, "Primary Plug-In Detection: exiting - not ready to find plugins.");
         return;
+    }
 
-    if (m_didFindPrimarySnapshottedPlugin)
+    if (!m_hasSeenPlugin) {
+        LOG(Plugins, "Primary Plug-In Detection: exiting - we never saw a plug-in get added to the page.");
         return;
+    }
+
+    if (m_didFindPrimarySnapshottedPlugin) {
+        LOG(Plugins, "Primary Plug-In Detection: exiting - we've already found a primary plug-in.");
+        return;
+    }
+
+    ++m_numberOfPrimarySnapshotDetectionAttempts;
 
     RenderView* renderView = corePage()->mainFrame()->view()->renderView();
 
@@ -4217,9 +4238,16 @@ void WebPage::determinePrimarySnapshottedPlugIn()
         }
     }
 
-    if (!candidatePlugIn)
+    if (!candidatePlugIn) {
+        LOG(Plugins, "Primary Plug-In Detection: fail - did not find a candidate plug-in.");
+        if (m_numberOfPrimarySnapshotDetectionAttempts < maxPrimarySnapshottedPlugInDetectionAttempts) {
+            LOG(Plugins, "Primary Plug-In Detection: will attempt again in %ds.", deferredPrimarySnapshottedPlugInDetectionDelay);
+            m_determinePrimarySnapshottedPlugInTimer.startOneShot(deferredPrimarySnapshottedPlugInDetectionDelay);
+        }
         return;
+    }
 
+    LOG(Plugins, "Primary Plug-In Detection: success - found a candidate plug-in - inform it.");
     m_didFindPrimarySnapshottedPlugin = true;
     m_primaryPlugInPageOrigin = m_page->mainFrame()->document()->baseURL().host();
     m_primaryPlugInOrigin = candidatePlugIn->loadedUrl().host();
@@ -4232,6 +4260,8 @@ void WebPage::resetPrimarySnapshottedPlugIn()
 {
     m_readyToFindPrimarySnapshottedPlugin = false;
     m_didFindPrimarySnapshottedPlugin = false;
+    m_numberOfPrimarySnapshotDetectionAttempts = 0;
+    m_hasSeenPlugin = false;
 }
 
 bool WebPage::matchesPrimaryPlugIn(const String& pageOrigin, const String& pluginOrigin, const String& mimeType) const

@@ -1,3 +1,305 @@
+2013-10-29  Brent Fulgham  <bfulgham@apple.com>
+
+        Merge r154764
+
+    2013-08-28  Brent Fulgham  <bfulgham@apple.com> 
+
+            [Windows] Provide useful error messages for WebKitErrorDomain errors 
+            https://bugs.webkit.org/show_bug.cgi?id=120428 
+
+            Reviewed by Anders Carlsson. 
+
+            * WebCoreSupport/WebFrameLoaderClient.cpp: 
+            (WebFrameLoaderClient::cancelledError): Provide text for this error. 
+            (WebFrameLoaderClient::blockedError): Hook up WEB_UI_STRING for this error. 
+            (WebFrameLoaderClient::cannotShowURLError): Ditto 
+            (WebFrameLoaderClient::interruptedForPolicyChangeError): Ditto 
+            (WebFrameLoaderClient::cannotShowMIMETypeError): Ditto 
+            (WebFrameLoaderClient::fileDoesNotExistError): Provide text for this error. 
+            (WebFrameLoaderClient::pluginWillHandleLoadError): Hook up WEB_UI_STRING for this error. 
+            (WebFrameLoaderClient::dispatchDidFailToStartPlugin): Ditto. 
+            (WebFrameLoaderClient::createJavaAppletWidget): Ditto. 
+            (WebFrameLoaderClient::webHistory): Remove blank line above method. 
+
+2013-10-29  Brent Fulgham  <bfulgham@apple.com>
+
+        Merge r154759
+
+    2013-08-27  Brent Fulgham  <bfulgham@apple.com>
+
+            [Windows] Loader is not properly determining supported MIME types
+            https://bugs.webkit.org/show_bug.cgi?id=120383
+
+            Reviewed by Eric Carlson.
+
+            * WebCoreSupport/WebFrameLoaderClient.cpp:
+            (WebFrameLoaderClient::canShowMIMEType): Modify to ask WebView if it can
+            display the media type. Use new helper function to avoid converting a String
+            to BSTR, only to immediatly be converted from BSTR back to String.
+            (WebFrameLoaderClient::canShowMIMETypeAsHTML): Ditto.
+            * WebView.cpp:
+            (WebView::canShowMIMEType): Move logic to a new (similarly named) helper function.
+            (WebView::canShowMIMETypeAsHTML): Ditto.
+            * WebView.h: Add declaration for two new helper functions.
+
+2013-10-28  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r156433
+
+    2013-09-25  Roger Fong  <roger_fong@apple.com>
+
+            [Windows] Attempting to scroll from a non-scrollable layer results the main document getting scrolled.
+            https://bugs.webkit.org/show_bug.cgi?id=121889.
+            <rdar://problem/15072441>
+
+            Reviewed by Timothy Horton.
+
+            * WebView.cpp:
+            (WebView::gesture): 
+            Call scrollByRecursively on the current RenderLayer's enclosingScrollableLayer to make sure that the method
+            doesn't bail early and end up just scrolling the main document instead of the next scrollable layer in the RenderLayer tree.
+
+2013-10-28  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r156416
+
+    2013-09-24  Roger Fong  <roger_fong@apple.com>
+
+            [Windows] Overpanning occurs even when what is being panned isn't the main document.
+            https://bugs.webkit.org/show_bug.cgi?id=121885.
+            <rdar://problem/15072332>.
+
+            Reviewed by Brent Fulgham.
+
+            * WebView.cpp:
+            (WebView::gestureNotify):
+            (WebView::gesture):
+
+2013-10-28  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r156219
+
+    2013-09-20  Roger Fong  <roger_fong@apple.com>
+
+            Handle panning gestures messages properly on Windows.
+            https://bugs.webkit.org/show_bug.cgi?id=121711.
+
+            Reviewed by Brent Fulgham.
+
+            This fixes a number of issues with panning gestures on Windows.
+            1. Two finger panning in one direction can sometimes cause some unexpected scrolling 
+            in the other direction when the gesture first begins (directions meaning horizontal and vertical)
+            2. Single finger horizontal panning should only be disabled when attempting to select text.
+            3. Scrolling via panning should be clamped, other wise we can scroll contents completely out of the scrollview.
+            4. Horizontal overpan should work.
+            5. Overpan should occur whenever we scroll to the extents of whichever scroll view we're currently scrolling.
+
+            * WebView.cpp:
+            (WebView::gestureNotify):
+            (WebView::gesture):
+
+2013-10-28  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r156302
+
+    2013-09-23  Patrick Gansterer  <paroga@webkit.org>
+
+            use NOMINMAX instead of #define min min
+            https://bugs.webkit.org/show_bug.cgi?id=73563
+
+            Reviewed by Brent Fulgham.
+
+            Use NOMINMAX instead of #define min/max as a cleaner
+            way of ensuring that Windows system header files don't
+            define min/max as macro in the first place.
+
+            * WebKitPrefix.h:
+
+2013-10-28  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r154508
+
+    2013-08-23  Brent Fulgham  <bfulgham@apple.com>
+
+            [Windows] Refactor WebFrame to compose with WebFrameLoaderClient
+            https://bugs.webkit.org/show_bug.cgi?id=120092
+
+            Reviewed by Anders Carlsson.
+
+            Revise WebFrame implementation on Windows to no longer subclass from
+            WebFrameLoaderClient, instead using a fully-functional WebFrameLoaderClient
+            as a helper object to perform the tasks, as is done in the other
+            ports. This is a step towards completing
+            https://bugs.webkit.org/show_bug.cgi?id=119964.
+
+            * WebCoreSupport/WebFrameLoaderClient.cpp: Add a new 'private data'
+            object to house the policy delegate and function.
+            (WebFrameLoaderClient::WebFramePolicyListenerPrivate::WebFramePolicyListenerPrivate):
+            Create the new private data object.
+            (WebFrameLoaderClient::WebFramePolicyListenerPrivate::~WebFramePolicyListenerPrivate):
+            Destroy the new private data object.
+            (WebFrameLoaderClient::WebFrameLoaderClient): Moved from WebFrame.cpp
+            (WebFrameLoaderClient::frameLoaderDestroyed): Ditto
+            (WebFrameLoaderClient::makeRepresentation): Ditto
+            (WebFrameLoaderClient::forceLayoutForNonHTML): Ditto
+            (WebFrameLoaderClient::setCopiesOnScroll): Ditto
+            (WebFrameLoaderClient::detachedFromParent2): Ditto
+            (WebFrameLoaderClient::detachedFromParent3): Ditto
+            (WebFrameLoaderClient::convertMainResourceLoadToDownload): Ditto
+            (WebFrameLoaderClient::dispatchDidLoadResourceFromMemoryCache): Ditto
+            (WebFrameLoaderClient::dispatchDidFailProvisionalLoad): Ditto
+            (WebFrameLoaderClient::dispatchDidFailLoad): Ditto
+            (WebFrameLoaderClient::dispatchDecidePolicyForResponse): Ditto
+            (WebFrameLoaderClient::dispatchDecidePolicyForNewWindowAction): Ditto
+            (WebFrameLoaderClient::dispatchDecidePolicyForNavigationAction): Ditto
+            (WebFrameLoaderClient::dispatchUnableToImplementPolicy): Ditto
+            (WebFrameLoaderClient::dispatchWillSendSubmitEvent): Ditto
+            (WebFrameLoaderClient::dispatchWillSubmitForm): Ditto
+            (WebFrameLoaderClient::startDownload): Ditto
+            (WebFrameLoaderClient::willChangeTitle): Ditto
+            (WebFrameLoaderClient::didChangeTitle): Ditto
+            (WebFrameLoaderClient::cancelledError): Ditto
+            (WebFrameLoaderClient::blockedError): Ditto
+            (WebFrameLoaderClient::cannotShowURLError): Ditto
+            (WebFrameLoaderClient::interruptedForPolicyChangeError): Ditto
+            (WebFrameLoaderClient::cannotShowMIMETypeError): Ditto
+            (WebFrameLoaderClient::fileDoesNotExistError): Ditto
+            (WebFrameLoaderClient::pluginWillHandleLoadError): Ditto
+            (WebFrameLoaderClient::shouldFallBack): Ditto
+            (WebFrameLoaderClient::canHandleRequest): Ditto
+            (WebFrameLoaderClient::canShowMIMEType): Ditto
+            (WebFrameLoaderClient::canShowMIMETypeAsHTML): Ditto
+            (WebFrameLoaderClient::representationExistsForURLScheme): Ditto
+            (WebFrameLoaderClient::generatedMIMETypeForURLScheme): Ditto
+            (WebFrameLoaderClient::frameLoadCompleted): Ditto
+            (WebFrameLoaderClient::saveViewStateToItem): Ditto
+            (WebFrameLoaderClient::restoreViewState): Ditto
+            (WebFrameLoaderClient::provisionalLoadStarted): Ditto
+            (WebFrameLoaderClient::didFinishLoad): Ditto
+            (WebFrameLoaderClient::prepareForDataSourceReplacement): Ditto
+            (WebFrameLoaderClient::userAgent): Ditto
+            (WebFrameLoaderClient::objectContentType): Ditto
+            (WebFrameLoaderClient::createJavaAppletWidget): Ditto
+            (WebFrameLoaderClient::overrideMediaType): Ditto
+            (WebFrameLoaderClient::documentElementAvailable): Ditto
+            (WebFrameLoaderClient::dispatchDidClearWindowObjectInWorld): Ditto
+            (WebFrameLoaderClient::registerForIconNotification): Ditto
+            (WebFrameLoaderClient::didPerformFirstNavigation): Ditto
+            (WebFrameLoaderClient::createNetworkingContext): Ditto
+            (WebFrameLoaderClient::shouldAlwaysUsePluginDocument): Ditto
+            (WebFrameLoaderClient::revertToProvisionalState): Ditto
+            (WebFrameLoaderClient::setMainFrameDocumentReady): Ditto
+            (WebFrameLoaderClient::cancelPolicyCheck): Ditto
+            (WebFrameLoaderClient::setUpPolicyListener): Ditto
+            (WebFrameLoaderClient::receivedPolicyDecision): Ditto
+            * WebCoreSupport/WebFrameLoaderClient.h:
+            (WebFrameLoaderClient::webFrame): Add accessor method
+            * WebDataSource.cpp:
+            (WebDataSource::representation): Loader client is now
+            a WebFrameLoaderClient (not a WebFrame).
+            (WebDataSource::webFrame): Ditto
+            * WebElementPropertyBag.cpp:
+            (WebElementPropertyBag::Read): Loader client is now
+            a WebFrameLoaderClient (not a WebFrame)
+            * WebFrame.cpp:
+            (kit): Revise for WebFrameLoaderClient use.
+            (WebFrame::WebFramePrivate::WebFramePrivate): Remove
+            WebFramePolicyListener and FramePolicyFunction, since
+            they are no longer needed here. They were moved to
+            the WebFrameLoaderClient object.
+            (WebFrame::WebFrame): No longer inheriting from
+            WebFramePolicyListener.
+            (WebFrame::init): Frame::create now needs to be supplied
+            with a new WebFramePolicyListener, rather than 'this'
+            * WebFrame.h:
+            * WebFramePolicyListener.cpp:
+            (WebFramePolicyListener::receivedPolicyDecision): Loader
+            client is now a WebFramePolicyClient, not a WebFrame.
+
+2013-10-25  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r155212
+
+    2013-09-05  Roger Fong  <roger_fong@apple.com>
+
+            [Windows] Implement text offset methods of IAccessibleText interface.
+            https://bugs.webkit.org/show_bug.cgi?id=120820.
+            <rdar://problem/14925242>
+
+            Reviewed by Brenet Fulgham.
+
+            * AccessibleTextImpl.cpp:
+            (AccessibleText::get_textBeforeOffset):
+            (AccessibleText::get_textAfterOffset):
+            (AccessibleText::get_textAtOffset):
+            (AccessibleText::isInRange):
+            * AccessibleTextImpl.h:
+
+2013-10-24  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r154634
+
+    2013-08-26  Roger Fong  <roger_fong@apple.com>
+
+            Unreviewed. Add missing interface files that were left out in r154627.
+
+            * Interfaces/Accessible2/AccessibleEditableText.idl: Added.
+            * Interfaces/Accessible2/AccessibleText.idl: Added.
+            * Interfaces/Accessible2/AccessibleText2.idl: Added.
+
+2013-10-24  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r154627
+
+    2013-08-23  Roger Fong  <roger_fong@apple.com>
+
+            <https://bugs.webkit.org/show_bug.cgi?id=119829> Add IAccessibleText and IAccessibleEditableText implementation.
+
+            Reviewed by Chris Fleizach.
+
+            Add IAccessibleText and IAccessibleEditableText interfaces and implementation to AppleWin port.
+
+            * AccessibleBase.cpp:
+            (AccessibleBase::createInstance): Create an AccessibleText instance when necessary.
+            (AccessibleBase::QueryService):
+            * AccessibleBase.h:
+            * AccessibleTextImpl.cpp: Added.
+            (AccessibleText::AccessibleText):
+            (AccessibleText::addSelection):
+            (AccessibleText::get_attributes): Not Implemented
+            (AccessibleText::get_caretOffset):
+            (AccessibleText::get_characterExtents):
+            (AccessibleText::get_nSelections):
+            (AccessibleText::get_offsetAtPoint):
+            (AccessibleText::get_selection):
+            (AccessibleText::get_text):
+            (AccessibleText::get_textBeforeOffset): Not Implemented
+            (AccessibleText::get_textAfterOffset): Not Implemented
+            (AccessibleText::get_textAtOffset): Not Implemented
+            (AccessibleText::removeSelection):
+            (AccessibleText::setCaretOffset):
+            (AccessibleText::setSelection):
+            (AccessibleText::get_nCharacters):
+            (AccessibleText::scrollSubstringTo):
+            (AccessibleText::scrollSubstringToPoint):
+            (AccessibleText::get_newText): Not Implemented
+            (AccessibleText::get_oldText): Not Implemented
+            (AccessibleText::get_attributeRange): Not Implemented
+            (AccessibleText::copyText):
+            (AccessibleText::deleteText):
+            (AccessibleText::insertText):
+            (AccessibleText::cutText):
+            (AccessibleText::pasteText):
+            (AccessibleText::replaceText):
+            (AccessibleText::setAttributes): Not Implemented
+            (AccessibleText::QueryInterface):
+            (AccessibleText::Release):
+            (AccessibleText::convertSpecialOffset):
+            (AccessibleText::initialCheck):
+            * AccessibleTextImpl.h: Added.
+            (AccessibleText::~AccessibleText):
+            (AccessibleText::AddRef):
+
 2013-08-05  Lucas Forschler  <lforschler@apple.com>
 
         Merge r153628

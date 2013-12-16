@@ -68,6 +68,8 @@ public:
 
     static const uint32 managedAttributes = KeyBlob::managedAttributes;
 	static const uint32 forcedAttributes = KeyBlob::forcedAttributes;
+
+    bool get_encryption_key(CssmOwnedData &data);
 	
 public:
 	bool validatePassphrase(const CssmData &passphrase);

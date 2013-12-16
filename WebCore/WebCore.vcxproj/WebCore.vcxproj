@@ -58,6 +58,7 @@
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <ImportGroup Label="ExtensionSettings">
+    <Import Project="$(VCTargetsPath)\BuildCustomizations\masm.props" />
   </ImportGroup>
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
@@ -143,6 +144,14 @@
     <ClCompile Include="$(ConfigurationBuildDir)\obj32\$(ProjectName)\DerivedSources\CSSPropertyNames.cpp" />
     <ClCompile Include="$(ConfigurationBuildDir)\obj32\$(ProjectName)\DerivedSources\CSSValueKeywords.cpp" />
     <ClCompile Include="..\accessibility\AccessibilityNodeObject.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='DebugSuffix|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug_WinCairo|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Production|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release_WinCairo|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="..\css\CSSImageSetValue.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='DebugSuffix|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug_WinCairo|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
@@ -4180,6 +4189,7 @@
     <ClCompile Include="..\platform\win\SharedBufferWin.cpp" />
     <ClCompile Include="..\platform\win\SharedTimerWin.cpp" />
     <ClCompile Include="..\platform\win\SoundWin.cpp" />
+    <ClCompile Include="..\platform\win\StructuredExceptionHandlerSuppressor.cpp" />
     <ClCompile Include="..\platform\win\SystemInfo.cpp" />
     <ClCompile Include="..\platform\win\TemporaryLinkStubs.cpp" />
     <ClCompile Include="..\platform\win\WCDataObject.cpp">
@@ -4210,6 +4220,14 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug_WinCairo|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Production|Win32'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="..\rendering\style\StyleCachedImageSet.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='DebugSuffix|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug_WinCairo|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Production|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release_WinCairo|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
     </ClCompile>
     <ClCompile Include="..\storage\StorageStrategy.cpp" />
     <ClCompile Include="..\svg\graphics\SVGImageForContainer.cpp" />
@@ -11077,6 +11095,7 @@
     <ClInclude Include="$(ConfigurationBuildDir)\obj32\$(ProjectName)\DerivedSources\XMLViewerJS.h" />
     <ClInclude Include="$(ConfigurationBuildDir)\obj32\$(ProjectName)\DerivedSources\XPathGrammar.h" />
     <ClInclude Include="..\accessibility\AccessibilityNodeObject.h" />
+    <ClInclude Include="..\css\CSSImageSetValue.h" />
     <ClInclude Include="..\ForwardingHeaders\heap\AllocationSpace.h" />
     <ClInclude Include="..\ForwardingHeaders\heap\Heap.h" />
     <ClInclude Include="..\ForwardingHeaders\heap\SlotVisitor.h" />
@@ -11603,12 +11622,13 @@
     <ClInclude Include="..\platform\win\ScrollbarThemeWin.h" />
     <ClInclude Include="..\platform\win\SearchPopupMenuWin.h" />
     <ClInclude Include="..\platform\win\SoftLinking.h" />
-    <ClInclude Include="..\platform\win\StructuredExceptionHandlerSupressor.h" />
+    <ClInclude Include="..\platform\win\StructuredExceptionHandlerSuppressor.h" />
     <ClInclude Include="..\platform\win\SystemInfo.h" />
     <ClInclude Include="..\platform\graphics\TextRenderingMode.h" />
     <ClInclude Include="..\platform\win\WCDataObject.h" />
     <ClInclude Include="..\platform\win\WebCoreInstanceHandle.h" />
     <ClInclude Include="..\rendering\HitTestLocation.h" />
+    <ClInclude Include="..\rendering\style\StyleCachedImageSet.h" />
     <ClInclude Include="..\storage\StorageStrategy.h" />
     <ClInclude Include="..\svg\graphics\SVGImageForContainer.h" />
     <ClInclude Include="..\WebCorePrefix.h" />
@@ -13281,6 +13301,9 @@
     <None Include="..\css\mediaControls.css" />
     <None Include="..\css\plugIns.css" />
     <None Include="..\css\quirks.css" />
+    <MASM Include="..\platform\win\makesafeseh.asm">
+      <FileType>Document</FileType>
+    </MASM>
     <None Include="..\xml\XPathGrammar.y" />
     <None Include="..\bindings\scripts\CodeGenerator.pm" />
     <None Include="..\bindings\scripts\CodeGeneratorJS.pm" />
@@ -13553,5 +13576,6 @@
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
+    <Import Project="$(VCTargetsPath)\BuildCustomizations\masm.targets" />
   </ImportGroup>
 </Project>

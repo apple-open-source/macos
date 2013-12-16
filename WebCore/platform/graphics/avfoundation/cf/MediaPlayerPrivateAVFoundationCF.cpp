@@ -60,7 +60,11 @@
 #include "CoreMediaSoftLinking.h"
 
 // We don't bother softlinking against libdispatch since it's already been loaded by AAS.
+#ifdef DEBUG_ALL
+#pragma comment(lib, "libdispatch_debug.lib")
+#else
 #pragma comment(lib, "libdispatch.lib")
+#endif
 
 using namespace std;
 
@@ -841,6 +845,8 @@ void MediaPlayerPrivateAVFoundationCF::tracksChanged()
     if (!avAsset(m_avfWrapper))
         return;
 
+    setDelayCharacteristicsChangedNotification(true);
+
     bool haveCCTrack = false;
     bool hasCaptions = false;
 
@@ -914,8 +920,10 @@ void MediaPlayerPrivateAVFoundationCF::tracksChanged()
 
     sizeChanged();
 
-    if (!primaryAudioTrackLanguage.isNull() && primaryAudioTrackLanguage != languageOfPrimaryAudioTrack())
-        player()->characteristicChanged();
+    if (primaryAudioTrackLanguage != languageOfPrimaryAudioTrack())
+        characteristicsChanged();
+
+    setDelayCharacteristicsChangedNotification(false);
 }
 
 void MediaPlayerPrivateAVFoundationCF::sizeChanged()
@@ -946,6 +954,17 @@ void MediaPlayerPrivateAVFoundationCF::sizeChanged()
     if (movieSize.height > naturalSize.height)
         naturalSize.height = movieSize.height;
     setNaturalSize(IntSize(naturalSize));
+}
+
+bool MediaPlayerPrivateAVFoundationCF::requiresImmediateCompositing() const
+{
+    // The AVFoundationCF player needs to have the root compositor available at construction time
+    // so it can attach to the rendering device. Otherwise it falls back to CPU-only mode.
+    //
+    // It would be nice if AVCFPlayer had some way to switch to hardware-accelerated mode
+    // when asked, then we could follow AVFoundation's model and switch to compositing
+    // mode when beginning to play media.
+    return true;
 }
 
 #if !HAVE(AVFOUNDATION_LEGIBLE_OUTPUT_SUPPORT)
@@ -1095,6 +1114,12 @@ String MediaPlayerPrivateAVFoundationCF::languageOfPrimaryAudioTrack() const
     AVCFAssetTrackRef track = (AVCFAssetTrackRef)CFArrayGetValueAtIndex(tracks.get(), 0);
     RetainPtr<CFStringRef> language = adoptCF(AVCFAssetTrackCopyExtendedLanguageTag(track));
 
+    // If the language code is stored as a QuickTime 5-bit packed code there aren't enough bits for a full
+    // RFC 4646 language tag so extendedLanguageTag returns null. In this case languageCode will return the
+    // ISO 639-2/T language code so check it.
+    if (!language)
+        language = adoptCF(AVCFAssetTrackCopyLanguageCode(track));
+
     // Some legacy tracks have "und" as a language, treat that the same as no language at all.
     if (language && CFStringCompare(language.get(), CFSTR("und"), kCFCompareCaseInsensitive) != kCFCompareEqualTo) {
         m_languageOfPrimaryAudioTrack = language.get();
@@ -1118,6 +1143,8 @@ AVFWrapper::AVFWrapper(MediaPlayerPrivateAVFoundationCF* owner)
     , m_objectID(s_nextAVFWrapperObjectID++)
     , m_currentTrack(0)
 {
+    ASSERT(isMainThread());
+    ASSERT(dispatch_get_main_queue() == dispatch_get_current_queue());
     LOG(Media, "AVFWrapper::AVFWrapper(%p)", this);
 
     m_notificationQueue = dispatch_queue_create("MediaPlayerPrivateAVFoundationCF.notificationQueue", 0);
@@ -1126,6 +1153,8 @@ AVFWrapper::AVFWrapper(MediaPlayerPrivateAVFoundationCF* owner)
 
 AVFWrapper::~AVFWrapper()
 {
+    ASSERT(isMainThread());
+    ASSERT(dispatch_get_main_queue() == dispatch_get_current_queue());
     LOG(Media, "AVFWrapper::~AVFWrapper(%p %d)", this, m_objectID);
 
     destroyVideoLayer();
@@ -1204,6 +1233,17 @@ void AVFWrapper::scheduleDisconnectAndDelete()
     dispatch_async_f(dispatchQueue(), this, disconnectAndDeleteAVFWrapper);
 }
 
+static void destroyAVFWrapper(void* context)
+{
+    ASSERT(isMainThread());
+    ASSERT(dispatch_get_main_queue() == dispatch_get_current_queue());
+    AVFWrapper* avfWrapper = static_cast<AVFWrapper*>(context);
+    if (!avfWrapper)
+        return;
+
+    delete avfWrapper;
+}
+
 void AVFWrapper::disconnectAndDeleteAVFWrapper(void* context)
 {
     AVFWrapper* avfWrapper = static_cast<AVFWrapper*>(context);
@@ -1236,7 +1276,8 @@ void AVFWrapper::disconnectAndDeleteAVFWrapper(void* context)
     AVCFPlayerItemRemoveOutput(avfWrapper->avPlayerItem(), avfWrapper->legibleOutput());
 #endif
 
-    delete avfWrapper;
+    // We must release the AVCFPlayer and other items on the same thread that created them.
+    dispatch_async_f(dispatch_get_main_queue(), context, destroyAVFWrapper);
 }
 
 void AVFWrapper::createAssetForURL(const String& url)
@@ -1251,6 +1292,8 @@ void AVFWrapper::createAssetForURL(const String& url)
 
 void AVFWrapper::createPlayer(IDirect3DDevice9* d3dDevice)
 {
+    ASSERT(isMainThread());
+    ASSERT(dispatch_get_main_queue() == dispatch_get_current_queue());
     ASSERT(!avPlayer() && avPlayerItem());
 
     RetainPtr<CFMutableDictionaryRef> optionsRef = adoptCF(CFDictionaryCreateMutable(kCFAllocatorDefault, 1, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks));
@@ -1292,6 +1335,8 @@ void AVFWrapper::createPlayer(IDirect3DDevice9* d3dDevice)
 
 void AVFWrapper::createPlayerItem()
 {
+    ASSERT(isMainThread());
+    ASSERT(dispatch_get_main_queue() == dispatch_get_current_queue());
     ASSERT(!avPlayerItem() && avAsset());
 
     // Create the player item so we begin loading media data.
@@ -1327,7 +1372,7 @@ void AVFWrapper::createPlayerItem()
     callbackInfo.context = callbackContext();
     callbackInfo.legibleOutputCallback = AVFWrapper::legibleOutputCallback;
 
-    AVCFPlayerItemLegibleOutputSetCallbacks(m_legibleOutput.get(), &callbackInfo, dispatch_get_main_queue());
+    AVCFPlayerItemLegibleOutputSetCallbacks(m_legibleOutput.get(), &callbackInfo, dispatchQueue());
     AVCFPlayerItemLegibleOutputSetAdvanceIntervalForCallbackInvocation(m_legibleOutput.get(), legibleOutputAdvanceInterval);
     AVCFPlayerItemLegibleOutputSetTextStylingResolution(m_legibleOutput.get(), AVCFPlayerItemLegibleOutputTextStylingResolutionSourceAndRulesOnly);
     AVCFPlayerItemAddOutput(m_avPlayerItem.get(), m_legibleOutput.get());
@@ -1550,6 +1595,8 @@ PlatformLayer* AVFWrapper::platformLayer()
 
 void AVFWrapper::createAVCFVideoLayer()
 {
+    ASSERT(isMainThread());
+    ASSERT(dispatch_get_main_queue() == dispatch_get_current_queue());
     if (!avPlayer() || m_avCFVideoLayer)
         return;
 
@@ -1560,6 +1607,8 @@ void AVFWrapper::createAVCFVideoLayer()
 
 void AVFWrapper::destroyVideoLayer()
 {
+    ASSERT(isMainThread());
+    ASSERT(dispatch_get_main_queue() == dispatch_get_current_queue());
     LOG(Media, "AVFWrapper::destroyVideoLayer(%p)", this);
     m_layerClient = nullptr;
     m_caVideoLayer = 0;
@@ -1585,6 +1634,8 @@ void AVFWrapper::setVideoLayerHidden(bool value)
 
 void AVFWrapper::createImageGenerator()
 {
+    ASSERT(isMainThread());
+    ASSERT(dispatch_get_main_queue() == dispatch_get_current_queue());
     if (!avAsset() || m_imageGenerator)
         return;
 
@@ -1600,6 +1651,8 @@ void AVFWrapper::createImageGenerator()
 
 void AVFWrapper::destroyImageGenerator()
 {
+    ASSERT(isMainThread());
+    ASSERT(dispatch_get_main_queue() == dispatch_get_current_queue());
     LOG(Media, "AVFWrapper::destroyImageGenerator(%p)", this);
     m_imageGenerator = 0;
 }

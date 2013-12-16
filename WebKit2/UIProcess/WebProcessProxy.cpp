@@ -309,7 +309,7 @@ void WebProcessProxy::addBackForwardItem(uint64_t itemID, const String& original
 }
 
 #if ENABLE(NETSCAPE_PLUGIN_API)
-void WebProcessProxy::getPlugins(bool refresh, Vector<PluginInfo>& plugins)
+void WebProcessProxy::getPlugins(bool refresh, Vector<PluginInfo>& plugins, Vector<PluginInfo>& applicationPlugins)
 {
     if (refresh)
         m_context->pluginInfoStore().refresh();
@@ -322,9 +322,12 @@ void WebProcessProxy::getPlugins(bool refresh, Vector<PluginInfo>& plugins)
     // Add built-in PDF last, so that it's not used when a real plug-in is installed.
     if (!m_context->omitPDFSupport()) {
 #if ENABLE(PDFKIT_PLUGIN)
+        // Add built-in PDF last, so that it's not used when a real plug-in is installed.
         plugins.append(PDFPlugin::pluginInfo());
+        applicationPlugins.append(PDFPlugin::pluginInfo());
 #endif
         plugins.append(SimplePDFPlugin::pluginInfo());
+        applicationPlugins.append(SimplePDFPlugin::pluginInfo());
     }
 #endif
 }

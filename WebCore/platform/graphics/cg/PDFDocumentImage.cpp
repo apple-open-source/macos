@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004, 2005, 2006 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2004, 2005, 2006, 2013 Apple Computer, Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -30,6 +30,7 @@
 #if USE(CG)
 
 #include "GraphicsContext.h"
+#include "ImageBuffer.h"
 #include "ImageObserver.h"
 #include "Length.h"
 #include "SharedBuffer.h"
@@ -42,21 +43,18 @@
 #include "ImageSourceCG.h"
 #endif
 
-using namespace std;
-
 namespace WebCore {
 
-PDFDocumentImage::PDFDocumentImage()
-    : Image(0) // PDFs don't animate
-    , m_document(0)
+PDFDocumentImage::PDFDocumentImage(ImageObserver* observer)
+    : Image(observer)
+    , m_cachedBytes(0)
     , m_rotation(0.0f)
-    , m_currentPage(-1)
+    , m_hasPage(false)
 {
 }
 
 PDFDocumentImage::~PDFDocumentImage()
 {
-    CGPDFDocumentRelease(m_document);
 }
 
 String PDFDocumentImage::filenameExtension() const
@@ -70,10 +68,10 @@ IntSize PDFDocumentImage::size() const
     const float cosa = cosf(-m_rotation);
     const float width = m_mediaBox.size().width();
     const float height = m_mediaBox.size().height();
-    const float rotWidth = width * cosa - height * sina;
-    const float rotHeight = width * sina + height * cosa;
+    const float rotWidth = fabsf(width * cosa - height * sina);
+    const float rotHeight = fabsf(width * sina + height * cosa);
     
-    return IntSize((int)(fabsf(rotWidth) + 0.5f), (int)(fabsf(rotHeight) + 0.5f));
+    return expandedIntSize(FloatSize(rotWidth, rotHeight));
 }
 
 void PDFDocumentImage::computeIntrinsicDimensions(Length& intrinsicWidth, Length& intrinsicHeight, FloatSize& intrinsicRatio)
@@ -85,116 +83,179 @@ void PDFDocumentImage::computeIntrinsicDimensions(Length& intrinsicWidth, Length
 
 bool PDFDocumentImage::dataChanged(bool allDataReceived)
 {
+    ASSERT(!m_document);
     if (allDataReceived && !m_document) {
-#if PLATFORM(MAC)
-        // On Mac the NSData inside the SharedBuffer can be secretly appended to without the SharedBuffer's knowledge.  We use SharedBuffer's ability
-        // to wrap itself inside CFData to get around this, ensuring that ImageIO is really looking at the SharedBuffer.
-        RetainPtr<CFDataRef> data = adoptCF(this->data()->createCFData());
-        RetainPtr<CGDataProviderRef> dataProvider = adoptCF(CGDataProviderCreateWithCFData(data.get()));
-#else
-        // Create a CGDataProvider to wrap the SharedBuffer.
-        // We use the GetBytesAtPosition callback rather than the GetBytePointer one because SharedBuffer
-        // does not provide a way to lock down the byte pointer and guarantee that it won't move, which
-        // is a requirement for using the GetBytePointer callback.
-        CGDataProviderDirectCallbacks providerCallbacks = { 0, 0, 0, sharedBufferGetBytesAtPosition, 0 };
-        RetainPtr<CGDataProviderRef> dataProvider = adoptCF(CGDataProviderCreateDirect(this->data(), this->data()->size(), &providerCallbacks));
-#endif
-        m_document = CGPDFDocumentCreateWithProvider(dataProvider.get());
-        setCurrentPage(0);
+        createPDFDocument();
+
+        if (pageCount()) {
+            m_hasPage = true;
+            computeBoundsForCurrentPage();
+        }
     }
-    return m_document; // return true if size is available
+    return m_document; // Return true if size is available.
 }
 
-void PDFDocumentImage::adjustCTM(GraphicsContext* context) const
+void PDFDocumentImage::applyRotationForPainting(GraphicsContext* context) const
 {
-    // rotate the crop box and calculate bounding box
+    // Rotate the crop box and calculate bounding box.
     float sina = sinf(-m_rotation);
     float cosa = cosf(-m_rotation);
     float width = m_cropBox.width();
     float height = m_cropBox.height();
 
-    // calculate rotated x and y edges of the corp box. if they're negative, it means part of the image has
-    // been rotated outside of the bounds and we need to shift over the image so it lies inside the bounds again
+    // Calculate rotated x and y edges of the crop box. If they're negative, it means part of the image has
+    // been rotated outside of the bounds and we need to shift over the image so it lies inside the bounds again.
     CGPoint rx = CGPointMake(width * cosa, width * sina);
     CGPoint ry = CGPointMake(-height * sina, height * cosa);
 
-    // adjust so we are at the crop box origin
+    // Adjust so we are at the crop box origin.
     const CGFloat zero = 0;
-    CGContextTranslateCTM(context->platformContext(), floorf(-min(zero, min(rx.x, ry.x))), floorf(-min(zero, min(rx.y, ry.y))));
+    context->translate(floorf(-std::min(zero, std::min(rx.x, ry.x))), floorf(-std::min(zero, std::min(rx.y, ry.y))));
 
-    // rotate -ve to remove rotation
-    CGContextRotateCTM(context->platformContext(), -m_rotation);
-
-    // shift so we are completely within media box
-    CGContextTranslateCTM(context->platformContext(), m_mediaBox.x() - m_cropBox.x(), m_mediaBox.y() - m_cropBox.y());
+    context->rotate(-m_rotation);
 }
 
-void PDFDocumentImage::setCurrentPage(int page)
+bool PDFDocumentImage::cacheParametersMatch(GraphicsContext* context, const FloatRect& dstRect, const FloatRect& srcRect) const
 {
-    if (!m_document)
+    if (dstRect.size() != m_cachedDestinationSize)
+        return false;
+
+    if (srcRect != m_cachedSourceRect)
+        return false;
+
+    AffineTransform::DecomposedType decomposedTransform;
+    context->getCTM(GraphicsContext::DefinitelyIncludeDeviceScale).decompose(decomposedTransform);
+
+    AffineTransform::DecomposedType cachedDecomposedTransform;
+    m_cachedTransform.decompose(cachedDecomposedTransform);
+    if (decomposedTransform.scaleX != cachedDecomposedTransform.scaleX || decomposedTransform.scaleY != cachedDecomposedTransform.scaleY)
+        return false;
+
+    return true;
+}
+
+static void transformContextForPainting(GraphicsContext* context, const FloatRect& dstRect, const FloatRect& srcRect)
+{
+    float hScale = dstRect.width() / srcRect.width();
+    float vScale = dstRect.height() / srcRect.height();
+    context->translate(srcRect.x() * hScale, srcRect.y() * vScale);
+    context->scale(FloatSize(hScale, -vScale));
+    context->translate(0, -srcRect.height());
+}
+
+void PDFDocumentImage::updateCachedImageIfNeeded(GraphicsContext* context, const FloatRect& dstRect, const FloatRect& srcRect)
+{
+    // If we have an existing image, reuse it if we're doing a low-quality paint, even if cache parameters don't match;
+    // we'll rerender when we do the subsequent high-quality paint.
+    InterpolationQuality interpolationQuality = context->imageInterpolationQuality();
+    bool useLowQualityInterpolation = interpolationQuality == InterpolationNone || interpolationQuality == InterpolationLow;
+
+    if (!m_cachedImageBuffer || (!cacheParametersMatch(context, dstRect, srcRect) && !useLowQualityInterpolation)) {
+        m_cachedImageBuffer = context->createCompatibleBuffer(enclosingIntRect(dstRect).size());
+        if (!m_cachedImageBuffer)
+            return;
+        GraphicsContext* bufferContext = m_cachedImageBuffer->context();
+        if (!bufferContext) {
+            m_cachedImageBuffer = nullptr;
+            return;
+        }
+
+        transformContextForPainting(bufferContext, dstRect, srcRect);
+        drawPDFPage(bufferContext);
+
+        m_cachedTransform = context->getCTM(GraphicsContext::DefinitelyIncludeDeviceScale);
+        m_cachedDestinationSize = dstRect.size();
+        m_cachedSourceRect = srcRect;
+
+        IntSize internalSize = m_cachedImageBuffer->internalSize();
+        size_t oldCachedBytes = m_cachedBytes;
+        m_cachedBytes = internalSize.width() * internalSize.height() * 4;
+
+        if (imageObserver())
+            imageObserver()->decodedSizeChanged(this, safeCast<int>(m_cachedBytes) - safeCast<int>(oldCachedBytes));
+    }
+}
+
+void PDFDocumentImage::draw(GraphicsContext* context, const FloatRect& dstRect, const FloatRect& srcRect, ColorSpace, CompositeOperator op, BlendMode)
+{
+    if (!m_document || !m_hasPage)
         return;
 
-    if (page == m_currentPage)
-        return;
+    updateCachedImageIfNeeded(context, dstRect, srcRect);
 
-    if (!(page >= 0 && page < pageCount()))
-        return;
+    {
+        GraphicsContextStateSaver stateSaver(*context);
+        context->setCompositeOperation(op);
 
-    m_currentPage = page;
+        if (m_cachedImageBuffer)
+            context->drawImageBuffer(m_cachedImageBuffer.get(), ColorSpaceDeviceRGB, dstRect);
+        else {
+            transformContextForPainting(context, dstRect, srcRect);
+            drawPDFPage(context);
+        }
+    }
 
-    CGPDFPageRef cgPage = CGPDFDocumentGetPage(m_document, page + 1);
+    if (imageObserver())
+        imageObserver()->didDraw(this);
+}
 
-    // get media box (guaranteed)
+void PDFDocumentImage::destroyDecodedData(bool)
+{
+    m_cachedImageBuffer = nullptr;
+
+    if (imageObserver())
+        imageObserver()->decodedSizeChanged(this, -safeCast<int>(m_cachedBytes));
+
+    m_cachedBytes = 0;
+}
+
+unsigned PDFDocumentImage::decodedSize() const
+{
+    // FIXME: PDFDocumentImage is underreporting decoded sizes because this
+    // only includes the cached image and nothing else.
+
+    return m_cachedBytes;
+}
+
+#if !USE(PDFKIT_FOR_PDFDOCUMENTIMAGE)
+void PDFDocumentImage::createPDFDocument()
+{
+    RetainPtr<CFDataRef> data = adoptCF(this->data()->createCFData());
+    RetainPtr<CGDataProviderRef> dataProvider = adoptCF(CGDataProviderCreateWithCFData(data.get()));
+    m_document = CGPDFDocumentCreateWithProvider(dataProvider.get());
+}
+
+void PDFDocumentImage::computeBoundsForCurrentPage()
+{
+    CGPDFPageRef cgPage = CGPDFDocumentGetPage(m_document.get(), 1);
+
     m_mediaBox = CGPDFPageGetBoxRect(cgPage, kCGPDFMediaBox);
 
-    // get crop box (not always there). if not, use media box
+    // Get crop box (not always there). If not, use media box.
     CGRect r = CGPDFPageGetBoxRect(cgPage, kCGPDFCropBox);
     if (!CGRectIsEmpty(r))
         m_cropBox = r;
     else
         m_cropBox = m_mediaBox;
 
-    // get page rotation angle
-    m_rotation = CGPDFPageGetRotationAngle(cgPage) * piFloat / 180.0f; // to radians
+    m_rotation = deg2rad(static_cast<float>(CGPDFPageGetRotationAngle(cgPage)));
 }
 
-int PDFDocumentImage::pageCount() const
+unsigned PDFDocumentImage::pageCount() const
 {
-    return m_document ? CGPDFDocumentGetNumberOfPages(m_document) : 0;
+    return CGPDFDocumentGetNumberOfPages(m_document.get());
 }
 
-void PDFDocumentImage::draw(GraphicsContext* context, const FloatRect& dstRect, const FloatRect& srcRect, ColorSpace, CompositeOperator op, BlendMode)
+void PDFDocumentImage::drawPDFPage(GraphicsContext* context)
 {
-    if (!m_document || m_currentPage == -1)
-        return;
+    applyRotationForPainting(context);
 
-    {
-        GraphicsContextStateSaver stateSaver(*context);
+    context->translate(-m_cropBox.x(), -m_cropBox.y());
 
-        context->setCompositeOperation(op);
-
-        float hScale = dstRect.width() / srcRect.width();
-        float vScale = dstRect.height() / srcRect.height();
-
-        // Scale and translate so the document is rendered in the correct location,
-        // including accounting for the fact that a GraphicsContext is always flipped
-        // and doing appropriate flipping.
-        CGContextTranslateCTM(context->platformContext(), dstRect.x() - srcRect.x() * hScale, dstRect.y() - srcRect.y() * vScale);
-        CGContextScaleCTM(context->platformContext(), hScale, vScale);
-        CGContextScaleCTM(context->platformContext(), 1, -1);
-        CGContextTranslateCTM(context->platformContext(), 0, -srcRect.height());
-        CGContextClipToRect(context->platformContext(), CGRectIntegral(srcRect));
-
-        // Rotate translate image into position according to doc properties.
-        adjustCTM(context);
-
-        CGContextTranslateCTM(context->platformContext(), -m_mediaBox.x(), -m_mediaBox.y());
-        CGContextDrawPDFPage(context->platformContext(), CGPDFDocumentGetPage(m_document, m_currentPage + 1));
-    }
-
-    if (imageObserver())
-        imageObserver()->didDraw(this);
+    // CGPDF pages are indexed from 1.
+    CGContextDrawPDFPage(context->platformContext(), CGPDFDocumentGetPage(m_document.get(), 1));
 }
+#endif // !USE(PDFKIT_FOR_PDFDOCUMENTIMAGE)
 
 }
 

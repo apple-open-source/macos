@@ -60,7 +60,7 @@ public:
     bool launchProcess(const String& launchPath, const Vector<String>& arguments);
     bool launchApplicationAtURL(const String& urlString, const Vector<String>& arguments);
     bool openURL(const String& urlString, int32_t& status, String& launchedURLString);
-
+    bool openFile(const String& urlString);
 #endif
 
 private:
@@ -73,6 +73,10 @@ private:
     virtual void initializeSandbox(const ChildProcessInitializationParameters&, SandboxInitializationParameters&) OVERRIDE;
     virtual bool shouldTerminate() OVERRIDE;
     void platformInitializeProcess(const ChildProcessInitializationParameters&);
+
+#if PLATFORM(MAC)
+    virtual void stopRunLoop() OVERRIDE;
+#endif
 
     // CoreIPC::Connection::Client
     virtual void didReceiveMessage(CoreIPC::Connection*, CoreIPC::MessageDecoder&) OVERRIDE;

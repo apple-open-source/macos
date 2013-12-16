@@ -3471,9 +3471,6 @@
     <ClCompile Include="..\dom\StyledElement.cpp">
       <Filter>dom</Filter>
     </ClCompile>
-    <ClCompile Include="..\dom\StyleElement.cpp">
-      <Filter>dom</Filter>
-    </ClCompile>
     <ClCompile Include="..\dom\TagNodeList.cpp">
       <Filter>dom</Filter>
     </ClCompile>
@@ -6790,7 +6787,6 @@
     <ClCompile Include="..\page\CaptionUserPreferencesMediaAF.cpp">
       <Filter>page</Filter>
     </ClCompile>
-    <ClCompile Include="$(ConfigurationBuildDir)\obj32\$(ProjectName)\DerivedSources\JSSVGGraphicsElement.cpp" />
     <ClCompile Include="..\platform\graphics\avfoundation\cf\InbandTextTrackPrivateAVCF.cpp">
       <Filter>platform\graphics\avfoundation\cf</Filter>
     </ClCompile>
@@ -6799,6 +6795,18 @@
     </ClCompile>
     <ClCompile Include="..\platform\graphics\avfoundation\cf\InbandTextTrackPrivateLegacyAVCF.cpp">
       <Filter>platform\graphics\avfoundation\cf</Filter>
+    </ClCompile>
+    <ClCompile Include="..\platform\win\StructuredExceptionHandlerSuppressor.cpp">
+      <Filter>platform\win</Filter>
+    </ClCompile>
+    <ClCompile Include="..\dom\ElementData.cpp" />
+    <ClCompile Include="..\dom\InlineStyleSheetOwner.cpp" />
+    <ClCompile Include="..\dom\TextNodeTraversal.cpp" />
+    <ClCompile Include="..\css\CSSImageSetValue.cpp">
+      <Filter>css</Filter>
+    </ClCompile>
+    <ClCompile Include="..\rendering\style\StyleCachedImageSet.cpp">
+      <Filter>rendering\style</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -8092,7 +8100,7 @@
     <ClInclude Include="..\platform\win\SoftLinking.h">
       <Filter>platform\win</Filter>
     </ClInclude>
-    <ClInclude Include="..\platform\win\StructuredExceptionHandlerSupressor.h">
+    <ClInclude Include="..\platform\win\StructuredExceptionHandlerSuppressor.h">
       <Filter>platform\win</Filter>
     </ClInclude>
     <ClInclude Include="..\platform\win\SystemInfo.h">
@@ -10283,9 +10291,6 @@
       <Filter>dom</Filter>
     </ClInclude>
     <ClInclude Include="..\dom\StyledElement.h">
-      <Filter>dom</Filter>
-    </ClInclude>
-    <ClInclude Include="..\dom\StyleElement.h">
       <Filter>dom</Filter>
     </ClInclude>
     <ClInclude Include="..\dom\TagNodeList.h">
@@ -14277,6 +14282,15 @@
     <ClInclude Include="..\platform\graphics\avfoundation\cf\InbandTextTrackPrivateLegacyAVCF.h">
       <Filter>platform\graphics\avfoundation\cf</Filter>
     </ClInclude>
+    <ClInclude Include="..\dom\ElementData.h" />
+    <ClInclude Include="..\dom\InlineStyleSheetOwner.h" />
+    <ClInclude Include="..\dom\TextNodeTraversal.h" />
+    <ClInclude Include="..\css\CSSImageSetValue.h">
+      <Filter>css</Filter>
+    </ClInclude>
+    <ClInclude Include="..\rendering\style\StyleCachedImageSet.h">
+      <Filter>rendering\style</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="..\css\CSSGrammar.y.in">
@@ -15220,5 +15234,10 @@
     <CustomBuildStep Include="..\rendering\RenderThemeWin.h">
       <Filter>rendering</Filter>
     </CustomBuildStep>
+  </ItemGroup>
+  <ItemGroup>
+    <MASM Include="..\platform\win\makesafeseh.asm">
+      <Filter>platform\win</Filter>
+    </MASM>
   </ItemGroup>
 </Project>

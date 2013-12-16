@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013 Apple Inc. All rights reserved.
+ * Copyright (C) 2011, 2013 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -23,39 +23,31 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef SyncNetworkResourceLoader_h
-#define SyncNetworkResourceLoader_h
+#ifndef StructuredExceptionHandlerSuppressor_h
+#define StructuredExceptionHandlerSuppressor_h
 
-#include "NetworkConnectionToWebProcessMessages.h"
-#include "SchedulableLoader.h"
-#include <wtf/RefCounted.h>
+#include <excpt.h>
+#include <wtf/Noncopyable.h>
 
-#if ENABLE(NETWORK_PROCESS)
+extern "C" EXCEPTION_DISPOSITION __stdcall exceptionHandler(struct _EXCEPTION_RECORD* exceptionRecord, void* establisherFrame, struct _CONTEXT* contextRecord, void* dispatcherContext);
 
-namespace WebKit {
+namespace WebCore {
 
-class SyncNetworkResourceLoader : public SchedulableLoader {
-public:
-    static PassRefPtr<SyncNetworkResourceLoader> create(const NetworkResourceLoadParameters& parameters, NetworkConnectionToWebProcess* connection, PassRefPtr<Messages::NetworkConnectionToWebProcess::PerformSynchronousLoad::DelayedReply> reply)
-    {
-        return adoptRef(new SyncNetworkResourceLoader(parameters, connection, reply));
-    }
-
-    virtual void start() OVERRIDE;
-    virtual void abort() OVERRIDE;
-
-    virtual bool isSynchronous() OVERRIDE { return true; }
-
-private:
-    SyncNetworkResourceLoader(const NetworkResourceLoadParameters&, NetworkConnectionToWebProcess*, PassRefPtr<Messages::NetworkConnectionToWebProcess::PerformSynchronousLoad::DelayedReply>);
-    
-    void cleanup();
-    
-    RefPtr<Messages::NetworkConnectionToWebProcess::PerformSynchronousLoad::DelayedReply> m_delayedReply;
+struct ExceptionRegistration {
+    ExceptionRegistration* prev;
+    void* handler;
 };
 
-} // namespace WebKit
+class StructuredExceptionHandlerSuppressor {
+    WTF_MAKE_NONCOPYABLE(StructuredExceptionHandlerSuppressor);
+public:
+    StructuredExceptionHandlerSuppressor(ExceptionRegistration&);
+    ~StructuredExceptionHandlerSuppressor();
 
-#endif // ENABLE(NETWORK_PROCESS)
+private:
+    void* m_savedExceptionRegistration;
+};
 
-#endif // SyncNetworkResourceLoader_h
+} // namespace WebCore
+
+#endif // StructuredExceptionHandlerSuppressor_h

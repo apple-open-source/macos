@@ -245,12 +245,12 @@ static void setUpFullyClippedStack(BitStack& stack, Node* node)
     ASSERT(stack.size() == 1 + depthCrossingShadowBoundaries(node));
 }
     
-static bool isRendererReplacedElement(RenderObject* renderer)
+bool isRendererReplacedElement(RenderObject* renderer)
 {
     if (!renderer)
         return false;
     
-    if (renderer->isImage() || renderer->isWidget())
+    if (renderer->isImage() || renderer->isWidget() || renderer->isMedia())
         return true;
     
     if (renderer->node() && renderer->node()->isElementNode()) {

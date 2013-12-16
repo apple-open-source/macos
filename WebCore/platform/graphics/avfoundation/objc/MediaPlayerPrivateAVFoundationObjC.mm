@@ -986,6 +986,8 @@ void MediaPlayerPrivateAVFoundationObjC::tracksChanged()
     if (!m_avAsset)
         return;
 
+    setDelayCharacteristicsChangedNotification(true);
+
     bool haveCCTrack = false;
     bool hasCaptions = false;
 
@@ -1045,8 +1047,10 @@ void MediaPlayerPrivateAVFoundationObjC::tracksChanged()
 
     sizeChanged();
 
-    if (!primaryAudioTrackLanguage.isNull() && primaryAudioTrackLanguage != languageOfPrimaryAudioTrack())
-        player()->characteristicChanged();
+    if (primaryAudioTrackLanguage != languageOfPrimaryAudioTrack())
+        characteristicsChanged();
+
+    setDelayCharacteristicsChangedNotification(false);
 }
 
 void MediaPlayerPrivateAVFoundationObjC::sizeChanged()
@@ -1497,6 +1501,12 @@ String MediaPlayerPrivateAVFoundationObjC::languageOfPrimaryAudioTrack() const
     AVAssetTrack *track = [tracks objectAtIndex:0];
     NSString *language = [track extendedLanguageTag];
 
+    // If the language code is stored as a QuickTime 5-bit packed code there aren't enough bits for a full
+    // RFC 4646 language tag so extendedLanguageTag returns NULL. In this case languageCode will return the
+    // ISO 639-2/T language code so check it.
+    if (!language)
+        language = [track languageCode];
+
     // Some legacy tracks have "und" as a language, treat that the same as no language at all.
     if (language && ![language isEqualToString:@"und"]) {
         m_languageOfPrimaryAudioTrack = language;
@@ -1552,8 +1562,11 @@ NSArray* itemKVOProperties()
 
 - (id)initWithCallback:(MediaPlayerPrivateAVFoundationObjC*)callback
 {
+    self = [super init];
+    if (!self)
+        return nil;
     m_callback = callback;
-    return [super init];
+    return self;
 }
 
 - (void)disconnect
@@ -1676,8 +1689,11 @@ NSArray* itemKVOProperties()
 
 - (id)initWithCallback:(MediaPlayerPrivateAVFoundationObjC*)callback
 {
+    self = [super init];
+    if (!self)
+        return nil;
     m_callback = callback;
-    return [super init];
+    return self;
 }
 
 - (BOOL)resourceLoader:(AVAssetResourceLoader *)resourceLoader shouldWaitForLoadingOfRequestedResource:(AVAssetResourceLoadingRequest *)loadingRequest

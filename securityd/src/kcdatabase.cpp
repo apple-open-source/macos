@@ -81,8 +81,30 @@ unlock_keybag(KeychainDbCommon & dbCommon, const void * secret, int secret_len)
         }
     }
 
+    if (rc != 0) { // if we just upgraded make sure we swap the encryption key to the password
+        if (!dbCommon.session().keybagGetState(session_keybag_check_master_key)) {
+            CssmAutoData encKey(Allocator::standard(Allocator::sensitive));
+            dbCommon.get_encryption_key(encKey);
+            if ((rc = service_client_kb_unlock(&context, encKey.data(), (int)encKey.length())) == 0) {
+                rc = service_client_kb_change_secret(&context, encKey.data(), (int)encKey.length(), secret, secret_len);
+            }
+
+            if (rc != 0) { // if a login.keychain password exists but doesnt on the keybag update it
+                bool no_pin = false;
+                if ((secret_len > 0) && service_client_kb_is_locked(&context, NULL, &no_pin) == 0) {
+                    if (no_pin) {
+                        syslog(LOG_ERR, "Updating iCloud keychain passphrase for uid %d", dbCommon.session().originatorUid());
+                        service_client_kb_change_secret(&context, NULL, 0, secret, secret_len);
+                    }
+                }
+            }
+        } // session_keybag_check_master_key
+    }
+
     if (rc == 0) {
-        dbCommon.session().keybagSetState(session_keybag_unlocked|session_keybag_loaded);
+        dbCommon.session().keybagSetState(session_keybag_unlocked|session_keybag_loaded|session_keybag_check_master_key);
+    } else {
+        syslog(LOG_ERR, "Failed to unlock iCloud keychain for uid %d", dbCommon.session().originatorUid());
     }
 
     return rc;
@@ -528,7 +550,8 @@ void KeychainDatabase::makeUnlocked(const AccessCredentials *cred)
 //
 void KeychainDatabase::stashDbCheck()
 {    
-    CssmAutoData data(Allocator::standard(Allocator::sensitive));
+    CssmAutoData masterKey(Allocator::standard(Allocator::sensitive));
+    CssmAutoData encKey(Allocator::standard(Allocator::sensitive));
 
     // Fetch the key
     int rc = 0;
@@ -538,7 +561,7 @@ void KeychainDatabase::stashDbCheck()
     rc = service_client_stash_get_key(&context, &stash_key, &stash_key_len);
     if (rc == 0) {
         if (stash_key) {
-            data.copy(CssmData((void *)stash_key,stash_key_len));
+            masterKey.copy(CssmData((void *)stash_key,stash_key_len));
             memset(stash_key, 0, stash_key_len);
             free(stash_key);
         }
@@ -550,7 +573,7 @@ void KeychainDatabase::stashDbCheck()
         StLock<Mutex> _(common());
 
         // Now establish it as the keychain master key
-        CssmClient::Key key(Server::csp(), data.get());
+        CssmClient::Key key(Server::csp(), masterKey.get());
         CssmKey::Header &hdr = key.header();
         hdr.keyClass(CSSM_KEYCLASS_SESSION_KEY);
         hdr.algorithm(CSSM_ALGID_3DES_3KEY_EDE);
@@ -561,12 +584,14 @@ void KeychainDatabase::stashDbCheck()
 
         if (!decode())
             CssmError::throwMe(CSSM_ERRCODE_OPERATION_AUTH_DENIED);
+
+        common().get_encryption_key(encKey);
     }
 
-    // when upgrading from pre-10.9 create a keybag if it doesn't exist with the master secret
+    // when upgrading from pre-10.9 create a keybag if it doesn't exist with the encryption key
     // only do this after we have verified the master key unlocks the login.keychain
     if (service_client_kb_load(&context) == KB_BagNotFound) {
-        service_client_kb_create(&context, data.data(), (int)data.length());
+        service_client_kb_create(&context, encKey.data(), (int)encKey.length());
     }
 }
 
@@ -620,7 +645,7 @@ void KeychainDatabase::makeUnlocked(const CssmData &passphrase)
     if (common().isLoginKeychain()) {
         bool locked = false;
         service_context_t context = common().session().get_current_service_context();
-        if ((service_client_kb_is_locked(&context, &locked, NULL) == 0) && locked) {
+        if (!common().session().keybagGetState(session_keybag_check_master_key) || ((service_client_kb_is_locked(&context, &locked, NULL) == 0) && locked)) {
             unlock_keybag(common(), passphrase.data(), (int)passphrase.length());
         }
     }
@@ -640,30 +665,8 @@ bool KeychainDatabase::decode(const CssmData &passphrase)
 	assert(mBlob);
 	common().setup(mBlob, passphrase);
 	bool success = decode();
-    if (success) {
-        if (common().isLoginKeychain() && (unlock_keybag(common(), passphrase.data(), (int)passphrase.length()) != 0)) {
-            service_context_t context = common().session().get_current_service_context();
-            // check to see if it was locked with the master key if so change the secret to the passphrase
-            if (!common().session().keybagGetState(session_keybag_check_master_key)) {
-
-                CssmAutoData key(Allocator::standard(Allocator::sensitive));
-                key = common().masterKey()->keyData();
-                if (service_client_kb_unlock(&context, key.data(), (int)key.length()) == 0) {
-                    service_client_kb_change_secret(&context, key.data(), (int)key.length(), passphrase.data(), (int)passphrase.length());
-                }
-                common().session().keybagSetState(session_keybag_check_master_key);
-            }
-
-            bool no_pin = false;
-            if (service_client_kb_is_locked(&context, NULL, &no_pin) == 0) {
-                if ((passphrase.length() > 0) && no_pin) {
-                    syslog(LOG_ERR, "Updating passphrase for your iCloud keychain");
-                    service_client_kb_change_secret(&context, NULL, 0, passphrase.data(), (int)passphrase.length());
-                } else {
-                    syslog(LOG_ERR, "The passphrase for your login.keychain and your iCloud keychain are out of sync");
-                }
-            }
-        }
+    if (success && common().isLoginKeychain()) {
+        unlock_keybag(common(), passphrase.data(), (int)passphrase.length());
     }
     return success;
 }

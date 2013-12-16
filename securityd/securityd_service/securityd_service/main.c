@@ -28,7 +28,7 @@
 #include <Kernel/IOKit/crypto/AppleFDEKeyStoreDefs.h>
 
 #if DEBUG
-#define LOG(...)    syslog(LOG_NOTICE, ##__VA_ARGS__);
+#define LOG(...)    syslog(LOG_ERR, ##__VA_ARGS__);
 #else
 #define LOG(...)
 #endif
@@ -42,6 +42,8 @@ kern_return_t _aks_stash_commit_internal(void ** data, int * length);
 const char * kb_home_path = "Library/Keychains";
 const char * kb_user_bag = "user.kb";
 const char * kb_stash_bag = "stash.kb";
+
+#define HEXBUF_LEN 2048
 
 typedef struct {
     uid_t uid;
@@ -337,34 +339,6 @@ _kb_delete_bag_on_disk(service_user_record_t * ur, const char * bag_file)
         _set_thread_credentials(ur);
         unlink(bag_file);
         _clear_thread_credentials();
-    }
-}
-
-static void
-_kb_migrate_old_bag_if_exists(service_user_record_t * ur)
-{
-    char session_file[PATH_MAX] = {};
-    struct stat st_info = {};
-    char * bag_file = _kb_copy_bag_filename(ur, kb_bag_type_user);
-
-    if (bag_file) {
-        snprintf(session_file, sizeof(session_file), "/var/keybags/%i.kb", ur->uid);
-
-        // if the bag_file does not exist
-        // check for the session_file and copy it into place
-        if (!_kb_bag_exists(ur, bag_file)) {
-            if (lstat(session_file, &st_info) == 0 && (S_ISREG(st_info.st_mode))) {
-                lchmod("/var/keybags", 0777);
-                lchmod(session_file, 0666);
-                _set_thread_credentials(ur);
-                _kb_verify_create_path(ur);
-                syslog(LOG_ERR, "migrating %s to %s", session_file, bag_file);
-                copyfile(session_file, bag_file, NULL, COPYFILE_ALL | COPYFILE_MOVE | COPYFILE_NOFOLLOW | COPYFILE_EXCL);
-                lchmod(bag_file, 0600);
-                _clear_thread_credentials();
-            }
-        }
-        free(bag_file);
     }
 }
 
@@ -774,8 +748,91 @@ bool peer_has_entitlement(xpc_connection_t peer, const char * entitlement)
     return entitled;
 }
 
+#if DEBUG
+static char *
+to_hex(char * dst, const void * src, size_t size)
+{
+    int notleading = 0;
+
+    if ((size * 2) > HEXBUF_LEN) return NULL;
+
+    uint8_t * buf = (uint8_t *)src;
+    register char *chp = dst;
+    *dst = '\0';
+    if (size != 0) do {
+        if(notleading || *buf != '\0') {
+            if(!notleading && (*buf & 0xf0) == 0) {
+                sprintf(chp, "%.1x", * (unsigned char *) src);
+                chp += 1;
+            }
+            else {
+                sprintf(chp, "%.2x", * (unsigned char *) src);
+                chp += 2;
+            }
+            notleading = 1;
+        }
+        ++src;
+    } while (--size != 0);
+    return dst;
+}
+#endif // DEBUG
+
+static char * sel_to_char(uint64_t sel)
+{
+    switch (sel) {
+        case SERVICE_STASH_SET_KEY:
+            return "set_key";
+        case SERVICE_STASH_GET_KEY:
+            return "get_key";
+        case SERVICE_STASH_BLOB:
+            return "stash_blob";
+        case SERVICE_KB_LOAD:
+            return "kb_load";
+        case SERVICE_KB_UNLOCK:
+            return "kb_unlock";
+        case SERVICE_KB_LOCK:
+            return "kb_lock";
+        case SERVICE_KB_CHANGE_SECRET:
+            return "kb_change_secret";
+        case SERVICE_KB_CREATE:
+            return "kb_create";
+        case SERVICE_KB_IS_LOCKED:
+            return "kb_is_locked";
+        case SERVICE_KB_RESET:
+            return "kb_reset";
+        default:
+            return "unknown";
+    }
+}
+
+static char * err_to_char(int err)
+{
+    switch (err) {
+        case KB_Success:
+            return "success";
+        case KB_GeneralError:
+            return "general error";
+        case KB_BagNotFound:
+            return "bag not found";
+        case KB_BagError:
+            return "bag error";
+        case KB_BagNotLoaded:
+            return "bag not loaded";
+        case KB_BagExists:
+            return "bag exists";
+        case KB_InvalidSession:
+            return "invalid session";
+        default:
+            return "";
+    }
+}
+
 void service_peer_event_handler(xpc_connection_t connection, xpc_object_t event)
 {
+#if DEBUG
+    char hexbuf1[HEXBUF_LEN];
+    char hexbuf2[HEXBUF_LEN];
+#endif // DEBUG
     xpc_type_t type = xpc_get_type(event);
     
     if (type == XPC_TYPE_ERROR) {
@@ -849,7 +906,13 @@ void service_peer_event_handler(xpc_connection_t connection, xpc_object_t event)
         }
         
     done:
-        LOG("selector: %llu, error: %x, secret_len: %zu, new_secret_len: %zu, sid: %d, suid: %d)", request, rc, secret_len, new_secret_len, context ? context->s_id : 0, context ? context->s_uid : 0);
+#if DEBUG
+        LOG("selector: %s (%llu), error: %s (%x), '%s' secret_len: %zu, '%s' new_secret_len: %zu, sid: %d, suid: %d", sel_to_char(request), request, err_to_char(rc), rc, to_hex(hexbuf1, secret, secret_len), secret_len, to_hex(hexbuf2, new_secret, new_secret_len), new_secret_len, context ? context->s_id : 0, context ? context->s_uid : 0);
+#else
+        if (rc != 0) {
+            syslog(LOG_NOTICE, "selector: %s (%llu), error: %s (%x), sid: %d, suid: %d", sel_to_char(request), request, err_to_char(rc), rc, context ? context->s_id : 0, context ? context->s_uid : 0);
+        }
+#endif
         xpc_dictionary_set_int64(reply, SERVICE_XPC_RC, rc);
         xpc_connection_send_message(connection, reply);
         xpc_release(reply);

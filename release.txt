@@ -1,4 +1,4 @@
-# OS X 10.9
+# OS X 10.9.1
 AppleFileSystemDriver	17
 AppleRAID	4.0.6
 AppleUSBCDCDriver	4201.2.2
@@ -15,7 +15,7 @@ CrackLib	37765
 Csu	79
 DiskArbitration	265
 Heimdal	323.12
-ICU	511.25
+ICU	511.27
 IOATAFamily	252.0.3
 IOATAPIProtocolTransport	350.0.3
 IOAudioFamily	194.4.11
@@ -38,7 +38,7 @@ IOSCSIParallelFamily	300.0.2
 IOSerialFamily	64.1.1
 IOStorageFamily	172
 IOUSBMassStorageClass	360.0.3
-JavaScriptCore	7537.65
+JavaScriptCore	7537.73.10
 KerberosHelper	148
 Libc	997.1.1
 Libinfo	449.1.3
@@ -62,12 +62,12 @@ SecurityTokend	55107
 SecurityTool	55115
 SmartCardServices	55111
 SmartcardCCID	55005
-TimeZoneData	52
+TimeZoneData	54
 Twisted	16
 UserNotification	28
-WebCore	7537.70
-WebKit	7537.71
-WebKit2	7537.71
+WebCore	7537.73.13
+WebKit	7537.73.11
+WebKit2	7537.73.11
 adv_cmds	153
 apache	786
 apache_mod_hfs_apple	14
@@ -188,7 +188,7 @@ security_crlrefresh	55102
 security_dotmac_tp	55107.1
 security_ocspd	55118
 security_systemkeychain	55191
-securityd	55199
+securityd	55199.0.1
 shell_cmds	175
 smb	697.1.1
 srm	7

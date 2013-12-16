@@ -50,10 +50,10 @@ installhdrs :
 
 install : installhdrs
 	if test ! -d $(DSTROOT)$(INSTALLDIR)/; then \
-		$(INSTALL) -d -m 0775 $(DSTROOT)$(INSTALLDIR)/; \
+		$(INSTALL) -d -m 0755 $(DSTROOT)$(INSTALLDIR)/; \
 	fi;
 	if test ! -d $(DSTROOT)$(INSTALLDIR)/boundaries/; then \
-		$(INSTALL) -d -m 0775 $(DSTROOT)$(INSTALLDIR)/boundaries/; \
+		$(INSTALL) -d -m 0755 $(DSTROOT)$(INSTALLDIR)/boundaries/; \
 	fi;
 	$(INSTALL) -b -m 0644 $(SRCROOT)/tz*.tar.gz $(DSTROOT)$(INSTALLDIR)
 	$(INSTALL) -b -m 0644 $(SRCROOT)/boundaries/*.gpx $(DSTROOT)$(INSTALLDIR)/boundaries

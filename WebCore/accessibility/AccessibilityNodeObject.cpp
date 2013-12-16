@@ -1059,8 +1059,12 @@ bool AccessibilityNodeObject::isGenericFocusableElement() const
     if (!canSetFocusAttribute())
         return false;
 
-     // If it's a control, it's not generic.
-     if (isControl())
+    // If it's a control, it's not generic.
+    if (isControl())
+        return false;
+    
+    AccessibilityRole role = roleValue();
+    if (role == VideoRole || role == AudioRole)
         return false;
 
     // If it has an aria role, it's not generic.
@@ -1076,14 +1080,14 @@ bool AccessibilityNodeObject::isGenericFocusableElement() const
 
     // The web area and body element are both focusable, but existing logic handles these
     // cases already, so we don't need to include them here.
-    if (roleValue() == WebAreaRole)
+    if (role == WebAreaRole)
         return false;
     if (node() && node()->hasTagName(bodyTag))
         return false;
 
     // An SVG root is focusable by default, but it's probably not interactive, so don't
     // include it. It can still be made accessible by giving it an ARIA role.
-    if (roleValue() == SVGRootRole)
+    if (role == SVGRootRole)
         return false;
 
     return true;
@@ -1262,7 +1266,10 @@ void AccessibilityNodeObject::visibleText(Vector<AccessibilityText>& textOrder) 
     case ToggleButtonRole:
     case CheckBoxRole:
     case ListBoxOptionRole:
+    // MacOS does not expect native <li> elements to expose label information, it only expects leaf node elements to do that.
+#if !PLATFORM(MAC)
     case ListItemRole:
+#endif
     case MenuButtonRole:
     case MenuItemRole:
     case RadioButtonRole:
@@ -1276,8 +1283,13 @@ void AccessibilityNodeObject::visibleText(Vector<AccessibilityText>& textOrder) 
     
     // If it's focusable but it's not content editable or a known control type, then it will appear to
     // the user as a single atomic object, so we should use its text as the default title.
-    if (isHeading() || isLink() || isGenericFocusableElement())
+    if (isHeading() || isLink())
         useTextUnderElement = true;
+    else if (isGenericFocusableElement()) {
+        // If a node uses a negative tabindex, do not expose it as a generic focusable element, because keyboard focus management
+        // will never land on this specific element.
+        useTextUnderElement = !(node && node->isElementNode() && toElement(node)->tabIndex() < 0);
+    }
     
     if (useTextUnderElement) {
         String text = textUnderElement();
@@ -1625,8 +1637,15 @@ String AccessibilityNodeObject::title() const
 
     // If it's focusable but it's not content editable or a known control type, then it will appear to                  
     // the user as a single atomic object, so we should use its text as the default title.                              
-    if (isGenericFocusableElement())
+    if (isGenericFocusableElement()) {
+        // If a node uses a negative tabindex, do not expose it as a generic focusable element, because keyboard focus management
+        // will never land on this specific element.
+        Node* node = this->node();
+        if (node && node->isElementNode() && toElement(node)->tabIndex() < 0)
+            return String();
+        
         return textUnderElement();
+    }
 
     return String();
 }

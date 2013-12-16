@@ -159,7 +159,7 @@ bool ImageQualityController::shouldPaintAtLowQuality(GraphicsContext* context, R
 {
     // If the image is not a bitmap image, then none of this is relevant and we just paint at high
     // quality.
-    if (!image || !image->isBitmapImage() || context->paintingDisabled())
+    if (!image || !(image->isBitmapImage() || image->isPDFDocumentImage()) || context->paintingDisabled())
         return false;
 
     switch (object->style()->imageRendering()) {
@@ -198,11 +198,8 @@ bool ImageQualityController::shouldPaintAtLowQuality(GraphicsContext* context, R
             m_liveResizeOptimizationIsActive = true;
             return true;
         }
-        if (m_liveResizeOptimizationIsActive) {
-            // Live resize has ended, paint in HQ and remove this object from the list.
-            removeLayer(object, innerMap, layer);
+        if (m_liveResizeOptimizationIsActive)
             return false;
-        }
     }
 
     const AffineTransform& currentTransform = context->getCTM();
