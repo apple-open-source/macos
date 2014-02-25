@@ -1,5 +1,5 @@
-diff -Naur php-5.2.8/TSRM/build.mk php/TSRM/build.mk
---- php-5.2.8/TSRM/build.mk	1999-10-09 19:01:20.000000000 -0700
+diff -Naur php-5.4.22/TSRM/build.mk php/TSRM/build.mk
+--- php-5.4.22/TSRM/build.mk	1999-10-09 19:01:20.000000000 -0700
 +++ php/TSRM/build.mk	2009-01-03 20:35:18.000000000 -0800
 @@ -25,7 +25,7 @@
  
@@ -10,8 +10,8 @@ diff -Naur php-5.2.8/TSRM/build.mk php/TSRM/build.mk
  
  $(makefile_in_files): $(makefile_am_files)
  	automake -a -i $(AMFLAGS) $(makefile_files)
-diff -Naur php-5.2.8/TSRM/buildconf php/TSRM/buildconf
---- php-5.2.8/TSRM/buildconf	1999-10-05 06:47:16.000000000 -0700
+diff -Naur php-5.4.22/TSRM/buildconf php/TSRM/buildconf
+--- php-5.4.22/TSRM/buildconf	1999-10-05 06:47:16.000000000 -0700
 +++ php/TSRM/buildconf	2009-01-03 20:35:18.000000000 -0800
 @@ -7,7 +7,7 @@
  ;;
@@ -22,8 +22,8 @@ diff -Naur php-5.2.8/TSRM/buildconf php/TSRM/buildconf
  
  mv aclocal.m4 aclocal.m4.old 2>/dev/null
  aclocal
-diff -Naur php-5.2.8/Zend/build.mk php/Zend/build.mk
---- php-5.2.8/Zend/build.mk	1999-10-09 19:02:13.000000000 -0700
+diff -Naur php-5.4.22/Zend/build.mk php/Zend/build.mk
+--- php-5.4.22/Zend/build.mk	1999-10-09 19:02:13.000000000 -0700
 +++ php/Zend/build.mk	2009-01-03 20:35:18.000000000 -0800
 @@ -25,7 +25,7 @@
  
@@ -34,8 +34,8 @@ diff -Naur php-5.2.8/Zend/build.mk php/Zend/build.mk
  
  $(makefile_in_files): $(makefile_am_files)
  	automake -a -i $(AMFLAGS) $(makefile_files)
-diff -Naur php-5.2.8/Zend/buildconf php/Zend/buildconf
---- php-5.2.8/Zend/buildconf	1999-10-04 08:20:12.000000000 -0700
+diff -Naur php-5.4.22/Zend/buildconf php/Zend/buildconf
+--- php-5.4.22/Zend/buildconf	1999-10-04 08:20:12.000000000 -0700
 +++ php/Zend/buildconf	2009-01-03 20:35:18.000000000 -0800
 @@ -7,7 +7,7 @@
  ;;
@@ -46,8 +46,36 @@ diff -Naur php-5.2.8/Zend/buildconf php/Zend/buildconf
  
  mv aclocal.m4 aclocal.m4.old 2>/dev/null
  aclocal
-diff -Naur php-5.2.8/ext/mbstring/libmbfl/buildconf php/ext/mbstring/libmbfl/buildconf
---- php-5.2.8/ext/mbstring/libmbfl/buildconf	2003-08-22 23:18:35.000000000 -0700
+diff -Naur php-5.4.22/Zend/zend_language_parser.y.orig php/Zend/zend_language_parser.y
+--- php-5.4.22/Zend/zend_language_parser.y.orig	2013-12-03 11:39:09.000000000 -0800
++++ php-5.4.22/Zend/zend_language_parser.y	2013-12-03 12:50:01.000000000 -0800
+@@ -41,19 +41,17 @@
+ 
+ #define YYERROR_VERBOSE
+ #define YYSTYPE znode
++#ifdef ZTS
++# define YYPARSE_PARAM tsrm_ls
++# define YYLEX_PARAM tsrm_ls
++#endif
++
+ 
+ %}
+ 
+ %pure_parser
+ %expect 3
+ 
+-%code requires {
+-#ifdef ZTS
+-# define YYPARSE_PARAM tsrm_ls
+-# define YYLEX_PARAM tsrm_ls
+-#endif
+-}
+-
+ %token END 0 "end of file"
+ %left T_INCLUDE T_INCLUDE_ONCE T_EVAL T_REQUIRE T_REQUIRE_ONCE
+ %token T_INCLUDE      "include (T_INCLUDE)"
+diff -Naur php-5.4.22/ext/mbstring/libmbfl/buildconf php/ext/mbstring/libmbfl/buildconf
+--- php-5.4.22/ext/mbstring/libmbfl/buildconf	2003-08-22 23:18:35.000000000 -0700
 +++ php/ext/mbstring/libmbfl/buildconf	2009-01-03 20:35:18.000000000 -0800
 @@ -1,5 +1,5 @@
  #!/bin/sh
@@ -56,8 +84,20 @@ diff -Naur php-5.2.8/ext/mbstring/libmbfl/buildconf php/ext/mbstring/libmbfl/bui
  aclocal
  autoheader
  automake -a -c --foreign
-diff -Naur php-5.2.8/ext/mbstring/libmbfl/config.h php/ext/mbstring/libmbfl/config.h
---- php-5.2.8/ext/mbstring/libmbfl/config.h	1969-12-31 16:00:00.000000000 -0800
+diff -Naur php-5.4.22/ext/mbstring/libmbfl/config.h php/ext/mbstring/libmbfl/config.h
+--- php-5.4.22/ext/mbstring/libmbfl/config.h	1969-12-31 16:00:00.000000000 -0800
 +++ php/ext/mbstring/libmbfl/config.h	2009-01-03 20:35:19.000000000 -0800
 @@ -0,0 +1 @@
 +#include "php_config.h"
+diff -Naur php/configure.orig php/configure
+--- php/configure.orig	2014-01-16 15:42:07.000000000 -0800
++++ php/configure	2014-01-16 15:37:54.000000000 -0800
+@@ -39759,7 +39759,7 @@
+ 
+ $as_echo "#define ENABLE_GD_TTF 1" >>confdefs.h
+ 
+-    GDLIB_CFLAGS="$GDLIB_CFLAGS -DHAVE_LIBFREETYPE -DENABLE_GD_TTF"
++    GDLIB_CFLAGS="$GDLIB_CFLAGS -I/usr/local/include/freetype2 -DHAVE_LIBFREETYPE -DENABLE_GD_TTF"
+   fi
+ 
+   if test -n "$USE_GD_JIS_CONV"; then

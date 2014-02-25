@@ -616,7 +616,7 @@ static struct sql_stages s3dl_upgrade_script[] = {
     {},                 /* 2->current: Upgrade to version 6 from version 2 -- Unsupported */
     {},                 /* 3->current: Upgrade to version 6 from version 3 -- Unsupported */
     {},                 /* 4->current: Upgrade to version 6 from version 4 -- Unsupported */
-    { 3, 0, 7, true },  /* 5->current: Upgrade to version 6 from version 5. */
+    { 3, 0, 7, true },  /* 5->current: Upgrade to version 6 from version 5 */
 };
 
 static bool sql_run_script(SecDbConnectionRef dbt, int number, CFErrorRef *error)

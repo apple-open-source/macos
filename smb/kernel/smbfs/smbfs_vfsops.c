@@ -751,12 +751,20 @@ smbfs_mount(struct mount *mp, vnode_t devvp, user_addr_t data, vfs_context_t con
 		smp->sm_args.volume_name = NULL;
 	}
 	
+	/* 
+     * See if they sent use a submount path to use.
+     * This function also checks/cleans up the args->path and args->path_len
+     */
+	if (args->path_len) {
+		smbfs_create_start_path(smp, args, SMB_UNICODE_STRINGS(SSTOVC(share)));
+	}
+    
 	/*
 	 * This call should be done from mount() in vfs layer. Not sure why each 
 	 * file system has to do it here, but go ahead and make an internal call to 
 	 * fill in the default values.
 	 */
-	error = smbfs_smb_statfs(share, vfs_statfs(mp), context);
+	error = smbfs_smb_statfs(smp, vfs_statfs(mp), context);
 	if (error) {
 		SMBDEBUG("smbfs_smb_statfs failed %d\n", error);
 		goto bad;
@@ -764,11 +772,7 @@ smbfs_mount(struct mount *mp, vnode_t devvp, user_addr_t data, vfs_context_t con
     
 	/* Copy in the from name, used for reconnects and other things  */
 	strlcpy(vfs_statfs(mp)->f_mntfromname, args->url_fromname, MAXPATHLEN);
-	/* See if they sent use a starting path to use */
-	if (args->path_len) {
-		smbfs_create_start_path(smp, args, SMB_UNICODE_STRINGS(SSTOVC(share)));
-	}
-    
+
 	/* Now get the mounted volumes unique id */
 	smp->sm_args.unique_id_len = args->unique_id_len;
 	SMB_MALLOC(smp->sm_args.unique_id, unsigned char *, smp->sm_args.unique_id_len, 
@@ -808,7 +812,7 @@ smbfs_mount(struct mount *mp, vnode_t devvp, user_addr_t data, vfs_context_t con
 	 * here before we do anything else. Make sure we have the servers or
 	 * the default value for ss_maxfilenamelen. NOTE: We use it in strnlen.
 	 */
-	smbfs_smb_qfsattr(share, context);
+	smbfs_smb_qfsattr(smp, context);
 	
 	/* Its a unix server see if it supports any of the UNIX extensions */
 	if (UNIX_SERVER(SSTOVC(share))) {
@@ -1342,7 +1346,7 @@ smbfs_vfs_getattr(struct mount *mp, struct vfs_attr *fsap, vfs_context_t context
 			 VFSATTR_IS_ACTIVE(fsap, f_bfree) || VFSATTR_IS_ACTIVE(fsap, f_bavail) ||
 			 VFSATTR_IS_ACTIVE(fsap, f_files) || VFSATTR_IS_ACTIVE(fsap, f_ffree)))) {
 			/* update cached from-the-server data */
-			error = smbfs_smb_statfs(share, &cachedstatfs, context);
+			error = smbfs_smb_statfs(smp, &cachedstatfs, context);
 			if (error == 0) {
 				nanouptime(&ts);
 				smp->sm_statfstime = ts.tv_sec;

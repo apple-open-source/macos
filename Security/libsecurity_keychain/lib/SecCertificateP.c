@@ -228,7 +228,7 @@ static CFStringRef SecCertificateDescribe(CFTypeRef cf) {
     return CFStringCreateWithFormat(kCFAllocatorDefault, NULL,
         CFSTR("<cert(%p) s: %@ i: %@>"), certificate,
         SecCertificateCopySubjectSummaryP(certificate),
-        SecCertificateCopyIssuerSummary(certificate));
+        SecCertificateCopyIssuerSummaryP(certificate));
 }
 
 static void SecCertificateDestroy(CFTypeRef cf) {
@@ -3368,7 +3368,7 @@ CFStringRef SecCertificateCopySubjectSummaryP(SecCertificateRefP certificate) {
         if (!names) {
             /* If we didn't find any email addresses in the certificate, we try finding
                a DNS name instead. */
-            names = SecCertificateCopyDNSNames(certificate);
+            names = SecCertificateCopyDNSNamesP(certificate);
         }
         if (names) {
             summary.summary = CFArrayGetValueAtIndex(names, 0);
@@ -3380,7 +3380,7 @@ CFStringRef SecCertificateCopySubjectSummaryP(SecCertificateRefP certificate) {
 	return summary.summary;
 }
 
-CFStringRef SecCertificateCopyIssuerSummary(SecCertificateRefP certificate) {
+CFStringRef SecCertificateCopyIssuerSummaryP(SecCertificateRefP certificate) {
     struct Summary summary = {};
 	parseX501NameContent(&certificate->_issuer, &summary, obtainSummaryFromX501Name);
     /* If we found a description and a common name we change the summary to
@@ -4038,7 +4038,7 @@ static OSStatus appendDNSNamesFromX501Name(void *context, const DERItem *type,
 /* Not everything returned by this function is going to be a proper DNS name,
    we also return the certificates common name entries from the subject,
    assuming they look like dns names as specified in RFC 1035. */
-CFArrayRef SecCertificateCopyDNSNames(SecCertificateRefP certificate) {
+CFArrayRef SecCertificateCopyDNSNamesP(SecCertificateRefP certificate) {
 	/* These can exist in the subject alt name or in the subject. */
 	CFMutableArrayRef dnsNames = CFArrayCreateMutable(kCFAllocatorDefault,
 		0, &kCFTypeArrayCallBacks);

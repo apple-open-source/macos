@@ -526,6 +526,7 @@ __private_extern__ io_registry_entry_t  getRootDomain(void);
 __private_extern__ IOReturn             _setRootDomainProperty(CFStringRef key, CFTypeRef val);
 __private_extern__ CFTypeRef            _copyRootDomainProperty(CFStringRef key);
 
+__private_extern__ bool                 platformPluginLoaded(void);
 
 __private_extern__ int                  callerIsRoot(int uid);
 __private_extern__ int                  callerIsAdmin(int uid, int gid);

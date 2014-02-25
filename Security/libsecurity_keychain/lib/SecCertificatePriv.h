@@ -68,6 +68,20 @@ OSStatus SecCertificateGetCommonName(SecCertificateRef certificate, CFStringRef 
 /* This should have been Copy instead of Get since the returned address is not autoreleased. */
 OSStatus SecCertificateGetEmailAddress(SecCertificateRef certificate, CFStringRef *emailAddress);
 
+/* Return an array of CFStringRefs representing the dns addresses in the
+   certificate if any. */
+CFArrayRef SecCertificateCopyDNSNames(SecCertificateRef certificate);
+
+/*!
+	@function SecCertificateCopyIssuerSummary
+	@abstract Return a simple string which hopefully represents a human understandable issuer.
+	@param certificate SecCertificate object created with SecCertificateCreateWithData().
+	@discussion All the data in this string comes from the certificate itself
+	and thus it's in whatever language the certificate itself is in.
+	@result A CFStringRef which the caller should CFRelease() once it's no longer needed.
+*/
+CFStringRef SecCertificateCopyIssuerSummary(SecCertificateRef certificate);
+
 /*
  * Private API to infer a display name for a SecCertificateRef which
  * may or may not be in a keychain.

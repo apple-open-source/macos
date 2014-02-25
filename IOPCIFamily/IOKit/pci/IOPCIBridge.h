@@ -68,7 +68,14 @@ private:
     bool checkProperties( IOPCIDevice * entry );
 
     void removeDevice( IOPCIDevice * device, IOOptionBits options = 0 );
+
+	void restoreQEnter(IOPCIDevice * device);
+    void restoreQRemove(IOPCIDevice * device);
+
+	IOReturn restoreTunnelState(IOPCIDevice * root, IOOptionBits options);
     IOReturn restoreMachineState( IOOptionBits options, IOPCIDevice * device );
+    void tunnelsWait(IOPCIDevice * device);
+
     IOReturn _restoreDeviceState( IOPCIDevice * device, IOOptionBits options );
     IOReturn resolveLegacyInterrupts( IOService * provider, IOPCIDevice * nub );
     IOReturn resolveMSIInterrupts   ( IOService * provider, IOPCIDevice * nub );
@@ -86,10 +93,12 @@ protected:
 #else
     static SInt64 compareAddressCell( UInt32 cellCount, UInt32 cleft[], UInt32 cright[] );
 #endif
-    IOReturn setDeviceASPMBits(IOPCIDevice * device, IOOptionBits state);
+    IOReturn setDeviceASPMBits(IOPCIDevice * device, uint32_t bits);
+    IOReturn setDeviceL1PMBits(IOPCIDevice * device, uint32_t bits);
+
     IOReturn setDevicePowerState(IOPCIDevice * device, IOOptionBits options,
 								 unsigned long prevState, unsigned long newState);
-    static IOReturn configOp(IOService * device, uintptr_t op, void * result);
+    static IOReturn configOp(IOService * device, uintptr_t op, void * result, void * arg = 0);
     static void     deferredProbe(IOPCIDevice * device);
 
     void * __reserved1;
@@ -107,9 +116,12 @@ protected:
 /*! @var reserved
     Reserved for future use.  (Internal use only)  
 */
+private:
     ExpansionData *reserved;
 
 protected:
+	IOWorkLoop * getConfiguratorWorkLoop(void);
+
 public:
     virtual void probeBus( IOService * provider, UInt8 busNum );
 
@@ -254,8 +266,10 @@ protected:
     OSMetaClassDeclareReservedUsed(IOPCIBridge, 3);
 	virtual IOReturn checkLink(uint32_t options = 0);
 
+    OSMetaClassDeclareReservedUsed(IOPCIBridge, 4);
+	virtual IOReturn enableLTR(IOPCIDevice * device, bool enable);
+
     // Unused Padding
-    OSMetaClassDeclareReservedUnused(IOPCIBridge,  4);
     OSMetaClassDeclareReservedUnused(IOPCIBridge,  5);
     OSMetaClassDeclareReservedUnused(IOPCIBridge,  6);
     OSMetaClassDeclareReservedUnused(IOPCIBridge,  7);
@@ -287,46 +301,43 @@ protected:
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
-#define kIOPCIBridgeRegs (32)
-
 class IOPCI2PCIBridge : public IOPCIBridge
 {
     OSDeclareDefaultStructors(IOPCI2PCIBridge)
 
 private:
 
-    IOPCIDevice * bridgeDevice;
-    UInt32        bridgeState[kIOPCIBridgeRegs];
+    IOPCIDevice *                  fBridgeDevice;
 
-protected:
+	IOFilterInterruptEventSource * fBridgeInterruptSource;
+	IOTimerEventSource *	       fTimerProbeES;
+	IOWorkLoop *                   fWorkLoop;
+	IOPMDriverAssertionID 		   fPMAssertion;
+	uint32_t                       __resvA[12];
+	uint32_t                       fHotplugCount;
+
+	uint8_t                        fPresence;
+	uint8_t                        fWaitingLinkEnable;
+	uint8_t                        fLinkChangeOnly;
+	uint8_t                        fBridgeInterruptEnablePending;
+	uint8_t                        fNeedProbe;
+	uint8_t                        fPresenceInt;
+	uint8_t						   fBridgeMSI;
+	uint8_t						   fNoDevice;
+	uint8_t						   fLinkControlWithPM;
+	uint8_t						   fPowerState;
+	char						   fLogName[32];
+	uint8_t						   __resvB[2];
+
 /*! @struct ExpansionData
     @discussion This structure will be used to expand the capablilties of the class in the future.
     */    
-    struct ExpansionData
-    {
-        IOByteCount                 xpressCapability;
-        IOByteCount                 pwrMgtCapability;
-        IOFilterInterruptEventSource * bridgeInterruptSource;
-		IOTimerEventSource *	    timerProbeES;
-		IOWorkLoop *                workLoop;
-		IOPMDriverAssertionID 		pmAssertion;
-        uint32_t                    hotplugCount;
-        uint8_t                     presence;
-        uint8_t                     waitingLinkEnable;
-        uint8_t                     linkChangeOnly;
-        uint8_t                     interruptEnablePending;
-        uint8_t                     needProbe;
-        uint8_t                     presenceInt;
-		uint8_t						bridgeMSI;
-		uint8_t						noDevice;
-		uint8_t						linkControlWithPM;
-		uint8_t						powerState;
-		char						logName[32];
-    };
+    struct ExpansionData {};
 
 /*! @var reserved
     Reserved for future use.  (Internal use only)  */
     ExpansionData *reserved;
+
 public:
 
     virtual UInt8 firstBusNum( void );
@@ -383,6 +394,8 @@ public:
 
 	virtual IOReturn checkLink(uint32_t options = 0);
 
+	virtual IOReturn enableLTR(IOPCIDevice * device, bool enable);
+
     // Unused Padding
     OSMetaClassDeclareReservedUnused(IOPCI2PCIBridge,  0);
     OSMetaClassDeclareReservedUnused(IOPCI2PCIBridge,  1);
@@ -406,5 +419,7 @@ public:
                              int                      count );
 	void timerProbe(IOTimerEventSource * es);
 };
+
+#define kIOPCI2PCIBridgeName	"IOPP"
 
 #endif /* ! _IOKIT_IOPCIBRIDGE_H */

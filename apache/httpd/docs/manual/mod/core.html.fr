@@ -213,7 +213,7 @@ supérieures</td></tr>
     déterminé par le <a href="../handler.html">gestionnaire</a> responsable de la requête.
     Le gestionnaire de base pour les fichiers normaux rejette par défaut
     les requêtes avec <code>PATH_INFO</code>. Les gestionnaires qui
-    servent des scripts, comme<a href="mod_cgi.html">cgi-script</a> et <a href="mod_isapi.html">isapi-handler</a>, acceptent en général par
+    servent des scripts, comme <a href="mod_cgi.html">cgi-script</a> et <a href="mod_isapi.html">isapi-handler</a>, acceptent en général par
     défaut les requêtes avec <code>PATH_INFO</code>.</dd>
     </dl>
 
@@ -643,8 +643,8 @@ l'authentification HTTP</td></tr>
 
 <h3>Voir aussi</h3>
 <ul>
-<li><a href="../howto/auth.html">Authentification, Autorisation, et
-    contrôle d'accès</a></li>
+<li><a href="../howto/auth.html">Authentification et autorisation</a></li>
+<li><a href="../howto/access.html">Tutoriel du contrôle d'accès</a></li>
 </ul>
 </div>
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
@@ -2951,8 +2951,8 @@ uniquement depuis la version 2.3.3 sous Windows.</td></tr>
 
 <h3>Voir aussi</h3>
 <ul>
-<li><a href="../howto/auth.html">Authentification, autorisation,
-    et contrôle d'accès</a></li>
+<li><a href="../howto/auth.html">Authentification et autorisation</a></li>
+<li><a href="../howto/access.html">Tutoriel du contrôle d'accès</a></li>
 <li><code class="directive"><a href="#satisfy">Satisfy</a></code></li>
 <li><code class="module"><a href="../mod/mod_authz_host.html">mod_authz_host</a></code></li>
 </ul>

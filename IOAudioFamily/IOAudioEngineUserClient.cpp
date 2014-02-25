@@ -42,6 +42,12 @@ enum
 	kCommandGateStatus_Invalid
 };
 
+// <rdar://15277619>
+enum
+{
+    kLoopCountMaximumDifference             = 5
+};
+
 #define super OSObject
 
 class IOAudioClientBufferSet : public OSObject
@@ -1977,7 +1983,10 @@ IOReturn IOAudioEngineUserClient::performClientOutput(UInt32 firstSampleFrame, U
     
 	assert(audioEngine != NULL);
 
-	if ( loopCount >= audioEngine->status->fCurrentLoopCount ) {			// <rdar://10145205> Sanity check the loop count
+    // <rdar://10145205,15277619> Sanity check the loop count
+	if ( ( loopCount >= audioEngine->status->fCurrentLoopCount ) &&
+         ( loopCount <= audioEngine->status->fCurrentLoopCount + kLoopCountMaximumDifference ) )
+    {
 #if __LP64__
 		UInt64 tempHI = sampleIntervalHi;
 		bufferSet->sampleInterval = tempHI << 32 | sampleIntervalLo;

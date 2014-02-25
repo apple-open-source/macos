@@ -43,6 +43,7 @@
 #include <sys/param.h>
 #include "CertificateValues.h"
 #include "SecCertificateP.h"
+#include "SecCertificatePrivP.h"
 //
 //#include "AppleBaselineEscrowCertificates.h"
 //
@@ -256,6 +257,20 @@ SecCertificateGetSHA1Digest(SecCertificateRef certificate)
     return data;
 }
 
+CFArrayRef
+SecCertificateCopyDNSNames(SecCertificateRef certificate)
+{
+	CFArrayRef names = NULL;
+	OSStatus __secapiresult = errSecSuccess;
+	try {
+		names = Certificate::required(certificate)->copyDNSNames();
+	}
+	catch (const MacOSError &err) { __secapiresult=err.osStatus(); }
+	catch (const CommonError &err) { __secapiresult=SecKeychainErrFromOSStatus(err.osStatus()); }
+	catch (const std::bad_alloc &) { __secapiresult=errSecAllocate; }
+	catch (...) { __secapiresult=errSecInternalComponent; }
+    return names;
+}
 
 OSStatus
 SecCertificateGetType(SecCertificateRef certificate, CSSM_CERT_TYPE *certificateType)
@@ -361,6 +376,23 @@ SecCertificateCopySubjectSummary(SecCertificateRef certificate)
 	catch (const std::bad_alloc &) { __secapiresult=errSecAllocate; }
 	catch (...) { __secapiresult=errSecInternalComponent; }
     return summary;
+}
+
+CFStringRef
+SecCertificateCopyIssuerSummary(SecCertificateRef certificate)
+{
+	CFStringRef issuerStr = NULL;
+	SecCertificateRefP certP = NULL;
+	CFDataRef certData = SecCertificateCopyData(certificate);
+	if (certData) {
+		certP = SecCertificateCreateWithDataP(NULL, certData);
+		CFRelease(certData);
+	}
+	if (certP) {
+		issuerStr = SecCertificateCopyIssuerSummaryP(certP);
+		CFRelease(certP);
+	}
+	return issuerStr;
 }
 
 OSStatus

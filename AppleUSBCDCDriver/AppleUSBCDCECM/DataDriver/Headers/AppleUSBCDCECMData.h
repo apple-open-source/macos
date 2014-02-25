@@ -92,8 +92,8 @@ private:
 
     bool			fNetifEnabled;
     bool			fWOL;
-	UInt32			fUpSpeed;
-    UInt32			fDownSpeed;
+	UInt64			fUpSpeed;
+    UInt64			fDownSpeed;
 	bool			fSleeping;
     
     IOUSBPipe			*fInPipe;
@@ -155,6 +155,7 @@ public:
 	UInt8			fResetState;
     bool            fQueueStarted;
     bool			fTxStalled;
+	bool			fEnumOnWake;				// Do we need to re-enumerate on wake
     
     IONetworkStats		*fpNetStats;
     IOEthernetStats		*fpEtherStats;

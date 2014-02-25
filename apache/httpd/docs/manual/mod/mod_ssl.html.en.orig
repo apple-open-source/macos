@@ -149,6 +149,7 @@ compatibility variables.</p>
 <tr><td><code>SSL_SERVER_A_SIG</code></td>              <td>string</td>    <td>Algorithm used for the signature of server's certificate</td></tr>
 <tr><td><code>SSL_SERVER_A_KEY</code></td>              <td>string</td>    <td>Algorithm used for the public key of server's certificate</td></tr>
 <tr><td><code>SSL_SERVER_CERT</code></td>               <td>string</td>    <td>PEM-encoded server certificate</td></tr>
+<tr><td><code>SSL_TLS_SNI</code></td>                   <td>string</td>    <td>Contents of the SNI TLS extension (if supplied with ClientHello)</td></tr>
 </table>
 
 <p><em>x509</em> specifies a component of an X.509 DN; one of
@@ -588,16 +589,21 @@ SSLCipherSuite RSA:!EXP:!NULL:+HIGH:+MEDIUM:-LOW
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
 <div class="directive-section"><h2><a name="SSLCompression" id="SSLCompression">SSLCompression</a> <a name="sslcompression" id="sslcompression">Directive</a></h2>
 <table class="directive">
-<tr><th><a href="directive-dict.html#Description">Description:</a></th><td>Disallow compression on the SSL level</td></tr>
+<tr><th><a href="directive-dict.html#Description">Description:</a></th><td>Enable compression on the SSL level</td></tr>
 <tr><th><a href="directive-dict.html#Syntax">Syntax:</a></th><td><code>SSLCompression on|off</code></td></tr>
-<tr><th><a href="directive-dict.html#Default">Default:</a></th><td><code>SSLCompression on</code></td></tr>
+<tr><th><a href="directive-dict.html#Default">Default:</a></th><td><code>SSLCompression off</code></td></tr>
 <tr><th><a href="directive-dict.html#Context">Context:</a></th><td>server config, virtual host</td></tr>
 <tr><th><a href="directive-dict.html#Status">Status:</a></th><td>Extension</td></tr>
 <tr><th><a href="directive-dict.html#Module">Module:</a></th><td>mod_ssl</td></tr>
 <tr><th><a href="directive-dict.html#Compatibility">Compatibility:</a></th><td>Available in httpd 2.2.24 and later, if using OpenSSL 0.9.8 or later;
-virtual host scope available if using OpenSSL 1.0.0 or later</td></tr>
+virtual host scope available if using OpenSSL 1.0.0 or later.
+The default used to be <code>on</code> in versions 2.2.24 to 2.2.25.</td></tr>
 </table>
-<p>This directive allows to disable compression on the SSL level.</p>
+<p>This directive allows to enable compression on the SSL level.</p>
+<div class="warning">
+<p>Enabling compression causes security issues in most setups (the so called
+CRIME attack).</p>
+</div>
 
 </div>
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
@@ -1221,7 +1227,7 @@ for additional information.</p>
 This directive toggles the usage of the SSL/TLS Protocol Engine for proxy. This
 is usually used inside a <code class="directive"><a href="../mod/core.html#virtualhost">&lt;VirtualHost&gt;</a></code> section to enable SSL/TLS for proxy
 usage in a particular virtual host. By default the SSL/TLS Protocol Engine is
-disabled for proxy image both for the main server and all configured virtual hosts.</p>
+disabled for proxy both for the main server and all configured virtual hosts.</p>
 
 <p>Note that the SSLProxyEngine directive should not, in
 general, be included in a virtual host that will be acting as a
@@ -1246,7 +1252,7 @@ SSLProxyEngine on<br />
 <tr><th><a href="directive-dict.html#Override">Override:</a></th><td>Not applicable</td></tr>
 <tr><th><a href="directive-dict.html#Status">Status:</a></th><td>Extension</td></tr>
 <tr><th><a href="directive-dict.html#Module">Module:</a></th><td>mod_ssl</td></tr>
-<tr><th><a href="directive-dict.html#Compatibility">Compatibility:</a></th><td>Available in Apache 2.2.22 and later</td></tr>
+<tr><th><a href="directive-dict.html#Compatibility">Compatibility:</a></th><td>Available in Apache 2.2.23 and later</td></tr>
 </table>
 <p>
 This directive sets the all-in-one file where you keep the certificate chain
@@ -1694,7 +1700,7 @@ SSL_VERSION_INTERFACE  SSL_CLIENT_S_DN_OU     SSL_SERVER_S_DN_OU
                        SSL_CLIENT_A_KEY       SSL_SERVER_A_KEY
                        SSL_CLIENT_CERT        SSL_SERVER_CERT
                        SSL_CLIENT_CERT_CHAIN_<strong>n</strong>
-                       SSL_CLIENT_VERIFY
+                       SSL_CLIENT_VERIFY      SSL_TLS_SNI
 </pre>
 
 </div>

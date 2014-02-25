@@ -638,7 +638,7 @@ const char *ssl_cmd_SSLEngine(cmd_parms *cmd, void *dcfg, const char *arg)
 
     if (!strcasecmp(arg, "On")) {
         sc->enabled = SSL_ENABLED_TRUE;
-    return NULL;
+        return NULL;
     }
     else if (!strcasecmp(arg, "Off")) {
         sc->enabled = SSL_ENABLED_FALSE;
@@ -1290,12 +1290,14 @@ const char *ssl_cmd_SSLRequire(cmd_parms *cmd,
 const char *ssl_cmd_SSLRenegBufferSize(cmd_parms *cmd, void *dcfg, const char *arg)
 {
     SSLDirConfigRec *dc = dcfg;
-    
-    dc->nRenegBufferSize = atoi(arg);
-    if (dc->nRenegBufferSize < 0) {
+    int val;
+
+    val = atoi(arg);
+    if (val < 0) {
         return apr_pstrcat(cmd->pool, "Invalid size for SSLRenegBufferSize: ",
                            arg, NULL);
     }
+    dc->nRenegBufferSize = val;
 
     return NULL;
 }

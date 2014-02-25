@@ -698,6 +698,11 @@ isakmp_info_recv_d(phase1_handle_t *iph1, struct isakmp_pl_d *delete, u_int32_t 
 				}
 			}
 #endif
+			if (del_ph1->rmconf->natt_multiple_user &&
+				del_ph1->parent_session->is_l2tpvpn_ipsec) {
+				plog(ASL_LEVEL_DEBUG, "Ignoring IKE delete from peer for L2TP server\n");
+				break;
+			}
 			isakmp_ph1expire(del_ph1);
 		}
 		break;
@@ -710,6 +715,11 @@ isakmp_info_recv_d(phase1_handle_t *iph1, struct isakmp_pl_d *delete, u_int32_t 
 				"size %d(proto_id:%d)\n",
 				delete->spi_size, delete->proto_id);
 			return 0;
+		}
+		if (iph1->rmconf->natt_multiple_user &&
+			iph1->parent_session->is_l2tpvpn_ipsec) {
+			plog(ASL_LEVEL_DEBUG, "Ignoring SA delete from peer for L2TP server\n");
+			break;
 		}
 		purge_ipsec_spi(iph1->remote, delete->proto_id,
 		    ALIGNED_CAST(u_int32_t *)(delete + 1), num_spi, NULL, NULL);     // Wcast-align fix (void*) - delete payload is aligned
@@ -915,7 +925,7 @@ isakmp_info_send_nx(struct isakmp *isakmp, struct sockaddr_storage *remote, stru
 	int error = -1;
 	struct isakmp_pl_n *n;
 	int spisiz = 0;		/* see below */
-    ike_session_t *sess = ike_session_get_session(local, remote, FALSE);
+    ike_session_t *sess = ike_session_get_session(local, remote, FALSE, NULL);
 
 	/* search appropreate configuration */
 	rmconf = getrmconf(remote);

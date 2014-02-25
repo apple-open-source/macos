@@ -1,5 +1,5 @@
 /*
- * "$Id: testipp.c 11093 2013-07-03 20:48:42Z msweet $"
+ * "$Id: testipp.c 11433 2013-11-20 18:57:44Z msweet $"
  *
  *   IPP test program for CUPS.
  *
@@ -263,7 +263,9 @@ main(int  argc,			/* I - Number of command-line arguments */
   cups_file_t	*fp;		/* File pointer */
   int		i;		/* Looping var */
   int		status;		/* Status of tests (0 = success, 1 = fail) */
+#ifdef DEBUG
   const char	*name;		/* Option name */
+#endif /* DEBUG */
 
 
   status = 0;
@@ -1017,5 +1019,5 @@ write_cb(_ippdata_t   *data,		/* I - Data */
 
 
 /*
- * End of "$Id: testipp.c 11093 2013-07-03 20:48:42Z msweet $".
+ * End of "$Id: testipp.c 11433 2013-11-20 18:57:44Z msweet $".
  */

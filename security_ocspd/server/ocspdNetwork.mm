@@ -36,12 +36,15 @@
 #include <security_cdsa_utils/cuEnc64.h>
 #include <security_cdsa_utils/cuFileIo.h>
 #include <stdlib.h>
+#include <netinet/in.h>
+#include <sys/socket.h>
 #include <sys/stat.h>
 #include <dispatch/dispatch.h>
 #include <Security/cssmapple.h>
 #include <security_utilities/cfutilities.h>
 #include <CoreServices/CoreServices.h>
 #include <SystemConfiguration/SCDynamicStoreCopySpecific.h>
+#include <SystemConfiguration/SCNetworkReachability.h>
 
 #include <Foundation/Foundation.h>
 
@@ -61,6 +64,7 @@ extern Mutex gFileWriteLock;
 extern Mutex gListLock;
 extern CFMutableArrayRef gDownloadList;
 extern CFMutableDictionaryRef gIssuersDict;
+extern CFAbsoluteTime gLastActivity;
 
 extern bool crlSignatureValid(
 	const char *crlFileName,
@@ -93,6 +97,7 @@ static const char* SYSTEM_KC_PATH = "/Library/Keychains/System.keychain";
 	NSMutableURLRequest *_request;
 	NSURLConnection *_connection;
 	NSMutableData *_receivedData;
+	CFAbsoluteTime _timeToGiveUp;
 	NSData *_data;
 	NSTimer *_timer;
 	NSError *_error;
@@ -104,6 +109,7 @@ static const char* SYSTEM_KC_PATH = "/Library/Keychains/System.keychain";
 - (void)startLoad;
 - (void)syncLoad;
 - (void)cancelLoad;
+- (void)resetTimeout;
 - (BOOL)finished;
 - (NSData *)data;
 - (NSError*)error;
@@ -139,7 +145,7 @@ static const char* SYSTEM_KC_PATH = "/Library/Keychains/System.keychain";
 
 - (void)startLoad
 {
-	// Cancel any load currently in progress
+	// Cancel any load currently in progress and clear instance variables
 	[self cancelLoad];
 
 	_finished = NO;
@@ -149,11 +155,17 @@ static const char* SYSTEM_KC_PATH = "/Library/Keychains/System.keychain";
 
 	// Start the download
 	_connection = [[NSURLConnection alloc] initWithRequest:[self request] delegate:self];
+	if (!_connection) {
+		ocspdDebug("Failed to open connection (is network available?)");
+		[self timeout];
+		return;
+	}
 
 	// Start the timer
-	_timer = [NSTimer scheduledTimerWithTimeInterval:READ_STREAM_TIMEOUT target:self
-		selector:@selector(timeout)
-		userInfo:nil repeats:NO];
+	[self resetTimeout];
+	_timer = [NSTimer scheduledTimerWithTimeInterval:1.0 target:self
+		selector:@selector(timeoutCheck)
+		userInfo:nil repeats:YES];
 	[_timer retain];
 }
 
@@ -192,12 +204,25 @@ static const char* SYSTEM_KC_PATH = "/Library/Keychains/System.keychain";
 	}
 }
 
-- (void)timeout
+- (void)timeoutCheck
 {
+	if (_finished) {
+		return; // already completed
+	}
+	if (_timeToGiveUp > CFAbsoluteTimeGetCurrent()) {
+		return; // not time yet...
+	}
+	// give up and cancel the download
 	[self cancelLoad];
 	OSStatus err = CSSMERR_APPLETP_NETWORK_FAILURE;
 	_error = [[NSError alloc] initWithDomain:NSOSStatusErrorDomain code:err userInfo:nil];
 	_finished = YES;
+}
+
+- (void)resetTimeout
+{
+	gLastActivity = CFAbsoluteTimeGetCurrent();
+	_timeToGiveUp = gLastActivity + READ_STREAM_TIMEOUT;
 }
 
 - (BOOL)finished
@@ -218,7 +243,11 @@ static const char* SYSTEM_KC_PATH = "/Library/Keychains/System.keychain";
 /* NSURLConnection delegate methods */
 - (void)connection:(NSURLConnection *)connection didReceiveData:(NSData *)newData
 {
+	if (![newData length])
+		return;
+
 	[_receivedData appendData:newData];
+	[self resetTimeout];
 }
 
 - (void)connectionDidFinishLoading:(NSURLConnection *)connection
@@ -325,6 +354,8 @@ static const char* SYSTEM_KC_PATH = "/Library/Keychains/System.keychain";
 		NSLog(@"You can specify the username and password for a proxy server with /usr/bin/security. Example:  sudo security add-internet-password -a squiduser -l \"HTTP Proxy\" -P 3128 -r 'http' -s localhost -w squidpass -U -T /usr/sbin/ocspd /Library/Keychains/System.keychain");
 		printedHint = true;
 	}
+	// Cancel the challenge since we do not have a credential to present (14761252)
+	[[challenge sender] cancelAuthenticationChallenge:challenge];
 }
 
 @end
@@ -348,7 +379,7 @@ static NSString* kContentType       = @"Content-Type";
 static NSString* kAppOcspRequest    = @"application/ocsp-request";
 static NSString* kContentLength     = @"Content-Length";
 static NSString* kUserAgent         = @"User-Agent";
-static NSString* kAppUserAgent      = @"ocspd/1.0.1";
+static NSString* kAppUserAgent      = @"ocspd/1.0.2";
 static NSString* kCacheControl      = @"Cache-Control";
 
 #if OCSP_DEBUG
@@ -1072,10 +1103,41 @@ static void ocspdNetFetchAsync(
 	}
 }
 
+/*
+ * This is a basic "we have an internet connection" check.
+ * It tests whether IP 0.0.0.0 is routable.
+ */
+bool shouldAttemptNetFetch()
+{
+	bool result = true;
+	SCNetworkReachabilityRef scnr;
+	struct sockaddr_in addr;
+	bzero(&addr, sizeof(addr));
+	addr.sin_len = sizeof(addr);
+	addr.sin_family = AF_INET;
+
+	scnr = SCNetworkReachabilityCreateWithAddress(kCFAllocatorDefault, (const struct sockaddr *)&addr);
+	if (scnr) {
+		SCNetworkReachabilityFlags flags = 0;
+		if (SCNetworkReachabilityGetFlags(scnr, &flags)) {
+			if ((flags & kSCNetworkReachabilityFlagsReachable) == 0)
+				result = false;
+		}
+		CFRelease(scnr);
+	}
+	else { ocspdDebug("Failed to create reachability reference"); }
+	ocspdDebug("Finished reachability check, result=%s", (result) ? "YES" :"NO");
+
+	return result;
+}
+
 /* Kick off net fetch of a cert or a CRL and return immediately. */
 CSSM_RETURN ocspdStartNetFetch(
 	async_fetch_t		*fetchParams)
 {
+	if (!shouldAttemptNetFetch())
+		return CSSMERR_APPLETP_NETWORK_FAILURE;
+
 	dispatch_queue_t queue = dispatch_get_global_queue(
 		DISPATCH_QUEUE_PRIORITY_DEFAULT, 0);
 

@@ -890,11 +890,15 @@ static CURLcode darwinssl_connect_step1(struct connectdata *conn,
   /* If this is a domain name and not an IP address, then configure SNI.
    * Also: the verifyhost setting influences SNI usage */
   /* If this is a domain name and not an IP address, then configure SNI: */
+#ifdef __APPLE__
+  if(data->set.ssl.verifyhost) {
+#else /* !__APPLE__ */
   if((0 == Curl_inet_pton(AF_INET, conn->host.name, &addr)) &&
 #ifdef ENABLE_IPV6
      (0 == Curl_inet_pton(AF_INET6, conn->host.name, &addr)) &&
 #endif
      data->set.ssl.verifyhost) {
+#endif /* __APPLE__ */
     err = SSLSetPeerDomainName(connssl->ssl_ctx, conn->host.name,
                                strlen(conn->host.name));
     if(err != noErr) {

@@ -31,7 +31,7 @@
 extern "C" {
 #endif
 
-#define IOGRAPHICSTYPES_REV     37
+#define IOGRAPHICSTYPES_REV     38
 
 typedef SInt32  IOIndex;
 typedef UInt32  IOSelect;
@@ -1036,6 +1036,7 @@ enum {
     kIOTimingIDVESA_1024x768_75hz    = 204,     /* 1024x768  (75 Hz) VESA 1K-75Hz timing (very similar to kIOTimingIDApple_1024x768_75hz). */
     kIOTimingIDVESA_1024x768_85hz    = 208,     /* 1024x768  (85 Hz) VESA timing. */
     kIOTimingIDApple_1024x768_75hz   = 210,     /* 1024x768  (75 Hz) Apple 19" RGB. */
+    kIOTimingIDVESA_1152x864_75hz    = 215,     /* 1152x864  (75 Hz) VESA timing. */
     kIOTimingIDApple_1152x870_75hz   = 220,     /* 1152x870  (75 Hz) Apple 21" RGB. */
     kIOTimingIDAppleNTSC_ST          = 230,     /*  512x384  (60 Hz, interlaced, non-convolved). */
     kIOTimingIDAppleNTSC_FF          = 232,     /*  640x480  (60 Hz, interlaced, non-convolved). */
@@ -1105,6 +1106,8 @@ enum {
 #define kIOFBGammaWidthKey              "IOFBGammaWidth"
 #define kIOFBGammaCountKey              "IOFBGammaCount"
 #define kIOFBCLUTDeferKey               "IOFBCLUTDefer"
+
+#define kIOFBDisplayPortConfigurationDataKey    "dpcd-registers"
         
 // exists on the hibernate progress display device
 #ifndef kIOHibernatePreviewActiveKey

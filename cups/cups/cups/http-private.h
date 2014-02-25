@@ -1,18 +1,18 @@
 /*
- * "$Id: http-private.h 11093 2013-07-03 20:48:42Z msweet $"
+ * "$Id: http-private.h 11433 2013-11-20 18:57:44Z msweet $"
  *
- *   Private HTTP definitions for CUPS.
+ * Private HTTP definitions for CUPS.
  *
- *   Copyright 2007-2013 by Apple Inc.
- *   Copyright 1997-2007 by Easy Software Products, all rights reserved.
+ * Copyright 2007-2013 by Apple Inc.
+ * Copyright 1997-2007 by Easy Software Products, all rights reserved.
  *
- *   These coded instructions, statements, and computer programs are the
- *   property of Apple Inc. and are protected by Federal copyright
- *   law.  Distribution and use rights are outlined in the file "LICENSE.txt"
- *   which should have been included with this file.  If this file is
- *   file is missing or damaged, see the license at "http://www.cups.org/".
+ * These coded instructions, statements, and computer programs are the
+ * property of Apple Inc. and are protected by Federal copyright
+ * law.  Distribution and use rights are outlined in the file "LICENSE.txt"
+ * which should have been included with this file.  If this file is
+ * file is missing or damaged, see the license at "http://www.cups.org/".
  *
- *   This file is subject to the Apple OS-Developed Software exception.
+ * This file is subject to the Apple OS-Developed Software exception.
  */
 
 #ifndef _CUPS_HTTP_PRIVATE_H_
@@ -169,12 +169,12 @@ extern BIO_METHOD *_httpBIOMethods(void);
  * The GNU TLS library is more of a "bare metal" SSL/TLS library...
  */
 
-typedef gnutls_session http_tls_t;
+typedef gnutls_session_t http_tls_t;
 typedef void *http_tls_credentials_t;
 
-extern ssize_t	_httpReadGNUTLS(gnutls_transport_ptr ptr, void *data,
+extern ssize_t	_httpReadGNUTLS(gnutls_transport_ptr_t ptr, void *data,
 		                size_t length);
-extern ssize_t	_httpWriteGNUTLS(gnutls_transport_ptr ptr, const void *data,
+extern ssize_t	_httpWriteGNUTLS(gnutls_transport_ptr_t ptr, const void *data,
 		                 size_t length);
 
 #  elif defined(HAVE_CDSASSL)
@@ -437,5 +437,5 @@ extern int		_httpWait(http_t *http, int msec, int usessl);
 #endif /* !_CUPS_HTTP_PRIVATE_H_ */
 
 /*
- * End of "$Id: http-private.h 11093 2013-07-03 20:48:42Z msweet $".
+ * End of "$Id: http-private.h 11433 2013-11-20 18:57:44Z msweet $".
  */

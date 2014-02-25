@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003, 2006 Apple Inc. All rights reserved.
+ * Copyright (c) 2003-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -31,6 +31,9 @@
 #include <CoreFoundation/CFDictionary.h>
 #include <OpenDirectory/OpenDirectory.h>
 #include <DirectoryService/DirectoryService.h>
+
+#define CHARSET_SYMBOLS			"-,./[]\\;'!@#%&*()_{}:\"?"
+#define CHARSET_SYMBOLS_LENGTH		(sizeof(CHARSET_SYMBOLS) - 1)
 
 typedef CFMutableDictionaryRef	AFPUserRef;
 

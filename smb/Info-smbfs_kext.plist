@@ -21,11 +21,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>2.0.0</string>
+	<string>2.0.1</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>2.0.0</string>
+	<string>2.0.1</string>
 	<key>NSHumanReadableCopyright</key>
 	<string>Copyright © 2004-2013 Apple Inc. All rights reserved.</string>
 	<key>OSBundleLibraries</key>

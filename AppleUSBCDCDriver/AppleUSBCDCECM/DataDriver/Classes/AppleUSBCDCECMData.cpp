@@ -690,6 +690,7 @@ bool AppleUSBCDCECMData::start(IOService *provider)
 	IOReturn	ret = kIOReturnSuccess;
 	UInt16		devDriverCount = 0;
     OSNumber	*bufNumber = NULL;
+    OSBoolean   *enumerateOnWake;
     UInt16		bufValue = 0;
 
     XTRACE(this, 0, 0, "start");
@@ -843,6 +844,16 @@ bool AppleUSBCDCECMData::start(IOService *provider)
 			fOutBufPool = kOutBufPool;
 		}
 	}
+    
+    enumerateOnWake = OSDynamicCast(OSBoolean, provider->getProperty("EnumerateOnWake"));
+    if (enumerateOnWake && enumerateOnWake->isFalse())
+    {
+		fEnumOnWake = FALSE;
+        XTRACE(this, 0, 0, "start - Enumerate on wake is on");
+    } else {
+		fEnumOnWake = TRUE;
+	}
+
     
     UInt16 myVID = fDataInterface->GetDevice()->GetVendorID();
     UInt16 myPID = fDataInterface->GetDevice()->GetProductID();
@@ -1323,7 +1334,9 @@ IOReturn AppleUSBCDCECMData::getMaxPacketSize(UInt32 *maxSize) const
 	if (fControlDriver)
 	{
 		XTRACE(this, 0, fControlDriver->fMax_Block_Size, "getMaxPacketSize - Setting max size");
-		*maxSize = fControlDriver->fMax_Block_Size;
+		//The CDC Spec for fMax_Block_Size does not include  the length of the CRC
+		//IOEthernetController expects the CRC length to be included in the transfer size
+		*maxSize = fControlDriver->fMax_Block_Size + kIOEthernetCRCSize;                //JRW <rdar://problem/14756797>
 	} else {
 		rtn = kIOReturnIOError;				// If we don't have a control driver by now we're in trouble...
 		XTRACE(this, 0, 0, "getMaxPacketSize - No control driver???");
@@ -1782,11 +1795,14 @@ bool AppleUSBCDCECMData::wakeUp()
 
     XTRACE(this, 0, 0, "wakeUp");
 	
-	if ((fSleeping) && (fDataInterface))
-	{
-		fDataInterface->GetDevice()->ReEnumerateDevice(0);
-		return false;
-	}
+	if (fEnumOnWake)
+    {
+        if ((fSleeping) && (fDataInterface))
+        {
+            fDataInterface->GetDevice()->ReEnumerateDevice(0);
+            return false;
+        }
+    }
     
     fReady = false;
     
@@ -2406,7 +2422,7 @@ void AppleUSBCDCECMData::linkStatusChange(UInt8 linkState)
 	
 	XTRACE(this, 0, linkState, "linkStatusChange");
     
-        // Check the state actually changed
+    // Check the state actually changed
 	
 	if (fLinkStatus != linkState)
 	{
@@ -2418,7 +2434,7 @@ void AppleUSBCDCECMData::linkStatusChange(UInt8 linkState)
 		{
             setLinkStatusUp();
 			
-				// Start our IOOutputQueue object if not already started
+            // Start our IOOutputQueue object if not already started
 			
 			if (fTransmitQueue)
 			{
@@ -2438,7 +2454,7 @@ void AppleUSBCDCECMData::linkStatusChange(UInt8 linkState)
             {
                 fTransmitQueue->stop();
                 
-                    // Flush all packets currently in the output queue
+                // Flush all packets currently in the output queue
                 
                 fTransmitQueue->setCapacity(0);
                 fTransmitQueue->flush();
@@ -2465,13 +2481,20 @@ void AppleUSBCDCECMData::linkStatusChange(UInt8 linkState)
 /****************************************************************************************************/
 void AppleUSBCDCECMData::linkSpeedChange(UInt32 upSpeed, UInt32 downSpeed)
 {
+	UInt32			speed;
 	
 	XTRACE(this, upSpeed, downSpeed, "linkSpeedChange");
 	
 	fUpSpeed = upSpeed;
     fDownSpeed = downSpeed;
-	
-    setLinkStatusUp(); // force speed change
+    
+	//IOEthernetController does not handle asymmetric speeds. So pick the min speed as worst case scenario for traffic shaping. 
+	 speed = min(fDownSpeed,fUpSpeed);
+    
+    if ((fLinkStatus != kLinkUp) && (speed != 0))
+    {
+        linkStatusChange(kLinkUp); // force link up
+    }
 	
 }/* end linkSpeedChange */
 
@@ -2490,7 +2513,7 @@ void AppleUSBCDCECMData::setLinkStatusUp()
 {
     IONetworkMedium	*medium;
     IOMediumType	mediumType = 0;
-	UInt32			speed;
+	UInt64			speed;
     char            line[256];
     UInt32          linkSpeed;
     UInt16          regs[LinkUp_Phy_Count] = {0, 0, 0, 0, 0, 0};
@@ -2502,36 +2525,30 @@ void AppleUSBCDCECMData::setLinkStatusUp()
     
     XTRACE(this, fUpSpeed, fDownSpeed, "setLinkStatusUp");
     
+    if (fLinkStatus != kLinkUp)
+    {
+        XTRACE(this, 0, 0, "setLinkStatusUp linkspeed is 0 +");
+        return;
+    }
+    
 		// We'll default to FDX and use the higher speed
 		
 	mediumType = kIOMediumOptionFullDuplex;
 	fullduplex = true;
-    
-	if (fUpSpeed > fDownSpeed)
-	{
-		speed = fUpSpeed;
-	} else {
-		speed = fDownSpeed;
-	}
-
-//    if (speed > 10000000)
-//    {
-//        mediumType |= kIOMediumEthernet100BaseTX;
-//    } else {
-//        mediumType |= kIOMediumEthernet10BaseT;
-//    }
+        
+    speed = max(fUpSpeed,fDownSpeed);
     
     linkSpeed = speed/1000000;           // Need this in mbits
     
     XTRACE(this, speed, linkSpeed, "speed, linkSpeed mbps+++");
 
     switch (linkSpeed) {
- 
+         
         case 0:
             mediumType |= kIOMediumEthernetNone;
-            XTRACE(this, 0, 0, "fLinkStatus");
-            break;
-
+            fLinkStatus = kLinkDown;
+            XTRACE(this, speed, linkSpeed, "setLinkStatusUp linkspeed is 0 +");
+            return;
         
         case 10:
             mediumType |= kIOMediumEthernet10BaseT;
@@ -2548,63 +2565,52 @@ void AppleUSBCDCECMData::setLinkStatusUp()
         default:
             mediumType |= kIOMediumEthernet10BaseT;
             XTRACE(this, speed, linkSpeed, "default linkspeed+");
-            linkSpeed = 10;
+            linkSpeed = 10;                 //Force to 10 Mbps
+            speed = linkSpeed*1000000;      //Corresponding value in bits per second
            break;
     }
     
-        // Log it if we need to
     
-    if (fLinkStatus != kLinkUp)
+    // Get the port number
+    
+    usbPortNumber = OSDynamicCast(OSNumber, fDataInterface->GetDevice()->getProperty("PortNum"));
+    if (usbPortNumber)
     {
-            // Get the port number
-        
-        usbPortNumber = OSDynamicCast(OSNumber, fDataInterface->GetDevice()->getProperty("PortNum"));
-        if (usbPortNumber)
-        {
-            snprintf(portNameBuffer, sizeof(portNameBuffer), "%d", usbPortNumber->unsigned16BitValue());
-            portName = portNameBuffer;
-        }
-        
-            // Get some debug info. (none at the moment)
-        
-        regs[0] = 0;
-        regs[1] = 0;
-        regs[2] = 0;
-        regs[3] = 0;
-        regs[4] = 0;
-        regs[5] = 0;
-        
-            // Now print it
-        
-        ::LinkUpMessage(line, sizeof(line),         // std link up msg to line buffer
-                        NULL,                       // get kext name from kmodinfo
-                        fNetworkInterface,			// where to get the en name
-                        linkSpeed,                  // speed in mbits
-                        fullduplex,					// boolean for full/half duplex
-                        flowState,					// flow control type
-                        portName,					// port name or NULL
-                        regs,						// array of 6 useful registers to log
-                        NULL);                      // string of loopback type or NULL
+        snprintf(portNameBuffer, sizeof(portNameBuffer), "%d", usbPortNumber->unsigned16BitValue());
+        portName = portNameBuffer;
+    }
+    
+    // Get some debug info. (none at the moment)
+    
+    regs[0] = 0;
+    regs[1] = 0;
+    regs[2] = 0;
+    regs[3] = 0;
+    regs[4] = 0;
+    regs[5] = 0;
+    
+    // Now print it
+    
+    ::LinkUpMessage(line, sizeof(line),         // std link up msg to line buffer
+                    NULL,                       // get kext name from kmodinfo
+                    fNetworkInterface,			// where to get the en name
+                    linkSpeed,                  // speed in mbits
+                    fullduplex,					// boolean for full/half duplex
+                    flowState,					// flow control type
+                    portName,					// port name or NULL
+                    regs,						// array of 6 useful registers to log
+                    NULL);                      // string of loopback type or NULL
 #if USE_ELG				
         Log("%s\n", line);                          // Above goes to IOLog, send a copy to firewire if debug enabled
 #endif
     
-    }
-    
-    if ( (linkSpeed == 0) || (fLinkStatus != kLinkUp))
-    {
-        XTRACE(this, speed, linkSpeed, "setLinkStatusUp linkspeed is 0 +");
-        return;
-    }
     
     medium = IONetworkMedium::getMediumWithType(fMediumDict, mediumType);
     
     XTRACE(this, 0, mediumType, "setLinkStatusUp - LinkStatus set");
     
-    setLinkStatus(kIONetworkLinkActive | kIONetworkLinkValid, medium, linkSpeed);
-	
-//	fLinkStatus = kLinkUp;
-    
+    setLinkStatus(kIONetworkLinkActive | kIONetworkLinkValid, medium, speed);
+	   
 }/* end setLinkStatusUp */
 
 /****************************************************************************************************/
@@ -2623,23 +2629,21 @@ void AppleUSBCDCECMData::setLinkStatusDown()
     
     XTRACE(this, 0, 0, "setLinkStatusDown");
     
-        // Set our status to inactive, with the current medium set to 'none'
+    // Set our status to inactive, with the current medium set to 'none'
     
 	setLinkStatus(kIONetworkLinkValid, IONetworkMedium::getMediumWithType(fMediumDict, kIOMediumEthernetNone));
 	
-        // Log it if we need to
-    
-	if (fLinkStatus != kLinkDown)
+    // Log it if we need to
+
+    if (fNetworkInterface)
     {
-        if (fNetworkInterface)
-        {
-            Log("Ethernet [%s]: Link down on %s%d\n", DEBUG_NAME, fNetworkInterface->getNamePrefix(), fNetworkInterface->getUnitNumber());
-        } else {
-            Log("Ethernet [%s]: Link down\n", DEBUG_NAME);
-        }
-	}
+        Log("Ethernet [%s]: Link down on %s%d\n", DEBUG_NAME, fNetworkInterface->getNamePrefix(), fNetworkInterface->getUnitNumber());
+    } else {
+        Log("Ethernet [%s]: Link down\n", DEBUG_NAME);
+    }
 	
 	fLinkStatus = kLinkDown;
+    linkSpeedChange(0,0);                   //Force Link Speed to Zero
     
 }/* end setLinkStatusDown */
 

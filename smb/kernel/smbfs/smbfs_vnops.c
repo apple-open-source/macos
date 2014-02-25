@@ -495,7 +495,7 @@ smbfs_vnop_close(struct vnop_close_args *ap)
 		} else {
 			smbfs_closedirlookup(np, ap->a_context);
 		}
-	} else if ( vnode_isreg(vp) ) {
+	} else if ( vnode_isreg(vp) || vnode_islnk(vp) ) {
 		int clusterCloseError = np->f_clusterCloseError;
 		struct smb_share *share;
 		
@@ -1072,9 +1072,10 @@ smbfs_vnop_open_common(vnode_t vp, int mode, vfs_context_t context, void *n_last
 	struct smbnode *np;
 	int	error;
 
-	/* We only open files and directorys */
-	if (!vnode_isreg(vp) && !vnode_isdir(vp))
+	/* We only open files and directories and symlinks */
+	if (!vnode_isreg(vp) && !vnode_isdir(vp) && !vnode_islnk(vp)) {
 		return (EACCES);
+    }
 		
 	if ((error = smbnode_lock(VTOSMB(vp), SMBFS_EXCLUSIVE_LOCK)))
 		return (error);
@@ -2245,7 +2246,16 @@ smbfs_setattr(struct smb_share *share, vnode_t vp, struct vnode_attr *vap,
 			} else if ((share->ss_attributes & FILE_PERSISTENT_ACLS) &&
 					   (darwin || !UNIX_CAPS(share))) {
 				vamode = vap->va_mode & ACCESSPERMS;
-			}
+			} else if (SSTOVC(share)->vc_server_caps & kAAPL_SUPPORTS_NFS_ACE) {
+                /*
+                 * For OS X <-> OS X PFS (where ACLs are off by default), we 
+                 * need a way to set Posix permissions. If the server supports
+                 * the NFS ACE, then it will allow us to get the ACL and send
+                 * it back with the desired Posix permissions in the NFS ACE.
+                 */
+				vamode = vap->va_mode & ACCESSPERMS;
+            }
+
 		}
 		if (dosattr == np->n_dosattr) {
 			vaflags_mask = 0; /* Nothing really changes, no need to make the call */ 
@@ -2869,16 +2879,22 @@ exit:
 static int 
 smbfs_vnop_read(struct vnop_read_args *ap)
 {
-	vnode_t 	vp = ap->a_vp;
+	vnode_t vp = ap->a_vp;
 	uio_t uio = ap->a_uio;
 	int error = 0;
 	struct smbnode *np = NULL;
     SMBFID fid = 0;
 	struct smb_share *share;
 	
-	if (!vnode_isreg(vp) && !vnode_islnk(vp))
-		return (EPERM);		/* can only read regular files or symlinks */
-	
+	/* Preflight checks */
+	if (!vnode_isreg(vp)) {
+		/* can only read regular files */
+		if (vnode_isdir(vp))
+			return (EISDIR);
+		else
+			return (EPERM);
+	}
+
 	if (uio_resid(uio) == 0)
 		return (0);		/* Nothing left to do */
 	
@@ -3045,9 +3061,15 @@ smbfs_vnop_write(struct vnop_write_args *ap)
 	u_quad_t originalEOF;	
 	user_size_t writeCount;
 	
-	if ( !vnode_isreg(vp))
-		return (EPERM);
-	
+	/* Preflight checks */
+	if (!vnode_isreg(vp)) {
+		/* can only read regular files */
+		if (vnode_isdir(vp))
+			return (EISDIR);
+		else
+			return (EPERM);
+	}
+
 	if (uio_offset(uio) < 0)
 		return (EINVAL);
 	
@@ -3331,9 +3353,20 @@ smbfs_set_create_vap(struct smb_share *share, struct vnode_attr *vap, vnode_t vp
 	struct vnode_attr svrva;
 	kauth_acl_t savedacl = NULL;
 	int error;
-	int unix_info2 = ((UNIX_CAPS(share) & UNIX_QFILEINFO_UNIX_INFO2_CAP)) ? TRUE : FALSE;
+    int has_posix_modes = ((UNIX_CAPS(share) & UNIX_QFILEINFO_UNIX_INFO2_CAP)) ? TRUE : FALSE;;
+    
+    if ((!has_posix_modes) &&
+        (SSTOVC(share)->vc_server_caps & kAAPL_SUPPORTS_NFS_ACE)) {
+        /*
+         * For OS X <-> OS X PFS (where ACLs are off by default), we
+         * need a way to set Posix permissions. If the server supports
+         * the NFS ACE, then it will allow us to get the ACL and send
+         * it back with the desired Posix permissions in the NFS ACE.
+         */
+        has_posix_modes = TRUE;
+    }
 	
-	/* 
+	/*
 	 * Initialize here so we know if it needs to be freed at the end. Also
 	 * ask for everything since its the same performance hit and updates our
 	 * nodes uid/gid cache. The following are not used unless the user is
@@ -3376,10 +3409,11 @@ smbfs_set_create_vap(struct smb_share *share, struct vnode_attr *vap, vnode_t vp
 			 Posix file modes if server supports Posix perms and reg file */
 			VATTR_SET_SUPPORTED(vap, va_mode);
 			
-			if ( !vnode_isreg(vp) || !unix_info2 ) {
+			if ( !vnode_isreg(vp) || !has_posix_modes ) {
 				VATTR_CLEAR_ACTIVE(vap, va_mode);
 			}
-		} else {
+		}
+        else {
 			/*
 			 * This routine gets called from create. If this is a regular file they 
 			 * could be setting the posix file modes to something that doesn't allow 
@@ -3393,14 +3427,14 @@ smbfs_set_create_vap(struct smb_share *share, struct vnode_attr *vap, vnode_t vp
 			 * <rdar://problem/5199099> Need a new VNOP_OPEN call that allows the 
 			 * create/lookup/open/access in one call
 			 */
-			if (vnode_isreg(vp) && unix_info2 && 
-				((vap->va_mode & (S_IRUSR | S_IWUSR)) !=  (S_IRUSR | S_IWUSR))) {
+			if (vnode_isreg(vp) && has_posix_modes &&
+				((vap->va_mode & (S_IRUSR | S_IWUSR)) != (S_IRUSR | S_IWUSR))) {
 				np->create_va_mode = vap->va_mode;
 				np->set_create_va_mode = TRUE;
 				/* The server should always give us read/write on create */
 				VATTR_SET_SUPPORTED(vap, va_mode);
 				VATTR_CLEAR_ACTIVE(vap, va_mode);
-			} else if (!unix_info2) {
+			} else if (!has_posix_modes) {
 				/* We can only set these if the server supports the unix extensions */
 				VATTR_SET_SUPPORTED(vap, va_mode);
 				VATTR_CLEAR_ACTIVE(vap, va_mode);
@@ -5202,9 +5236,14 @@ smbfs_vnop_advlock(struct vnop_advlock_args *ap)
 	uint64_t len = -1;
 	uint32_t lck_pid;
 
-	/* Only regular files can have locks */
-	if ( !vnode_isreg(vp))
-		return (EISDIR);
+	/* Preflight checks */
+	if (!vnode_isreg(vp)) {
+		/* can only read regular files */
+		if (vnode_isdir(vp))
+			return (EISDIR);
+		else
+			return (EPERM);
+	}
 
 	share = smb_get_share_with_reference(VTOSMBFS(vp));
 	if ((flags & F_POSIX) && ((UNIX_CAPS(share) & CIFS_UNIX_FCNTL_LOCKS_CAP) == 0)) {
@@ -6361,7 +6400,7 @@ smbfs_vnop_removexattr(struct vnop_removexattr_args *ap)
 {
 	vnode_t vp = ap->a_vp;
 	const char *sfmname;
-	int error = 0;
+	int error = 0, saved_error = 0;
 	struct smbnode *np = NULL;
 	struct smb_share *share = NULL;
 	enum stream_types stype = kNoStream;
@@ -6417,7 +6456,7 @@ smbfs_vnop_removexattr(struct vnop_removexattr_args *ap)
                                      1, ap->a_context);
 		}
 		/* SFM server or the server doesn't support deleting named streams */
-		if ((error == ENOTSUP) || (error == EINVAL)) {
+		if (error) {
 			uio_t afp_uio = NULL;
 			uint8_t	afpinfo[60];
 			SMBFID fid = 0;
@@ -6425,16 +6464,19 @@ smbfs_vnop_removexattr(struct vnop_removexattr_args *ap)
 			
 			/* 
 			 * Either a SFM volume or the server doesn't support deleting named
-			 * streams. Just zero out the finder info data.
+			 * streams. Try to zero out the finder info data.
 			 */
+            saved_error = error; /* save original failure error */
+            
 			afp_uio = uio_create(1, 0, UIO_SYSSPACE, UIO_READ);
 			if (!afp_uio) {
-				error = ENOMEM;
+				error = saved_error;
 				goto exit;
 			}
 			error = uio_addiov( afp_uio, CAST_USER_ADDR_T(afpinfo), sizeof(afpinfo));
 			if (error) {
 				uio_free(afp_uio);
+				error = saved_error;
 				goto exit;
 			}
 			
@@ -6444,15 +6486,22 @@ smbfs_vnop_removexattr(struct vnop_removexattr_args *ap)
 			/* clear out the finder info data */
 			bzero(&afpinfo[AFP_INFO_FINDER_OFFSET], FINDERINFOSIZE);
 			
-			if (!error)	/* truncate the stream, this will wake up SFM */
-				error = smbfs_smb_seteof(share, fid, 0, ap->a_context); 
+			if (!error)	{
+                /* truncate the stream, this will wake up SFM */
+				error = smbfs_smb_seteof(share, fid, 0, ap->a_context);
+            }
 			/* Reset our uio */
 			if (!error) {
 				uio_reset(afp_uio, 0, UIO_SYSSPACE, UIO_WRITE );
 				error = uio_addiov( afp_uio, CAST_USER_ADDR_T(afpinfo), sizeof(afpinfo));
-			}	
+			}
+            
 			if (!error)
 				error = smb_smb_write(share, fid, afp_uio, 0, ap->a_context);
+            if (error) {
+				error = saved_error; /* restore original error */
+            }
+            
 			/* Try to set the modify time back to the original time, ignore any errors */
 			(void)smbfs_smb_setfattrNT(share, np->n_dosattr, fid, NULL, &ts, 
 									   NULL, ap->a_context);
@@ -7361,8 +7410,14 @@ smbfs_vnop_allocate(struct vnop_allocate_args *ap)
 	
 	*(ap->a_bytesallocated) = 0;
 	
-	if (!vnode_isreg(vp))
-		return (EISDIR);
+	/* Preflight checks */
+	if (!vnode_isreg(vp)) {
+		/* can only read regular files */
+		if (vnode_isdir(vp))
+			return (EISDIR);
+		else
+			return (EPERM);
+	}
 	
 	if ((error = smbnode_lock(VTOSMB(vp), SMBFS_EXCLUSIVE_LOCK))) {
 		return (error);

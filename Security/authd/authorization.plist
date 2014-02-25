@@ -195,17 +195,18 @@ See remaining rules for examples.
 		</dict>
 		<key>com.apple.ServiceManagement.blesshelper</key>
 		<dict>
+			<key>allow-root</key>
+			<true/>
 			<key>class</key>
-			<string>rule</string>
+			<string>user</string>
 			<key>comment</key>
 			<string>Used by the ServiceManagement framework to add a privileged helper tool to the system launchd.</string>
-			<key>k-of-n</key>
+			<key>group</key>
+			<string>admin</string>
+			<key>timeout</key>
+			<integer>30</integer>
+			<key>version</key>
 			<integer>1</integer>
-			<key>rule</key>
-			<array>
-				<string>is-root</string>
-				<string>authenticate-admin-30</string>
-			</array>
 		</dict>
 		<key>com.apple.ServiceManagement.daemons.modify</key>
 		<dict>

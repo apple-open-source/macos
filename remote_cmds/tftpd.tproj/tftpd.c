@@ -930,8 +930,10 @@ send_data:
 		if (!etftp && debug)
 			syslog(LOG_DEBUG, "Send DATA %u", block);
 		if ((n = send(peer, dp, size + 4, 0)) != size + 4) {
-			syslog(LOG_ERR, "tftpd: write: %m");
-			goto abort;
+			if (errno != ENOBUFS) {
+				syslog(LOG_ERR, "tftpd: write: %m");
+				goto abort;
+			}
 		}
 		amount += size;
 		if (block)

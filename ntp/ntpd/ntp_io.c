@@ -103,6 +103,8 @@ nic_rule *nic_rule_list;
 #include <netinet/in_var.h>
 #include <netinet6/in6_var.h>
 
+#define IN6_AVOID_FLAGS (IN6_IFF_TEMPORARY|IN6_IFF_NOTREADY|IN6_IFF_DETACHED|IN6_IFF_DEPRECATED)
+
 #if defined(SYS_WINNT)
 #include <transmitbuff.h>
 #include <isc/win32os.h>
@@ -187,7 +189,7 @@ static struct interface *new_interface	(struct interface *);
 static void		add_interface	(struct interface *);
 static int		update_interfaces(u_short, interface_receiver_t, void *);
 static void		remove_interface(struct interface *);
-static struct interface *create_interface(u_short, struct interface *);
+static struct interface *create_interface(u_short, struct interface *, int *);
 
 static int	move_fd			(SOCKET);
 static int	is_wildcard_addr	(sockaddr_u *);
@@ -909,9 +911,6 @@ list_if_listening(
 	struct interface *	iface
 	)
 {
-	if (awake_timer == 0 && awoke()) {
-		awake_timer = current_time;
-	}
 	msyslog(LOG_INFO, "%s on %d %s %s UDP %d",
 		(iface->ignore_packets) 
 		    ? "Listen and drop"
@@ -1357,7 +1356,8 @@ refresh_interface(
 			strlcpy(ifr6.ifr_name, interface->name, sizeof(ifr6.ifr_name));
 			ifr6.ifr_addr = *(struct sockaddr_in6 *)&interface->sin;
 			if (ioctl(interface->fd, SIOCGIFAFLAG_IN6, &ifr6) >= 0) {
-				if (ifr6.ifr_ifru.ifru_flags6 & IN6_IFF_DEPRECATED) {
+				interface->flags6 = ifr6.ifr_ifru.ifru_flags6;
+				if (interface->flags6 & IN6_AVOID_FLAGS) {
 					close_and_delete_fd_from_list(interface->fd);
 					interface->fd = INVALID_SOCKET;
 				}
@@ -1619,7 +1619,7 @@ update_interfaces(
 		 * NOT (interface name, ip-address).
 		 */
 		iface = getinterface(&interface.sin, INT_WILDCARD);
-		
+
 		if (iface != NULL && refresh_interface(iface)) {
 			/*
 			 * found existing and up to date interface -
@@ -1691,7 +1691,8 @@ update_interfaces(
 			 * We can bind to the address as the refresh
 			 * code already closed the offending socket
 			 */
-			iface = create_interface(port, &interface);
+			int flags6 = 0;
+			iface = create_interface(port, &interface, &flags6);
 
 			if (iface != NULL) {
 				ifi.action = IFS_CREATED;
@@ -1704,7 +1705,7 @@ update_interfaces(
 				DPRINT_INTERFACE(3,
 					(iface, "updating ",
 					 " new - created\n"));
-			} else {
+			} else if (0 == (flags6 & IN6_AVOID_FLAGS)) {
 				DPRINT_INTERFACE(3, 
 					(&interface, "updating ",
 					 " new - creation FAILED"));
@@ -1816,7 +1817,8 @@ create_sockets(
 static struct interface *
 create_interface(
 	u_short			port,
-	struct interface *	protot
+	struct interface *	protot,
+	int *flags6
 	)
 {
 	sockaddr_u resmask;
@@ -1843,11 +1845,22 @@ create_interface(
 
 	if (INVALID_SOCKET == iface->fd
 	    && INVALID_SOCKET == iface->bfd) {
-		msyslog(LOG_ERR, "unable to create socket on %s (%d) for %s#%d",
-			iface->name,
-			iface->ifnum,
-			stoa((&iface->sin)),
-			port);
+		if ((iface->flags6 & IN6_AVOID_FLAGS) == 0) {
+			msyslog(LOG_ERR, "unable to create socket on %s (%d) for %s#%d",
+				iface->name,
+				iface->ifnum,
+				stoa((&iface->sin)),
+				port);
+		} else {
+			if (flags6) {
+				*flags6 = iface->flags6;
+			}
+			msyslog(LOG_DEBUG, "unable to create socket on %s (%d) for %s#%d flags6:0x%x",
+				iface->name,
+				iface->ifnum,
+				stoa((&iface->sin)),
+				port, iface->flags6);
+		}
 		delete_interface(iface);
 		return NULL;
 	}
@@ -2770,19 +2783,17 @@ open_socket(
 	/*
 	 * IPv6 specific options go here
 	 */
-    int flags6 = 0;
 	if (IS_IPV6(addr)) {
 		/* Avoid predictable bind errors */
 		struct in6_ifreq ifr6;
-        strlcpy(ifr6.ifr_name, interf->name, sizeof(ifr6.ifr_name));
+		strlcpy(ifr6.ifr_name, interf->name, sizeof(ifr6.ifr_name));
 		ifr6.ifr_addr = *(struct sockaddr_in6 *)addr;
 		if (ioctl(fd, SIOCGIFAFLAG_IN6, &ifr6) >= 0) {
-			if (ifr6.ifr_ifru.ifru_flags6 & (IN6_IFF_NOTREADY|IN6_IFF_DETACHED|IN6_IFF_DEPRECATED)) {
+			interf->flags6 = ifr6.ifr_ifru.ifru_flags6;
+			if (interf->flags6 & IN6_AVOID_FLAGS) {
 				closesocket(fd);
 				return INVALID_SOCKET;
-			} else {
-                flags6 = ifr6.ifr_ifru.ifru_flags6;
-            }
+			}
 		}
 #if defined(IPV6_V6ONLY)
 		if (isc_net_probe_ipv6only() == ISC_R_SUCCESS
@@ -2841,7 +2852,7 @@ open_socket(
 				fd, IS_IPV6(addr) ? "6" : "",
 				stoa(addr), scopetext, SRCPORT(addr),
 				IS_MCAST(addr) ? " (multicast)" : "",
-				interf->flags, flags6);
+				interf->flags, interf->flags6);
 		}
 
 		closesocket(fd);
@@ -3266,6 +3277,7 @@ input_handler(
 	l_fp *cts
 	)
 {
+    extern void trigger_timer();
 	int buflen;
 	int n;
 	int doing;

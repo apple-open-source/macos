@@ -15,6 +15,7 @@
 		0C664AE8175951270092D3D9 /* secd-02-upgrade-while-locked.c in Sources */ = {isa = PBXBuildFile; fileRef = 0C664AE7175951270092D3D9 /* secd-02-upgrade-while-locked.c */; };
 		0CBF93F8177B7CFC001E5658 /* secd-03-corrupted-items.c in Sources */ = {isa = PBXBuildFile; fileRef = 0CBF93F5177B7CFC001E5658 /* secd-03-corrupted-items.c */; };
 		0CBF93F9177B7CFC001E5658 /* secd-04-corrupted-items.c in Sources */ = {isa = PBXBuildFile; fileRef = 0CBF93F6177B7CFC001E5658 /* secd-04-corrupted-items.c */; };
+		0CBF93FA177B7CFC001E5658 /* brighton_keychain_2_db.h in Headers */ = {isa = PBXBuildFile; fileRef = 0CBF93F7177B7CFC001E5658 /* brighton_keychain_2_db.h */; };
 		0CBF93FC177BA9D9001E5658 /* secd-05-corrupted-items.c in Sources */ = {isa = PBXBuildFile; fileRef = 0CBF93FB177BA9D9001E5658 /* secd-05-corrupted-items.c */; };
 		0CE7ABDF171383E30088968F /* keychain_backup.c in Sources */ = {isa = PBXBuildFile; fileRef = 0CE7ABDE171383E30088968F /* keychain_backup.c */; };
 		18270F5914CF654400B05E7F /* client.c in Sources */ = {isa = PBXBuildFile; fileRef = 18AD560614CB6E7A008233F2 /* client.c */; };
@@ -316,6 +317,7 @@
 		0C664AE7175951270092D3D9 /* secd-02-upgrade-while-locked.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; lineEnding = 0; path = "secd-02-upgrade-while-locked.c"; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.c; };
 		0CBF93F5177B7CFC001E5658 /* secd-03-corrupted-items.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "secd-03-corrupted-items.c"; sourceTree = "<group>"; };
 		0CBF93F6177B7CFC001E5658 /* secd-04-corrupted-items.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "secd-04-corrupted-items.c"; sourceTree = "<group>"; };
+		0CBF93F7177B7CFC001E5658 /* brighton_keychain_2_db.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = brighton_keychain_2_db.h; sourceTree = "<group>"; };
 		0CBF93FB177BA9D9001E5658 /* secd-05-corrupted-items.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "secd-05-corrupted-items.c"; sourceTree = "<group>"; };
 		0CE7ABDE171383E30088968F /* keychain_backup.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = keychain_backup.c; sourceTree = "<group>"; };
 		18270C9714CF1AAD00B05E7F /* base.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = base.xcconfig; sourceTree = "<group>"; };
@@ -1124,6 +1126,7 @@
 				0CBF93F5177B7CFC001E5658 /* secd-03-corrupted-items.c */,
 				0CBF93F6177B7CFC001E5658 /* secd-04-corrupted-items.c */,
 				0CBF93FB177BA9D9001E5658 /* secd-05-corrupted-items.c */,
+				0CBF93F7177B7CFC001E5658 /* brighton_keychain_2_db.h */,
 				4CC92AAE15A3ACCE00C6D578 /* securityd_regressions.h */,
 				4CC92AAC15A3AC4600C6D578 /* sd-10-policytree.c */,
 				4C143CDD164D8EF5003035A3 /* sd-70-engine.c */,
@@ -1354,6 +1357,7 @@
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				0CBF93FA177B7CFC001E5658 /* brighton_keychain_2_db.h in Headers */,
 				0C0BDB611756882A00BC1A7E /* secd_regressions.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

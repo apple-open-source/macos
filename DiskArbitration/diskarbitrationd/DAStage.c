@@ -131,14 +131,24 @@ static void __DAStageDispatch( void * info )
                     {
                         if ( DADiskGetDescription( disk, kDADiskDescriptionMediaTypeKey ) )
                         {
-                            if ( DAUnitGetState( disk, kDAUnitStateStagedUnreadable ) == FALSE )
-                            {
-                                if ( _DAUnitIsUnreadable( disk ) )
-                                {
-                                    DADiskEject( disk, kDADiskEjectOptionDefault, NULL );
-                                }
+                            CFNumberRef size;
 
-                                DAUnitSetState( disk, kDAUnitStateStagedUnreadable, TRUE );
+                            size = DADiskGetDescription( disk, kDADiskDescriptionMediaSizeKey );
+
+                            if ( size )
+                            {
+                                if ( ___CFNumberGetIntegerValue( size ) == 0 )
+                                {
+                                    if ( DAUnitGetState( disk, kDAUnitStateStagedUnreadable ) == FALSE )
+                                    {
+                                        if ( _DAUnitIsUnreadable( disk ) )
+                                        {
+                                            DADiskEject( disk, kDADiskEjectOptionDefault, NULL );
+                                        }
+
+                                        DAUnitSetState( disk, kDAUnitStateStagedUnreadable, TRUE );
+                                    }
+                                }
                             }
                         }
                     }

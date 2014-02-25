@@ -34,7 +34,7 @@ __stpcpy_chk (char *dest, const char *src, size_t dstlen)
   if (__builtin_expect (dstlen < len, 0))
     __chk_fail_overflow ();
 
-  if (__builtin_expect (__chk_assert_no_overlap, 1))
+  if (__builtin_expect (__chk_assert_no_overlap != 0, 1))
     __chk_overlap(dest, len, src, len);
 
   return retval;

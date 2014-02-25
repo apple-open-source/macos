@@ -2831,7 +2831,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 118;
+				CURRENT_PROJECT_VERSION = 118.1;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_1)",
@@ -2861,7 +2861,7 @@
 		1DEB928708733DD80010E9CD /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 118;
+				CURRENT_PROJECT_VERSION = 118.1;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_1)",
@@ -3015,7 +3015,7 @@
 			buildSettings = {
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DYLIB_COMPATIBILITY_VERSION = 2;
-				DYLIB_CURRENT_VERSION = 118;
+				DYLIB_CURRENT_VERSION = 118.1;
 				EXPORTED_SYMBOLS_FILE = libdtrace/exports;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
@@ -3047,7 +3047,7 @@
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
 				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 118;
+				DYLIB_CURRENT_VERSION = 118.1;
 				EXPORTED_SYMBOLS_FILE = libdtrace/exports;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
@@ -3079,7 +3079,7 @@
 			buildSettings = {
 				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 118;
+				CURRENT_PROJECT_VERSION = 118.1;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_1)",
@@ -3109,7 +3109,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
-				CURRENT_PROJECT_VERSION = 118;
+				CURRENT_PROJECT_VERSION = 118.1;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_1)",

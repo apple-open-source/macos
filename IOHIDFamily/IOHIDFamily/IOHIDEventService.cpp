@@ -306,6 +306,7 @@ static void stopAndReleaseShim ( IOService * service, IOService * provider )
 void IOHIDEventService::stop( IOService * provider )
 {
     handleStop ( provider );
+    _provider = NULL;
 
     if (_keyboard.caps.timer) {
         _keyboard.caps.timer->cancelTimeout();
@@ -2101,7 +2102,7 @@ OSMetaClassDefineReservedUsed(IOHIDEventService,  0);
 OSArray * IOHIDEventService::getDeviceUsagePairs()
 {
     //RY: Correctly deal with kIOHIDDeviceUsagePairsKey
-    OSArray * providerUsagePairs = (OSArray*)_provider->copyProperty(kIOHIDDeviceUsagePairsKey);
+    OSArray * providerUsagePairs = _provider ? (OSArray*)_provider->copyProperty(kIOHIDDeviceUsagePairsKey) : NULL;
 
     if ( OSDynamicCast(OSArray, providerUsagePairs) && ( providerUsagePairs != _deviceUsagePairs ) ) {
         setProperty(kIOHIDDeviceUsagePairsKey, providerUsagePairs);

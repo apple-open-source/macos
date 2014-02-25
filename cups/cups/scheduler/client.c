@@ -1,5 +1,5 @@
 /*
- * "$Id: client.c 11214 2013-08-01 22:24:05Z msweet $"
+ * "$Id: client.c 11433 2013-11-20 18:57:44Z msweet $"
  *
  *   Client routines for the CUPS scheduler.
  *
@@ -1905,7 +1905,7 @@ cupsdReadClient(cupsd_client_t *con)	/* I - Client to read from */
 	    }
 	    else if (!WebInterface)
 	    {
-              if (!cupsdSendHeader(con, HTTP_OK, line, CUPSD_AUTH_NONE))
+              if (!cupsdSendHeader(con, HTTP_OK, NULL, CUPSD_AUTH_NONE))
 	      {
 		cupsdCloseClient(con);
 		return;
@@ -4379,5 +4379,5 @@ write_pipe(cupsd_client_t *con)		/* I - Client connection */
 
 
 /*
- * End of "$Id: client.c 11214 2013-08-01 22:24:05Z msweet $".
+ * End of "$Id: client.c 11433 2013-11-20 18:57:44Z msweet $".
  */

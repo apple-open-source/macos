@@ -270,6 +270,7 @@ _dispatch_queue_class_invoke(dispatch_object_t dou,
 		if (sema) {
 			_dispatch_thread_semaphore_signal(sema);
 		} else if (tq) {
+			_dispatch_introspection_queue_item_complete(dq);
 			return _dispatch_queue_push(tq, dq);
 		}
 	}
@@ -281,6 +282,7 @@ _dispatch_queue_class_invoke(dispatch_object_t dou,
 			_dispatch_wakeup(dq); // verify that the queue is idle
 		}
 	}
+	_dispatch_introspection_queue_item_complete(dq);
 	_dispatch_release(dq); // added when the queue is put on the list
 }
 

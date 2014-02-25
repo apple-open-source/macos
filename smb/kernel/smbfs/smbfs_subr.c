@@ -339,7 +339,7 @@ smbfs_create_start_path(struct smbmount *smp, struct smb_mount_args *args,
 		SMB_FREE(smp->sm_args.path, M_TEMP);
 		smp->sm_args.path_len = 0;
 	}
-} 
+}
 
 /*
  * Converts a network name to a local UTF-8 name.

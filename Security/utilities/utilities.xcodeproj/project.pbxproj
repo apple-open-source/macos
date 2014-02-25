@@ -47,6 +47,8 @@
 		52E2E4971738394C00E78313 /* SecXPCError.c in Sources */ = {isa = PBXBuildFile; fileRef = 52E2E4961738394C00E78313 /* SecXPCError.c */; };
 		72B918A1179723B500940533 /* iCloudKeychainTrace.c in Sources */ = {isa = PBXBuildFile; fileRef = 72B9189F179723AE00940533 /* iCloudKeychainTrace.c */; };
 		72B918A2179723C100940533 /* iCloudKeychainTrace.h in Headers */ = {isa = PBXBuildFile; fileRef = 72B918A0179723AE00940533 /* iCloudKeychainTrace.h */; };
+		BEA22A361811E4C800BE7682 /* SecCertificateTrace.c in Sources */ = {isa = PBXBuildFile; fileRef = BEA22A341811E4A600BE7682 /* SecCertificateTrace.c */; };
+		BEA22A371811E4CF00BE7682 /* SecCertificateTrace.h in Headers */ = {isa = PBXBuildFile; fileRef = BEA22A351811E4A600BE7682 /* SecCertificateTrace.h */; };
 		E72D461E175FB73100F70B9B /* SecAKSWrappers.h in Headers */ = {isa = PBXBuildFile; fileRef = E72D461D175FAF1E00F70B9B /* SecAKSWrappers.h */; };
 		E72D462D175FC35500F70B9B /* SecAKSWrappers.c in Sources */ = {isa = PBXBuildFile; fileRef = E72D462C175FC35500F70B9B /* SecAKSWrappers.c */; };
 		E765E23615A79F77006C7347 /* su-15-cfdictionary-der.c in Sources */ = {isa = PBXBuildFile; fileRef = E765E23315A79EA6006C7347 /* su-15-cfdictionary-der.c */; };
@@ -106,6 +108,8 @@
 		52E2E4961738394C00E78313 /* SecXPCError.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = SecXPCError.c; sourceTree = "<group>"; };
 		72B9189F179723AE00940533 /* iCloudKeychainTrace.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = iCloudKeychainTrace.c; sourceTree = "<group>"; };
 		72B918A0179723AE00940533 /* iCloudKeychainTrace.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = iCloudKeychainTrace.h; sourceTree = "<group>"; };
+		BEA22A341811E4A600BE7682 /* SecCertificateTrace.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = SecCertificateTrace.c; sourceTree = "<group>"; };
+		BEA22A351811E4A600BE7682 /* SecCertificateTrace.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SecCertificateTrace.h; sourceTree = "<group>"; };
 		E72D461D175FAF1E00F70B9B /* SecAKSWrappers.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SecAKSWrappers.h; sourceTree = "<group>"; };
 		E72D462C175FC35500F70B9B /* SecAKSWrappers.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = SecAKSWrappers.c; sourceTree = "<group>"; };
 		E742A09C14E343E70052A486 /* libutilities.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libutilities.a; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -151,6 +155,8 @@
 				72B918A0179723AE00940533 /* iCloudKeychainTrace.h */,
 				E72D462C175FC35500F70B9B /* SecAKSWrappers.c */,
 				E72D461D175FAF1E00F70B9B /* SecAKSWrappers.h */,
+				BEA22A341811E4A600BE7682 /* SecCertificateTrace.c */,
+				BEA22A351811E4A600BE7682 /* SecCertificateTrace.h */,
 				4C6882BD15ABADBC00028C8F /* SecCFCanonicalHashes.c */,
 				4C6882BE15ABADBC00028C8F /* SecCFCanonicalHashes.h */,
 				4C6882BF15ABADBC00028C8F /* SecCFRelease.h */,
@@ -269,6 +275,7 @@
 				4C6882DA15ABADBC00028C8F /* comparison.h in Headers */,
 				4C6882DC15ABADBC00028C8F /* debugging.h in Headers */,
 				4C6882E415ABADBC00028C8F /* der_plist.h in Headers */,
+				BEA22A371811E4CF00BE7682 /* SecCertificateTrace.h in Headers */,
 				4C6882E615ABADBC00028C8F /* der_plist_internal.h in Headers */,
 				4C6882E915ABADBC00028C8F /* fileIo.h in Headers */,
 				4C6882EA15ABADBC00028C8F /* sqlutils.h in Headers */,
@@ -377,6 +384,7 @@
 				52E2E4971738394C00E78313 /* SecXPCError.c in Sources */,
 				4C3600451680DEB90049891B /* iOSforOSX-SecAttr.c in Sources */,
 				4C3600461680DEB90049891B /* iOSforOSX-SecRandom.c in Sources */,
+				BEA22A361811E4C800BE7682 /* SecCertificateTrace.c in Sources */,
 				E790C14C169E5D9C00E0C0C9 /* readline.c in Sources */,
 				4CB23B9816A09503003A0131 /* not_on_this_platorm.c in Sources */,
 				4C5BCD8A17304CE600DCEFB4 /* der_null.c in Sources */,

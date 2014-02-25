@@ -1,0 +1,23 @@
+/*
+ * File:	dynamic_pager.tproj/backing_store_alerts.defs
+ * Author:	Chris Youngworth
+ * Date:	Oct, 1999
+ *
+ *	Exported alerts from the dynamic_pager facility.
+ */
+
+subsystem
+
+	backing_store_alerts 1000;
+
+#ifndef __MigTypeCheck
+#define __MigTypeCheck 1
+#endif
+
+#include <mach/std_types.defs>
+#include <mach/mach_types.defs>
+
+
+simpleroutine	backing_store_alert(
+		alert_port		: mach_port_t;
+	in	flags			: int);

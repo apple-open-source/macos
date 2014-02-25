@@ -420,7 +420,10 @@ ikev1_received_packet(vchar_t *msg, struct sockaddr_storage *local, struct socka
     struct isakmp *isakmp = (struct isakmp *)msg->v;
     isakmp_index *index = (isakmp_index *)isakmp;
     
-    session = ike_session_get_session(local, remote, 1);
+    session = ike_session_get_session(local, remote, 0, index);
+    if (!session) {
+        session = ike_session_get_session(local, remote, 1, NULL);
+    }
     if (!session) {
         plog (ASL_LEVEL_INFO, "failed to allocate or find ike session.\n");
         fatal_error(-1);
@@ -723,7 +726,7 @@ ikev1_ph1begin_i(ike_session_t *session, struct remoteconf *rmconf, struct socka
 #endif
 
     if (session == NULL) {
-        session = ike_session_get_session(local, remote, 1);
+        session = ike_session_get_session(local, remote, 1, NULL);
         if (!session) {
             plog (ASL_LEVEL_INFO, "failed to allocate or find ike session.\n");
             fatal_error(-1);

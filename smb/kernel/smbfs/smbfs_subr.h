@@ -215,7 +215,7 @@ int smb1fs_smb_lock(struct smb_share *share, int op, SMBFID fid, uint32_t pid,
                     vfs_context_t context);
 int smb1fs_smb_setpattr(struct smb_share *share, struct smbnode *np, const char *name,
                         size_t len, uint16_t attr, vfs_context_t context);
-int smbfs_set_hidden_bit(struct smb_share *share, struct smbnode *np, const char *name, 
+int smbfs_set_hidden_bit(struct smb_share *share, struct smbnode *dnp, const char *name,
 						 size_t len, Boolean hideit, vfs_context_t context);
 int smbfs_set_unix_info2(struct smb_share *share, struct smbnode *np, 
 						 struct timespec *crtime, struct timespec *mtime, 

@@ -1345,15 +1345,17 @@ _dispatch_continuation_redirect(dispatch_queue_t dq, dispatch_object_t dou)
 {
 	dispatch_continuation_t dc = dou._dc;
 
-	_dispatch_trace_continuation_pop(dq, dou);
 	(void)dispatch_atomic_add2o(dq, dq_running, 2, acquire);
 	if (!DISPATCH_OBJ_IS_VTABLE(dc) &&
 			(long)dc->do_vtable & DISPATCH_OBJ_SYNC_SLOW_BIT) {
+		_dispatch_trace_continuation_pop(dq, dou);
 		_dispatch_thread_semaphore_signal(
 				(_dispatch_thread_semaphore_t)dc->dc_other);
+		_dispatch_introspection_queue_item_complete(dou);
 	} else {
 		_dispatch_async_f_redirect(dq, dc);
 	}
+	_dispatch_perfmon_workitem_inc();
 }
 
 DISPATCH_ALWAYS_INLINE_NDEBUG
@@ -1389,6 +1391,7 @@ _dispatch_continuation_pop(dispatch_object_t dou)
 		dispatch_group_leave(dg);
 		_dispatch_release(dg);
 	}
+	 _dispatch_introspection_queue_item_complete(dou);
 	if (slowpath(dc1)) {
 		_dispatch_continuation_free_to_cache_limit(dc1);
 	}
@@ -1700,6 +1703,7 @@ _dispatch_barrier_sync_f_pop(dispatch_queue_t dq, dispatch_object_t dou,
 		// returns
 		(void)dispatch_atomic_add2o(dq, dq_running, 2, relaxed);
 	}
+	_dispatch_introspection_queue_item_complete(dou);
 	return sema ? sema : MACH_PORT_DEAD;
 }
 
@@ -1715,7 +1719,7 @@ _dispatch_barrier_sync_f_slow_invoke(void *ctxt)
 #if DISPATCH_COCOA_COMPAT
 	if (slowpath(dq->dq_is_thread_bound)) {
 		// The queue is bound to a non-dispatch thread (e.g. main thread)
-		dc->dc_func(dc->dc_ctxt);
+		_dispatch_client_callout(dc->dc_ctxt, dc->dc_func);
 		dispatch_atomic_store2o(dc, dc_func, NULL, release);
 		_dispatch_thread_semaphore_signal(sema); // release
 		return;
@@ -1985,7 +1989,8 @@ _dispatch_sync_f2(dispatch_queue_t dq, void *ctxt, dispatch_function_t func)
 		return _dispatch_sync_f_slow(dq, ctxt, func, false);
 	}
 	uint32_t running = dispatch_atomic_add2o(dq, dq_running, 2, relaxed);
-	if (slowpath(running & 1)) {
+	// re-check suspension after barrier check <rdar://problem/15242126>
+	if (slowpath(running & 1) || slowpath(DISPATCH_OBJECT_SUSPENDED(dq))) {
 		running = dispatch_atomic_sub2o(dq, dq_running, 2, relaxed);
 		return _dispatch_sync_f_slow(dq, ctxt, func, running == 0);
 	}

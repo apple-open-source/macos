@@ -23,7 +23,7 @@ if [[ ! -f ${LOG} ]]; then
     done
 fi
 
-for server in $(awk '/^server/ {print $NF}' /etc/ntp.conf); do
+for server in $(awk '/^server/ {print $2}' /etc/ntp.conf); do
     if sntp -K /dev/null -s ${server} &> ${LOG}; then
 	break
     else

@@ -1,6 +1,5 @@
-diff -aur php-5.3.6/ext/phar/Makefile.frag php/ext/phar/Makefile.frag
---- php-5.3.6/ext/phar/Makefile.frag	2011-02-25 01:32:17.000000000 -0800 
-+++ php/ext/phar/Makefile.frag	2011-03-18 14:07:34.000000000 -0700
+--- php-5.4.22/ext/phar/Makefile.frag.orig	2013-11-22 17:22:04.000000000 -0800
++++ php-5.4.22/ext/phar/Makefile.frag	2013-11-22 17:24:58.000000000 -0800
 @@ -18,7 +18,7 @@
  	else \
  		$(top_srcdir)/build/shtool echo -n -- "$(PHP_EXECUTABLE)"; \
@@ -10,7 +9,7 @@ diff -aur php-5.3.6/ext/phar/Makefile.frag php/ext/phar/Makefile.frag
  
  $(builddir)/phar/phar.inc: $(srcdir)/phar/phar.inc
  	-@test -d $(builddir)/phar || mkdir $(builddir)/phar
-@@ -26,17 +26,17 @@
+@@ -26,20 +26,20 @@
  
  $(builddir)/phar.php: $(srcdir)/build_precommand.php $(srcdir)/phar/*.inc $(srcdir)/phar/*.php $(SAPI_CLI_PATH)
  	-@echo "Generating phar.php"
@@ -32,3 +31,6 @@ diff -aur php-5.3.6/ext/phar/Makefile.frag php/ext/phar/Makefile.frag
  	-@rm -f $(INSTALL_ROOT)$(bindir)/phar
 -	$(LN_S) -f $(bindir)/phar.phar $(INSTALL_ROOT)$(bindir)/phar
 +	cd $(INSTALL_ROOT)$(bindir) && $(LN_S) -f phar.phar phar
+ 	@$(mkinstalldirs) $(INSTALL_ROOT)$(mandir)/man1
+ 	@$(INSTALL_DATA) $(builddir)/phar.1 $(INSTALL_ROOT)$(mandir)/man1/phar.1
+ 	@$(INSTALL_DATA) $(builddir)/phar.phar.1 $(INSTALL_ROOT)$(mandir)/man1/phar.phar.1

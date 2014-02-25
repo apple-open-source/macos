@@ -48,12 +48,11 @@
 struct heim_digest_desc {
 #define F_SERVER	1
 #define F_HAVE_HASH	2
-#define F_HAVE_HA1	4
-#define F_USE_PREFIX	8
+#define F_USE_PREFIX	4
     int flags;
     int type;
     char *password;
-    uint8_t SecretHash[CC_MD5_DIGEST_LENGTH];
+    char *secretHash;
     char *serverNonce;
     char *serverRealm;
     char *serverQOP;
@@ -85,7 +84,7 @@ static void
 clear_context(heim_digest_t context)
 {
     MEMSET_FREE_AND_CLEAR(context->password);
-    memset(context->SecretHash, 0, sizeof(context->SecretHash));
+    FREE_AND_CLEAR(context->secretHash);
     context->flags &= ~(F_HAVE_HASH);
     FREE_AND_CLEAR(context->serverNonce);
     FREE_AND_CLEAR(context->serverRealm);
@@ -108,51 +107,78 @@ clear_context(heim_digest_t context)
     FREE_AND_CLEAR(context->serverReply);
 }
 
-static void
-digest_userhash(const char *user, const char *realm, const char *password,
-		unsigned char md[CC_MD5_DIGEST_LENGTH])
+static char *
+MD5_Final_hex(CC_MD5_CTX *ctx)
 {
-    CC_MD5_CTX ctx;
+    unsigned char md[CC_MD5_DIGEST_LENGTH];
+    char *hex = NULL;
+    
+    CC_MD5_Final(md, ctx);
 
-    CC_MD5_Init(&ctx);
-    CC_MD5_Update(&ctx, user, (CC_LONG)strlen(user));
-    CC_MD5_Update(&ctx, ":", 1);
-    CC_MD5_Update(&ctx, realm, (CC_LONG)strlen(realm));
-    CC_MD5_Update(&ctx, ":", 1);
-    CC_MD5_Update(&ctx, password, (CC_LONG)strlen(password));
-    CC_MD5_Final(md, &ctx);
+    hex_encode(md, sizeof(md), &hex);
+
+    memset(md, 0, sizeof(md));
+    memset(ctx, 0, sizeof(*ctx));
+
+    if (hex)
+	strlwr(hex);
+    return hex;
 }
 
 static char *
-build_A1_hash(heim_digest_t context)
+build_A1_hash(heim_digest_t context, int old_broken)
 {
-    unsigned char md[CC_MD5_DIGEST_LENGTH];
     CC_MD5_CTX ctx;
+    char *userhash = NULL;
     char *A1;
 
-    if (context->flags & F_HAVE_HA1) {
-	memcpy(md, context->SecretHash, sizeof(md));
-    } else if (context->flags & F_HAVE_HASH) {
-	memcpy(md, context->SecretHash, sizeof(md));
+    if (context->flags & F_HAVE_HASH) {
+	userhash = strdup(context->secretHash);
     } else if (context->password) {
 	if (context->clientUsername == NULL)
 	    return NULL;
+	if (context->password == NULL)
+	    return NULL;
 	if (context->serverRealm == NULL)
 	    return NULL;
-	digest_userhash(context->clientUsername,
-			context->serverRealm,
-			context->password,
-			md);
+
+	userhash = heim_digest_userhash(context->clientUsername,
+					context->serverRealm,
+					context->password);
     } else
 	return NULL;
     
-    if ((context->type == HEIM_DIGEST_TYPE_RFC2617_MD5_SESS || context->type == HEIM_DIGEST_TYPE_RFC2831) && (context->flags & F_HAVE_HA1) == 0) {
-	if (context->serverNonce == NULL)
+    if (userhash == NULL)
+	return NULL;
+
+    if ((context->type == HEIM_DIGEST_TYPE_RFC2617_MD5_SESS || context->type == HEIM_DIGEST_TYPE_RFC2831)) {
+	if (context->serverNonce == NULL) {
+	    memset(userhash, 0, strlen(userhash));
+	    free(userhash);
 	    return NULL;
+	}
 
 	CC_MD5_Init(&ctx);
-	CC_MD5_Update(&ctx, md, sizeof(md));
-	memset(md, 0, sizeof(md));
+
+	/*
+	 * SASL (RFC2831) uses the raw hash for the inner hash, keep that
+	 */
+	if (context->type == HEIM_DIGEST_TYPE_RFC2831 || old_broken) {
+	    uint8_t md[CC_MD5_DIGEST_LENGTH];
+	    if (hex_decode(userhash, md, sizeof(md)) != CC_MD5_DIGEST_LENGTH) {
+		memset(userhash, 0, strlen(userhash));
+		free(userhash);
+		return ENOMEM;
+	    }
+	    CC_MD5_Update(&ctx, md, sizeof(md));
+	    memset(md, 0, sizeof(md));
+
+	} else {
+	    CC_MD5_Update(&ctx, userhash, (CC_LONG)strlen(userhash));
+	}
+	memset(userhash, 0, strlen(userhash));
+	free(userhash);
+
 	CC_MD5_Update(&ctx, ":", 1);
 	CC_MD5_Update(&ctx, context->serverNonce, (CC_LONG)strlen(context->serverNonce));
 	if (context->clientNonce) {
@@ -163,11 +189,10 @@ build_A1_hash(heim_digest_t context)
 	    CC_MD5_Update(&ctx, ":", 1);
 	    CC_MD5_Update(&ctx, context->auth_id, (CC_LONG)strlen(context->auth_id));
 	}
-	CC_MD5_Final(md, &ctx);
+	A1 = MD5_Final_hex(&ctx);
+    } else {
+	A1 = userhash;
     }
-    hex_encode(md, sizeof(md), &A1);
-    if (A1)
-      strlwr(A1);
 
     return A1;
 }
@@ -175,9 +200,7 @@ build_A1_hash(heim_digest_t context)
 static char *
 build_A2_hash(heim_digest_t context, const char *method)
 {
-    unsigned char md[CC_MD5_DIGEST_LENGTH];
     CC_MD5_CTX ctx;
-    char *A2;
   
     CC_MD5_Init(&ctx);
     if (method)
@@ -198,13 +221,7 @@ build_A2_hash(heim_digest_t context, const char *method)
 	    return NULL;
     }
 	
-    CC_MD5_Final(md, &ctx);
-
-    hex_encode(md, sizeof(md), &A2);
-    if (A2)
-      strlwr(A2);
-
-    return A2;
+    return MD5_Final_hex(&ctx);
 }
 
 /*
@@ -652,22 +669,22 @@ heim_digest_parse_response(heim_digest_t context, const char *response)
 char *
 heim_digest_userhash(const char *user, const char *realm, const char *password)
 {
-    unsigned char md[CC_MD5_DIGEST_LENGTH];
-    char *str = NULL;
+    CC_MD5_CTX ctx;
 
-    digest_userhash(user, realm, password, md);
+    CC_MD5_Init(&ctx);
+    CC_MD5_Update(&ctx, user, (CC_LONG)strlen(user));
+    CC_MD5_Update(&ctx, ":", 1);
+    CC_MD5_Update(&ctx, realm, (CC_LONG)strlen(realm));
+    CC_MD5_Update(&ctx, ":", 1);
+    CC_MD5_Update(&ctx, password, (CC_LONG)strlen(password));
 
-    hex_encode(md, sizeof(md), &str);
-    if (str)
-      strlwr(str);
-    return str;
+    return MD5_Final_hex(&ctx);
 }
 
 static char *
 build_digest(heim_digest_t context, const char *a1, const char *method)
 {
     CC_MD5_CTX ctx;
-    uint8_t md[CC_MD5_DIGEST_LENGTH];
     char *a2, *str = NULL;
 
     a2 = build_A2_hash(context, method);
@@ -688,13 +705,10 @@ build_digest(heim_digest_t context, const char *a1, const char *method)
     }
     CC_MD5_Update(&ctx, ":", 1);
     CC_MD5_Update(&ctx, a2, (CC_LONG)strlen(a2));
-    CC_MD5_Final(md, &ctx);
+
+    str = MD5_Final_hex(&ctx);
 
     free(a2);
-
-    hex_encode(md, sizeof(md), &str);
-    if (str)
-      strlwr(str);
 
     return str;
 }
@@ -778,7 +792,7 @@ heim_digest_create_response(heim_digest_t context, char **response)
 	    
     set_auth_method(context);
     
-    a1 = build_A1_hash(context);
+    a1 = build_A1_hash(context, 0);
     if (a1 == NULL)
 	return NULL;
     
@@ -840,9 +854,9 @@ heim_digest_verify(heim_digest_t context, char **response)
     
     set_auth_method(context);
 
-    a1 = build_A1_hash(context);
+    a1 = build_A1_hash(context, 0);
     if (a1 == NULL)
-      return ENOMEM;
+	return ENOMEM;
 
     str = build_digest(context, a1, context->serverMethod);
     if (str == NULL) {
@@ -854,7 +868,35 @@ heim_digest_verify(heim_digest_t context, char **response)
     free(str);
     if (res) {
 	MEMSET_FREE_AND_CLEAR(a1);
-	return res;
+
+	/*
+	 * We got the inner hash wrong for (http) md5-sess so lets
+	 * check that too before punting.
+	 */
+	if (context->type == HEIM_DIGEST_TYPE_RFC2617_MD5_SESS) {
+	    a1 = build_A1_hash(context, 1);
+	    if (a1 == NULL)
+		return ENOMEM;
+	    
+	    str = build_digest(context, a1, context->serverMethod);
+	    if (str == NULL) {
+		MEMSET_FREE_AND_CLEAR(a1);
+		return ENOMEM;
+	    }
+
+	    res = (strcmp(str, context->clientResponse) == 0) ? 0 : EINVAL;
+	    free(str);
+	    if (res) {
+		MEMSET_FREE_AND_CLEAR(a1);
+		return res;
+	    }
+
+	    /* backward compat method worked */
+
+	} else {
+	    MEMSET_FREE_AND_CLEAR(a1);
+	    return res;
+	}
     }
 
     /* build server_response */
@@ -884,7 +926,7 @@ heim_digest_server_response(heim_digest_t context)
     if (context->clientURI == NULL)
 	return NULL;
 
-    a1 = build_A1_hash(context);
+    a1 = build_A1_hash(context, 0);
     if (a1 == NULL)
 	return NULL;
     
@@ -951,28 +993,23 @@ heim_digest_set_key(heim_digest_t context, const char *key, const char *value)
 {
 
     if (strcmp(key, "password") == 0) {
+
 	FREE_AND_CLEAR(context->password);
 	if ((context->password = strdup(value)) == NULL)
 	    return ENOMEM;
-	context->flags &= ~(F_HAVE_HASH|F_HAVE_HA1);
-    } else if (strcmp(key, "userhash") == 0) {
-	ssize_t ret;
+	context->flags &= ~(F_HAVE_HASH);
+
+    } else if (strcmp(key, "userhash") == 0 || strcmp(key, "H(A1)") == 0) {
+
 	FREE_AND_CLEAR(context->password);
 
-	ret = hex_decode(value, context->SecretHash, sizeof(context->SecretHash));
-	if (ret != sizeof(context->SecretHash))
-	    return EINVAL;
-	context->flags &= ~F_HAVE_HA1;
+	if (strlen(value) != CC_MD5_DIGEST_LENGTH * 2)
+	    return ENOMEM;
+
+	if ((context->secretHash = strdup(value)) == NULL)
+	    return ENOMEM;
+
 	context->flags |= F_HAVE_HASH;
-    } else if (strcmp(key, "H(A1)") == 0) {
-	ssize_t ret;
-	FREE_AND_CLEAR(context->password);
-	
-	ret = hex_decode(value, context->SecretHash, sizeof(context->SecretHash));
-	if (ret != sizeof(context->SecretHash))
-	    return EINVAL;
-	context->flags &= ~F_HAVE_HASH;
-	context->flags |= F_HAVE_HA1;
     } else if (strcmp(key, "method") == 0) {
 	FREE_AND_CLEAR(context->serverMethod);
 	if ((context->serverMethod = strdup(value)) == NULL)

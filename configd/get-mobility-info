@@ -8,6 +8,29 @@
 
 PATH=/bin:/usr/bin:/sbin:/usr/sbin
 
+#
+# Disclaimer
+#
+cat <<_END_OF_DISCLAIMER
+
+This diagnostic tool generates files that allow Apple to investigate issues
+with your computer and help Apple to improve its products. The generated files
+may contain some of your personal information, which may include, but not be
+limited to, the serial number or similar unique number for your device, your
+user name, or your computer name. The information is used by Apple in
+accordance with its privacy policy (www.apple.com/privacy) and is not shared
+with any third party. By enabling this diagnostic tool and sending a copy of
+the generated files to Apple, you are consenting to Apple’s use of the content
+of such files.
+
+_END_OF_DISCLAIMER
+
+/bin/echo "Press 'Enter' to continue."
+read reply
+
+#
+# Setup
+#
 PRIV=""
 if [ ${EUID} -ne 0 ]; then
 	PRIV="sudo"

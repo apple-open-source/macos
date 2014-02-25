@@ -360,34 +360,38 @@ AP_DECLARE(const char *) ap_stripprefix(const char *bigstring,
  * AT&T V8 regexp package.
  */
 
-AP_DECLARE(char *) ap_pregsub(apr_pool_t *p, const char *input,
-                              const char *source, size_t nmatch,
-                              ap_regmatch_t pmatch[])
+static apr_status_t regsub_core(apr_pool_t *p, char **result,
+                                const char *input,
+                                const char *source, apr_size_t nmatch,
+                                ap_regmatch_t pmatch[], apr_size_t maxlen)
 {
     const char *src = input;
-    char *dest, *dst;
+    char *dst;
     char c;
-    size_t no;
-    apr_size_t len;
+    apr_size_t no;
+    apr_size_t len = 0;
 
-    if (!source)
-        return NULL;
-    if (!nmatch)
-        return apr_pstrdup(p, src);
+    AP_DEBUG_ASSERT(result && p);
+    if (!source || nmatch>AP_MAX_REG_MATCH)
+        return APR_EINVAL;
+    if (!nmatch) {
+        len = strlen(src);
+        if (maxlen > 0 && len >= maxlen)
+            return APR_ENOMEM;
+        *result = apr_pstrmemdup(p, src, len);
+        return APR_SUCCESS;
+    }
 
     /* First pass, find the size */
-
-    len = 0;
-
     while ((c = *src++) != '\0') {
         if (c == '&')
             no = 0;
         else if (c == '$' && apr_isdigit(*src))
             no = *src++ - '0';
         else
-            no = 10;
+            no = AP_MAX_REG_MATCH;
 
-        if (no > 9) {                /* Ordinary character. */
+        if (no >= AP_MAX_REG_MATCH) {  /* Ordinary character. */
             if (c == '\\' && (*src == '$' || *src == '&'))
                 src++;
             len++;
@@ -396,14 +400,17 @@ AP_DECLARE(char *) ap_pregsub(apr_pool_t *p, const char *input,
             if (UTIL_SIZE_MAX - len <= pmatch[no].rm_eo - pmatch[no].rm_so) {
                 ap_log_error(APLOG_MARK, APLOG_WARNING, 0, NULL,
                              "integer overflow or out of memory condition." );
-                return NULL;
+                return APR_ENOMEM;
             }
             len += pmatch[no].rm_eo - pmatch[no].rm_so;
         }
 
     }
 
-    dest = dst = apr_pcalloc(p, len + 1);
+    if (len >= maxlen && maxlen > 0)
+        return APR_ENOMEM;
+
+    *result = dst = apr_palloc(p, len + 1);
 
     /* Now actually fill in the string */
 
@@ -415,9 +422,9 @@ AP_DECLARE(char *) ap_pregsub(apr_pool_t *p, const char *input,
         else if (c == '$' && apr_isdigit(*src))
             no = *src++ - '0';
         else
-            no = 10;
+            no = AP_MAX_REG_MATCH;
 
-        if (no > 9) {                /* Ordinary character. */
+        if (no >= AP_MAX_REG_MATCH) {  /* Ordinary character. */
             if (c == '\\' && (*src == '$' || *src == '&'))
                 c = *src++;
             *dst++ = c;
@@ -431,7 +438,35 @@ AP_DECLARE(char *) ap_pregsub(apr_pool_t *p, const char *input,
     }
     *dst = '\0';
 
-    return dest;
+    return APR_SUCCESS;
+}
+
+#ifndef AP_PREGSUB_MAXLEN
+/* No API control so far in this released branch, so make it large */
+#define AP_PREGSUB_MAXLEN   (64 * 1024 * 1024)
+#endif
+AP_DECLARE(char *) ap_pregsub(apr_pool_t *p, const char *input,
+                              const char *source, size_t nmatch,
+                              ap_regmatch_t pmatch[])
+{
+    char *result;
+    apr_status_t rc = regsub_core(p, &result, input, source, nmatch,
+                                  pmatch, AP_PREGSUB_MAXLEN);
+    if (rc != APR_SUCCESS)
+        result = NULL;
+    return result;
+}
+
+AP_DECLARE(apr_status_t) ap_pregsub_ex(apr_pool_t *p, char **result,
+                                       const char *input, const char *source,
+                                       apr_size_t nmatch, ap_regmatch_t pmatch[],
+                                       apr_size_t maxlen)
+{
+    apr_status_t rc = regsub_core(p, result, input, source, nmatch,
+                                  pmatch, maxlen);
+    if (rc != APR_SUCCESS)
+        *result = NULL;
+    return rc;
 }
 
 /*
@@ -1810,16 +1845,33 @@ AP_DECLARE(char *) ap_escape_logitem(apr_pool_t *p, const char *str)
     char *ret;
     unsigned char *d;
     const unsigned char *s;
+    apr_size_t length, escapes = 0;
 
     if (!str) {
         return NULL;
     }
 
-    ret = apr_palloc(p, 4 * strlen(str) + 1); /* Be safe */
+    /* Compute how many characters need to be escaped */
+    s = (const unsigned char *)str;
+    for (; *s; ++s) {
+        if (TEST_CHAR(*s, T_ESCAPE_LOGITEM)) {
+            escapes++;
+        }
+    }
+    
+    /* Compute the length of the input string, including NULL */
+    length = s - (const unsigned char *)str + 1;
+    
+    /* Fast path: nothing to escape */
+    if (escapes == 0) {
+        return apr_pmemdup(p, str, length);
+    }
+    
+    /* Each escaped character needs up to 3 extra bytes (0 --> \x00) */
+    ret = apr_palloc(p, length + 3 * escapes);
     d = (unsigned char *)ret;
     s = (const unsigned char *)str;
     for (; *s; ++s) {
-
         if (TEST_CHAR(*s, T_ESCAPE_LOGITEM)) {
             *d++ = '\\';
             switch(*s) {
@@ -2240,3 +2292,44 @@ AP_DECLARE(apr_status_t) ap_timeout_parameter_parse(
     return APR_SUCCESS;
 }
 
+AP_DECLARE(char *) ap_get_exec_line(apr_pool_t *p,
+                                    const char *cmd,
+                                    const char * const * argv)
+{
+    char buf[MAX_STRING_LEN];
+    apr_procattr_t *procattr;
+    apr_proc_t *proc;
+    apr_file_t *fp;
+    apr_size_t nbytes = 1;
+    char c;
+    int k;
+
+    if (apr_procattr_create(&procattr, p) != APR_SUCCESS)
+        return NULL;
+    if (apr_procattr_io_set(procattr, APR_FULL_BLOCK, APR_FULL_BLOCK,
+                            APR_FULL_BLOCK) != APR_SUCCESS)
+        return NULL;
+    if (apr_procattr_dir_set(procattr,
+                             ap_make_dirstr_parent(p, cmd)) != APR_SUCCESS)
+        return NULL;
+    if (apr_procattr_cmdtype_set(procattr, APR_PROGRAM) != APR_SUCCESS)
+        return NULL;
+    proc = apr_pcalloc(p, sizeof(apr_proc_t));
+    if (apr_proc_create(proc, cmd, argv, NULL, procattr, p) != APR_SUCCESS)
+        return NULL;
+    fp = proc->out;
+
+    if (fp == NULL)
+        return NULL;
+    /* XXX: we are reading 1 byte at a time here */
+    for (k = 0; apr_file_read(fp, &c, &nbytes) == APR_SUCCESS
+                && nbytes == 1 && (k < MAX_STRING_LEN-1)     ; ) {
+        if (c == '\n' || c == '\r')
+            break;
+        buf[k++] = c;
+    }
+    buf[k] = '\0';
+    apr_file_close(fp);
+
+    return apr_pstrndup(p, buf, k);
+}

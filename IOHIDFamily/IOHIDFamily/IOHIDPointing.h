@@ -1,7 +1,7 @@
 /*
  * @APPLE_LICENSE_HEADER_START@
  *
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * Copyright (c) 1999-2013 Apple Computer, Inc.  All Rights Reserved.
  *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -57,6 +57,7 @@ public:
                                 bool            isDispatcher);
 
     virtual bool start(IOService * provider);
+    virtual void stop(IOService * provider);
 
 
     virtual void dispatchAbsolutePointerEvent(

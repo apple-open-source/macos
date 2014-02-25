@@ -46,6 +46,7 @@
 #include <Security/SecBasePriv.h>
 #include <utilities/SecCFError.h>
 #include <utilities/SecCFWrappers.h>
+#include <utilities/SecCertificateTrace.h>
 
 #include "SecRSAKey.h"
 #include <libDER/oids.h>
@@ -457,6 +458,7 @@ static void SecTrustCheckException(const void *key, const void *value, void *con
     }
 }
 
+
 OSStatus SecTrustEvaluate(SecTrustRef trust, SecTrustResultType *result) {
     if (!trust) {
         return errSecParam;
@@ -484,13 +486,13 @@ OSStatus SecTrustEvaluate(SecTrustRef trust, SecTrustResultType *result) {
 	   			trustResult = kSecTrustResultFatalTrustFailure;
 	   			goto DoneCheckingTrust;
 	   		}
-	   		
+
 	   		if (CFDictionaryContainsKey(detail, kSecPolicyCheckBlackListedKey))
 	   		{
 	   			trustResult = kSecTrustResultFatalTrustFailure;
 	   			goto DoneCheckingTrust;
 	   		}
-	
+
             context.exception = SecTrustGetExceptionForCertificateAtIndex(trust, ix);
             CFDictionaryApplyFunction(detail, SecTrustCheckException, &context);
             if (context.exceptionNotFound) {
@@ -513,6 +515,7 @@ DoneCheckingTrust:
         CFRelease(failureDesc);
     }
 #endif
+
 
     *result = trustResult;
 
@@ -598,7 +601,7 @@ static OSStatus SecTrustEvaluateIfNecessary(SecTrustRef trust) {
     check(trust);
     if (!trust)
         return errSecParam;
-    
+
     if (trust->_trustResult != kSecTrustResultInvalid)
         return errSecSuccess;
 
@@ -780,12 +783,12 @@ bool SecTrustSetExceptions(SecTrustRef trust, CFDataRef encodedExceptions) {
 		return false;
 	}
 	CFArrayRef exceptions = NULL;
-	
+
 	if (NULL != encodedExceptions) {
 		exceptions = CFPropertyListCreateWithData(kCFAllocatorDefault,
 			encodedExceptions, kCFPropertyListImmutable, NULL, NULL);
 	}
-	
+
     if (exceptions && CFGetTypeID(exceptions) != CFArrayGetTypeID()) {
         CFRelease(exceptions);
         exceptions = NULL;
@@ -1110,27 +1113,27 @@ OSStatus SecTrustGetOTAPKIAssetVersionNumber(int* versionNumber)
 static bool xpc_dictionary_entry_is_type(xpc_object_t dictionary, const char *key, xpc_type_t type)
 {
     xpc_object_t value = xpc_dictionary_get_value(dictionary, key);
-    
+
     return value && (xpc_get_type(value) == type);
 }
-		
+
 OSStatus SecTrustOTAPKIGetUpdatedAsset(int* didUpdateAsset)
 {
 	CFErrorRef error = NULL;
 	do_if_registered(sec_ota_pki_get_new_asset, &error);
-	
+
 	int64_t num = 0;
     xpc_object_t message = securityd_create_message(kSecXPCOpOTAPKIGetNewAsset, &error);
-    if (message) 
+    if (message)
 	{
         xpc_object_t response = securityd_message_with_reply_sync(message, &error);
-        
-        if (response && xpc_dictionary_entry_is_type(response, kSecXPCKeyResult, XPC_TYPE_INT64)) 
+
+        if (response && xpc_dictionary_entry_is_type(response, kSecXPCKeyResult, XPC_TYPE_INT64))
 		{
             num = (int64_t) xpc_dictionary_get_int64(response, kSecXPCKeyResult);
 			xpc_release(response);
-        } 
-	
+        }
+
         xpc_release(message);
 	}
 
@@ -1141,7 +1144,7 @@ OSStatus SecTrustOTAPKIGetUpdatedAsset(int* didUpdateAsset)
 	return noErr;
 }
 
-		
+
 #if 0
 // MARK: -
 // MARK: SecTrustNode

@@ -197,6 +197,7 @@ struct interface {
 	isc_boolean_t ignore_packets; /* listen-read-drop this? */
 	struct peer *peers;	/* list of peers for the interface */
 	u_int peercnt;		/* peers referencing this interface */
+    int flags6; /* ifr6.ifr_ifru.ifru_flags6 */
 };
 
 /*

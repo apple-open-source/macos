@@ -10,7 +10,6 @@ en_SE{
     NumberElements{
         latn{
             symbols{
-                currencyDecimal{":"}
                 exponential{"×10^"}
                 group{" "}
             }

@@ -89,6 +89,14 @@ unlock_keybag(KeychainDbCommon & dbCommon, const void * secret, int secret_len)
                 rc = service_client_kb_change_secret(&context, encKey.data(), (int)encKey.length(), secret, secret_len);
             }
 
+            if (rc != 0) {
+                CssmAutoData masterKey(Allocator::standard(Allocator::sensitive));
+                masterKey = dbCommon.masterKey()->keyData();
+                if ((rc = service_client_kb_unlock(&context, masterKey.data(), (int)masterKey.length())) == 0) {
+                    rc = service_client_kb_change_secret(&context, masterKey.data(), (int)masterKey.length(), secret, secret_len);
+                }
+            }
+
             if (rc != 0) { // if a login.keychain password exists but doesnt on the keybag update it
                 bool no_pin = false;
                 if ((secret_len > 0) && service_client_kb_is_locked(&context, NULL, &no_pin) == 0) {

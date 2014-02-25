@@ -200,8 +200,6 @@
 
     IOReturn deliverDisplayModeDidChangeNotification( void );
 
-	static void didDarkWake(OSObject * owner, IOTimerEventSource * sender);
-
     static IOReturn systemPowerChange( void * target, void * refCon,
                                     UInt32 messageType, IOService * service,
                                     void * messageArgument, vm_size_t argSize );

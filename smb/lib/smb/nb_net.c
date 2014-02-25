@@ -199,6 +199,13 @@ int getaddrinfo_ipv6(const char *hostname, const char *servname,
     size_t len;
     char *temp_name = NULL;
 
+    /* 
+     * Note: getaddrinfo() and inet_pton() both will give errors if its
+     * an IPv6 address enclosed by brackets. I cant find a way to detect
+     * if the address is IPv6 or not if the brackets are present. Thus, the
+     * check for '[' at the start and ']' at the end of the string.
+     */
+    
     len = strnlen(hostname, 1024);  /* assume hostname < 1024 */
     if ((len > 3) && (hostname[0] == '[') && (hostname[len - 1] == ']')) {
         /* Seems to be IPv6 with brackets */
@@ -224,7 +231,7 @@ int getaddrinfo_ipv6(const char *hostname, const char *servname,
         /* Not IPv6, just do getaddrinfo */
         error = getaddrinfo (hostname, servname, hints, res);
     }
-
+    
     return (error);
 }
 

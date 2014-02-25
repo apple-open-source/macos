@@ -710,7 +710,7 @@ dt_print_llquantize(dtrace_hdl_t *dtp, FILE *fp, const void *addr,
 	factor = DTRACE_LLQUANTIZE_FACTOR(arg);
 	low = DTRACE_LLQUANTIZE_LOW(arg);
 	high = DTRACE_LLQUANTIZE_HIGH(arg);
-	nsteps = DTRACE_LLQUANTIZE_NSTEPS(arg);
+	nsteps = DTRACE_LLQUANTIZE_NSTEP(arg);
 
 	/*
 	 * We don't expect to be handed invalid llquantize() parameters here,

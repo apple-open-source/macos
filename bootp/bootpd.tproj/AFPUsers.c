@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2006 Apple Inc. All rights reserved.
+ * Copyright (c) 2003-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -63,8 +63,6 @@ my_log(int priority, const char *message, ...);
 #define CHARSET_UPPERCASE_LENGTH	(sizeof(CHARSET_UPPERCASE) - 1)
 #define CHARSET_NUMBERS			"0123456789"
 #define CHARSET_NUMBERS_LENGTH		(sizeof(CHARSET_NUMBERS) - 1)
-#define CHARSET_SYMBOLS			"-,./[]\\;'!@#%&*()_{}:\"?"
-#define CHARSET_SYMBOLS_LENGTH		(sizeof(CHARSET_SYMBOLS) - 1)
 
 struct charset_info {
     const char *	charset; 
@@ -297,7 +295,7 @@ AFPUserList_create(AFPUserListRef users, gid_t gid,
 					   &kCFTypeDictionaryValueCallBacks);
     _myCFDictionarySetStringValueAsArray(attributes,
 					 CFSTR(kDS1AttrUserShell),
-					 CFSTR("/bin/false"));
+					 CFSTR("/usr/bin/false"));
 
     snprintf(buf, sizeof(buf), "%d", gid);
     gidStr = CFStringCreateWithCString(NULL, buf, kCFStringEncodingASCII);

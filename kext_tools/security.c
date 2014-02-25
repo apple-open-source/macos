@@ -120,7 +120,7 @@ finish:
 /*******************************************************************************
  * checkRootCertificateIsApple() - check if the root certificate of the kext
  *  is issued by Apple
- *  <rdar://problem/12435992> Message tracing for kext loads
+ *  <rdar://problem/12435992> 
  *******************************************************************************/
 static OSStatus checkRootCertificateIsApple(OSKextRef aKext)
 {
@@ -187,7 +187,7 @@ finish:
 
 /*******************************************************************************
  * createHashForMT() - create a hash signature for the kext
- *  <rdar://problem/12435992> Message tracing for kext loads
+ *  <rdar://problem/12435992> 
  *******************************************************************************/
 
 static void createHashForMT(CFURLRef kextURL, char ** signatureBuffer)
@@ -343,7 +343,7 @@ finish:
 
 /*******************************************************************************
  * createArchitectureList() - create the list of architectures for the kext
- *  <rdar://13529984> MessageTrace which kexts are FAT
+ *  <rdar://13529984> 
  *  Note: the caller must release the created CFStringRef
  *******************************************************************************/
 static CFStringRef createArchitectureList(OSKextRef aKext, CFBooleanRef *isFat)
@@ -405,6 +405,7 @@ finish:
 
 /*******************************************************************************
  * copyTeamID() - copy the team id field from the given certificate
+ *  <rdar://13646260> 
  *  Note: the caller must release the created CFStringRef
  *******************************************************************************/
 static CFStringRef copyTeamID(SecCertificateRef certificate)
@@ -524,6 +525,7 @@ finish:
 
 /*******************************************************************************
  * copyIssuerCN() - copy the issuer CN field from the given certificate
+ *  <rdar://13646260> 
  *  Note: the caller must release the created CFStringRef
  *******************************************************************************/
 static CFStringRef copyIssuerCN(SecCertificateRef certificate)
@@ -610,6 +612,7 @@ finish:
 
 /*******************************************************************************
  * copyCDHash() - copy the SHA-1 hash of the code
+ *  <rdar://13646260> 
  *  Note: the caller must release the created CFStringRef
  *******************************************************************************/
 static CFStringRef copyCDHash(SecStaticCodeRef code)
@@ -665,6 +668,7 @@ finish:
  *  teamid:     the team id of the leaf certificate
  *  subjectCN:  the subject common name of the leaf certificate
  *  issuerCN:   the issuer common name of the leaf certificate
+ *  <rdar://13646260> 
  *  Note: the caller must release the created CFStringRefs
  *******************************************************************************/
 static void copySigningInfo(CFURLRef kextURL,
@@ -743,6 +747,7 @@ finish:
 /*******************************************************************************
  * copySubjectCNArray() - copy the subject CN from every certificate in the kext's
  *  certificate chain.
+ *  <rdar://13646260> 
  *  Note: the caller must release the created CFArrayRef
  *******************************************************************************/
 static CFArrayRef copySubjectCNArray(CFURLRef kextURL)
@@ -814,7 +819,7 @@ finish:
 /*******************************************************************************
  * filterKextLoadForMT() - check that the kext is of interest, and place kext
  * information in the kext list
- *  <rdar://problem/12435992> Message tracing for kext loads
+ *  <rdar://problem/12435992> 
  *******************************************************************************/
 
 static void filterKextLoadForMT(OSKextRef aKext, CFMutableArrayRef *kextList)
@@ -1079,7 +1084,7 @@ finish:
 
 /*******************************************************************************
  * recordKextLoadListForMT() - record the list of loaded kexts
- *  <rdar://problem/12435992> Message tracing for kext loads
+ *  <rdar://problem/12435992> 
  *******************************************************************************/
 void
 recordKextLoadListForMT(CFArrayRef kextList)
@@ -1108,7 +1113,7 @@ recordKextLoadListForMT(CFArrayRef kextList)
 
 /*******************************************************************************
  * recordKextLoadForMT() - record the loaded kext
- *  <rdar://problem/12435992> Message tracing for kext loads
+ *  <rdar://problem/12435992>
  *******************************************************************************/
 void recordKextLoadForMT(OSKextRef aKext)
 {

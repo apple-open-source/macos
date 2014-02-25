@@ -38,6 +38,7 @@
        (literal "/private/var")
        (literal "/private/etc/hosts")
        (literal "/private/etc/resolv.conf")
+       (literal "/private/etc/krb5.conf")
        (literal "/private/etc/services")
        (literal "/private/etc/localtime")
        (literal "/private/var/run/resolv.conf")

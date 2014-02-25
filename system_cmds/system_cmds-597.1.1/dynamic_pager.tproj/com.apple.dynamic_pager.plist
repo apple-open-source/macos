@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>EnableTransactions</key>
+	<true/>
+	<key>HopefullyExitsLast</key>
+	<true/>
+	<key>Label</key>
+	<string>com.apple.dynamic_pager</string>
+	<key>OnDemand</key>
+	<false/>
+	<key>POSIXSpawnType</key>
+	<string>Interactive</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>/sbin/dynamic_pager</string>
+		<string>-F</string>
+		<string>/private/var/vm/swapfile</string>
+	</array>
+</dict>
+</plist>

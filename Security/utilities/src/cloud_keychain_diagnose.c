@@ -1119,6 +1119,7 @@ dump_dict_applier(
         
     } else if (CFGetTypeID(value_object) == CFDictionaryGetTypeID()) {
         
+        /* Recurse motherfucker! */
         fprintf(dump_state->log_file, "\n");
         dump_dict(dump_state->log_file, (CFDictionaryRef) value_object, dump_state->indent_level + 1);
     } else {

@@ -1,6 +1,6 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2013 International Business Machines
+// * Copyright (C) 2014 International Business Machines
 // * Corporation and others. All Rights Reserved.
 // * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
 // * Source File: <path>/windowsZones.xml
@@ -137,7 +137,7 @@ windowsZones:table(nofallback){
         }
         "Central Pacific Standard Time"{
             001{"Pacific/Guadalcanal"}
-            AQ{"Antarctica/Macquarie"}
+            AU{"Antarctica/Macquarie"}
             FM{"Pacific/Ponape Pacific/Kosrae"}
             NC{"Pacific/Noumea"}
             SB{"Pacific/Guadalcanal"}
@@ -202,7 +202,7 @@ windowsZones:table(nofallback){
         }
         "E. South America Standard Time"{
             001{"America/Sao_Paulo"}
-            BR{"America/Sao_Paulo America/Araguaina"}
+            BR{"America/Sao_Paulo"}
         }
         "Eastern Standard Time"{
             001{"America/New_York"}
@@ -211,6 +211,8 @@ windowsZones:table(nofallback){
                 "America/Toronto America/Iqaluit America/Montreal America/Nipigon Ame"
                 "rica/Pangnirtung America/Thunder_Bay"
             }
+            CU{"America/Havana"}
+            HT{"America/Port-au-Prince"}
             TC{"America/Grand_Turk"}
             US{
                 "America/New_York America/Detroit America/Indiana/Petersburg America/"
@@ -222,7 +224,6 @@ windowsZones:table(nofallback){
         "Egypt Standard Time"{
             001{"Africa/Cairo"}
             EG{"Africa/Cairo"}
-            PS{"Asia/Gaza Asia/Hebron"}
         }
         "Ekaterinburg Standard Time"{
             001{"Asia/Yekaterinburg"}
@@ -271,7 +272,6 @@ windowsZones:table(nofallback){
             001{"Atlantic/Reykjavik"}
             BF{"Africa/Ouagadougou"}
             CI{"Africa/Abidjan"}
-            EH{"Africa/El_Aaiun"}
             GH{"Africa/Accra"}
             GM{"Africa/Banjul"}
             GN{"Africa/Conakry"}
@@ -320,6 +320,10 @@ windowsZones:table(nofallback){
             KP{"Asia/Pyongyang"}
             KR{"Asia/Seoul"}
         }
+        "Libya Standard Time"{
+            001{"Africa/Tripoli"}
+            LY{"Africa/Tripoli"}
+        }
         "Magadan Standard Time"{
             001{"Asia/Magadan"}
             RU{"Asia/Magadan Asia/Anadyr Asia/Kamchatka"}
@@ -340,6 +344,7 @@ windowsZones:table(nofallback){
         }
         "Morocco Standard Time"{
             001{"Africa/Casablanca"}
+            EH{"Africa/El_Aaiun"}
             MA{"Africa/Casablanca"}
         }
         "Mountain Standard Time (Mexico)"{
@@ -375,8 +380,8 @@ windowsZones:table(nofallback){
         }
         "New Zealand Standard Time"{
             001{"Pacific/Auckland"}
-            AQ{"Antarctica/South_Pole Antarctica/McMurdo"}
-            NZ{"Pacific/Auckland"}
+            AQ{"Antarctica/McMurdo"}
+            NZ{"Pacific/Auckland Antarctica/South_Pole"}
         }
         "Newfoundland Standard Time"{
             001{"America/St_Johns"}
@@ -429,8 +434,8 @@ windowsZones:table(nofallback){
             001{"America/Cayenne"}
             AQ{"Antarctica/Rothera"}
             BR{
-                "America/Fortaleza America/Belem America/Maceio America/Recife Americ"
-                "a/Santarem"
+                "America/Fortaleza America/Araguaina America/Belem America/Maceio Ame"
+                "rica/Recife America/Santarem"
             }
             FK{"Atlantic/Stanley"}
             GF{"America/Cayenne"}
@@ -439,10 +444,10 @@ windowsZones:table(nofallback){
         }
         "SA Pacific Standard Time"{
             001{"America/Bogota"}
+            BR{"America/Rio_Branco America/Eirunepe"}
             CA{"America/Coral_Harbour"}
             CO{"America/Bogota"}
             EC{"America/Guayaquil"}
-            HT{"America/Port-au-Prince"}
             JM{"America/Jamaica"}
             KY{"America/Cayman"}
             PA{"America/Panama"}
@@ -458,10 +463,7 @@ windowsZones:table(nofallback){
             BL{"America/St_Barthelemy"}
             BO{"America/La_Paz"}
             BQ{"America/Kralendijk"}
-            BR{
-                "America/Manaus America/Boa_Vista America/Eirunepe America/Porto_Velh"
-                "o America/Rio_Branco"
-            }
+            BR{"America/Manaus America/Boa_Vista America/Porto_Velho"}
             CA{"America/Blanc-Sablon"}
             CW{"America/Curacao"}
             DM{"America/Dominica"}
@@ -640,7 +642,6 @@ windowsZones:table(nofallback){
             IT{"Europe/Rome"}
             LI{"Europe/Vaduz"}
             LU{"Europe/Luxembourg"}
-            LY{"Africa/Tripoli"}
             MC{"Europe/Monaco"}
             MT{"Europe/Malta"}
             NL{"Europe/Amsterdam"}

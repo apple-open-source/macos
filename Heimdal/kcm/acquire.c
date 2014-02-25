@@ -93,8 +93,6 @@ kcm_ccache_acquire(krb5_context context,
     if (ccache->renew_life != 0)
 	krb5_get_init_creds_opt_set_renew_life(opt, ccache->renew_life);
 
-    krb5_get_init_creds_opt_set_forwardable(opt, 1);
-
     if (ccache->flags & KCM_FLAGS_USE_PASSWORD) {
 	ret = krb5_get_init_creds_password(context,
 					   &cred,

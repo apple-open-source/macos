@@ -1,15 +1,15 @@
 /*
- * Copyright (c) 2006-2010 Apple Inc. All Rights Reserved.
- * 
+ * Copyright (c) 2006-2010,2013 Apple Inc. All Rights Reserved.
+ *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -27,7 +27,7 @@
 	type of keychain item that represents a certificate.  You can store a
 	certificate in a keychain, but a certificate can also be a transient
 	object.
-	
+
 	You can use a certificate as a keychain item in most functions.
 	Certificates are able to compute their parent certificates, and much more.
 */
@@ -85,24 +85,16 @@ CFDataRef SecCertificateCopyIssuerSHA1Digest(SecCertificateRefP certificate);
 
 CFDataRef SecCertificateCopyPublicKeySHA1Digest(SecCertificateRefP certificate);
 
-/*!
-	@function SecCertificateCopyIssuerSummary
-	@abstract Return a simple string which hopefully represents a human understandable issuer.
-    @param certificate SecCertificate object created with SecCertificateCreateWithData().
-    @discussion All the data in this string comes from the certificate itself
-    and thus it's in whatever language the certificate itself is in.
-	@result A CFStringRef which the caller should CFRelease() once it's no longer needed.
-*/
-CFStringRef SecCertificateCopyIssuerSummary(SecCertificateRefP certificate);
+CFStringRef SecCertificateCopyIssuerSummaryP(SecCertificateRefP certificate);
 
 /*!
-	@function SecCertificateCopyProperties
-	@abstract Return a property array for this trust certificate.
-	@param certificate A reference to the certificate to evaluate.
+    @function SecCertificateCopyProperties
+    @abstract Return a property array for this trust certificate.
+    @param certificate A reference to the certificate to evaluate.
     @result A property array. It is the caller's responsability to CFRelease
     the returned array when it is no longer needed.
     See SecTrustCopySummaryPropertiesAtIndex on how to intepret this array.
-	Unlike that function call this function returns a detailed description
+    Unlike that function call this function returns a detailed description
     of the certificate in question.
 */
 CFArrayRef SecCertificateCopyProperties(SecCertificateRefP certificate);
@@ -121,7 +113,7 @@ CFArrayRef SecCertificateCopyIPAddresses(SecCertificateRefP certificate);
 
 /* Return an array of CFStringRefs representing the dns addresses in the
    certificate if any. */
-CFArrayRef SecCertificateCopyDNSNames(SecCertificateRefP certificate);
+CFArrayRef SecCertificateCopyDNSNamesP(SecCertificateRefP certificate);
 
 /* Return an array of CFStringRefs representing the email addresses in the
    certificate if any. */

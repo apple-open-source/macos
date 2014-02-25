@@ -1556,6 +1556,8 @@ static bool needsSelfRetainWhileLoadingQuirk()
     settings->setDiagnosticLoggingEnabled([preferences diagnosticLoggingEnabled]);
     settings->setLowPowerVideoAudioBufferSizeEnabled([preferences lowPowerVideoAudioBufferSizeEnabled]);
 
+    settings->setUseLegacyTextAlignPositionedElementBehavior([preferences useLegacyTextAlignPositionedElementBehavior]);
+
     switch ([preferences storageBlockingPolicy]) {
     case WebAllowAllStorage:
         settings->setStorageBlockingPolicy(SecurityOrigin::AllowAllStorage);
@@ -6447,6 +6449,8 @@ bool LayerFlushController::flushLayers()
     if (viewsNeedDisplay)
         return false;
 
+    [m_webView _viewWillDrawInternal];
+
     if ([m_webView _flushCompositingChanges]) {
         // AppKit may have disabled screen updates, thinking an upcoming window flush will re-enable them.
         // In case setNeedsDisplayInRect() has prevented the window from needing to be flushed, re-enable screen
@@ -6456,10 +6460,6 @@ bool LayerFlushController::flushLayers()
 
         return true;
     }
-
-    // Since the WebView does not need display, -viewWillDraw will not be called. Perform pending layout now,
-    // so that the layers draw with up-to-date layout. 
-    [m_webView _viewWillDrawInternal];
 
     return false;
 }

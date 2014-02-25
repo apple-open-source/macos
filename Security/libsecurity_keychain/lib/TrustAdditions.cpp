@@ -62,6 +62,13 @@
 	catch (const std::bad_alloc &) { status=errSecAllocate; } \
 	catch (...) { status=errSecInternalComponent; }
 
+#ifdef	NDEBUG
+/* this actually compiles to nothing */
+#define trustDebug(args...)		secdebug("trust", ## args)
+#else
+#define trustDebug(args...)		printf(args)
+#endif
+
 //
 // Static constants
 //
@@ -840,7 +847,7 @@ bool ignorableRevocationStatusCode(CSSM_RETURN statusCode)
 		return (ocspRequired) ? false : true;
 	if (isCRLStatusCode(statusCode))
 		return (crlRequired) ? false : true;
- 
+
 	return false;
 }
 
@@ -911,6 +918,38 @@ CFArrayRef allowedEVRootsForLeafCertificate(CFArrayRef certificates)
 	return allowedRoots;
 }
 
+// returns true if the provided certificate contains a wildcard in either
+// its common name or subject alternative name.
+//
+static
+bool hasWildcardDNSName(SecCertificateRef certRef)
+{
+	OSStatus status = errSecSuccess;
+	CFArrayRef dnsNames = NULL;
+
+	BEGIN_SECAPI_INTERNAL_CALL
+	Required(&dnsNames) = Certificate::required(certRef)->copyDNSNames();
+	END_SECAPI_INTERNAL_CALL
+	if (status || !dnsNames)
+		return false;
+
+	bool hasWildcard = false;
+	const CFStringRef wildcard = CFSTR("*");
+	CFIndex index, count = CFArrayGetCount(dnsNames);
+	for (index = 0; index < count; index ++) {
+		CFStringRef name = (CFStringRef) CFArrayGetValueAtIndex(dnsNames, index);
+		if (name) {
+			CFRange foundRange = CFStringFind(name, wildcard, 0);
+			if (foundRange.length != 0 && foundRange.location != kCFNotFound) {
+				hasWildcard = true;
+				break;
+			}
+		}
+	}
+	CFRelease(dnsNames);
+	return hasWildcard;
+}
+
 // returns a CFDictionaryRef of extended validation results for the given chain,
 // or NULL if the certificate chain did not meet all EV criteria. (Caller must
 // release the result if not NULL.)
@@ -944,8 +983,8 @@ CFDictionaryRef extendedValidationResults(CFArrayRef certChain, SecTrustResultTy
 	//
     // What we know at this point:
 	//
-	// 1. From a previous call to _leafCertificateMeetsExtendedValidationCriteria
-	// (or we wouldn't be calling _chainMeetsExtendedValidationCriteria!):
+	// 1. From a previous call to allowedEVRootsForLeafCertificate
+	// (or we wouldn't be getting called by extendedTrustResults):
     // - a leaf certificate exists
     // - that certificate contains a Certificate Policies extension
     // - that extension contains an OID from one of the trusted EV CAs we know about
@@ -955,6 +994,10 @@ CFDictionaryRef extendedValidationResults(CFArrayRef certChain, SecTrustResultTy
     // - the leaf certificate verifies back to a trusted EV root (with no trust settings overrides)
     // - SSL trust evaluation with OCSP revocation checking enabled returned no (fatal) errors
     //
+    // We need to verify the following additional requirements for the leaf (as of EV 1.1, 6(a)(2)):
+    // - cannot specify a wildcard in commonName or subjectAltName
+    // (note: this is a change since EV 1.0 (9.2.1), which stated that "Wildcard FQDNs are permitted.")
+	//
 	// Finally, we need to check the following requirements (EV 1.1 specification, Appendix B):
     // - the trusted root, if created after 10/31/2006, must have:
     //      - critical basicConstraints extension with CA bit set
@@ -964,7 +1007,13 @@ CFDictionaryRef extendedValidationResults(CFArrayRef certChain, SecTrustResultTy
     //      - non-critical cRLDistributionPoint extension
     //      - critical basicConstraints extension with CA bit set
     //      - critical keyUsage extension with keyCertSign and cRLSign bits set
-	//
+    //
+
+	// check leaf certificate for wildcard names
+	if (hasWildcardDNSName((SecCertificateRef) CFArrayGetValueAtIndex(certChain, 0))) {
+		trustDebug("has wildcard name (does not meet EV criteria)");
+		return NULL;
+	}
 
     // check intermediate CA certificates for required extensions per Appendix B of EV 1.1 specification.
     bool hasRequiredExtensions = true;
@@ -1014,6 +1063,7 @@ CFDictionaryRef extendedValidationResults(CFArrayRef certChain, SecTrustResultTy
 			CFMutableDictionaryRef resultDict = CFDictionaryCreateMutable(NULL, 0,
 				&kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
 			CFDictionaryAddValue(resultDict, kSecEVOrganizationName, organizationName);
+			trustDebug("[EV] extended validation succeeded");
 			SafeCFRelease(&organizationName);
 			return resultDict;
 		}

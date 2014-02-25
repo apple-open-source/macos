@@ -19,7 +19,7 @@ void IOFBDecompressGamma(const IOFBBootGamma * bootGamma, uint16_t * data, uint1
 {
 	const IOFBGamma * channelGamma;
 	uint16_t channel, idx, maxIdx, seg;
-	uint16_t startIn, startOut;
+	uint16_t startIn, startOut, point;
 	uint16_t endIn, endOut;
 
 	maxIdx = count - 1;
@@ -33,23 +33,20 @@ void IOFBDecompressGamma(const IOFBBootGamma * bootGamma, uint16_t * data, uint1
 		endOut = 0;
 		for (idx = 0; idx <= maxIdx; idx++)
 		{
-			if ((idx == endIn) && (idx != maxIdx))
+			point = idx * 65535 / maxIdx;
+			if ((point >= endIn) && (idx != maxIdx))
 			{
 				startIn = endIn;
 				startOut = endOut;
 				if (seg < channelGamma->pointCount)
 				{
-					endIn = (channelGamma->points[seg].in * count) >> 16;
+					endIn  = channelGamma->points[seg].in;
 					endOut = channelGamma->points[seg].out;
 					seg++;
 				}
-				else
-				{
-					endIn = maxIdx;
-					endOut = 0xFFFF;
-				}
+				else endIn = endOut = 0xFFFF;
 			}
-			data[channel * count + idx] = startOut + ((endOut - startOut) * (idx - startIn)) / (endIn - startIn);
+			data[channel * count + idx] = startOut + ((endOut - startOut) * (point - startIn)) / (endIn - startIn);
 		}
 		channelGamma = (typeof(channelGamma)) &channelGamma->points[channelGamma->pointCount];
 	}

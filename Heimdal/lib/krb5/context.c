@@ -344,6 +344,47 @@ init_context_once(void *ctx)
     bindtextdomain(HEIMDAL_TEXTDOMAIN, HEIMDAL_LOCALEDIR);
 }
 
+static void
+context_release(void *ptr)
+{
+    krb5_context context = (krb5_context)ptr;
+
+    if (context->default_cc_name)
+	free(context->default_cc_name);
+    if (context->default_cc_name_env)
+	free(context->default_cc_name_env);
+    if (context->config_files)
+	krb5_free_config_files(context->config_files);
+    free(context->etypes);
+    free(context->etypes_des);
+    heim_release(context->default_realms);
+    krb5_config_file_free (context, context->cf);
+    free_error_table (context->et_list);
+    free(rk_UNCONST(context->cc_ops));
+    free(context->kt_types);
+    krb5_clear_error_message(context);
+    if (context->warn_dest != NULL)
+	krb5_closelog(context, context->warn_dest);
+    if (context->debug_dest != NULL)
+	krb5_closelog(context, context->debug_dest);
+    krb5_set_extra_addresses(context, NULL);
+    krb5_set_ignore_addresses(context, NULL);
+#ifndef HEIMDAL_SMALLER
+    krb5_set_send_to_kdc_func(context, NULL, NULL);
+#endif
+
+#ifdef PKINIT
+    if (context->hx509ctx)
+	hx509_context_free(&context->hx509ctx);
+#endif
+
+    HEIMDAL_MUTEX_destroy(context->mutex);
+    free(context->mutex);
+    if (context->flags & KRB5_CTX_F_SOCKETS_INITIALIZED) {
+ 	rk_SOCK_EXIT();
+    }
+}
+
 /**
  * Initializes the context structure and reads the configuration files.
  *
@@ -375,13 +416,13 @@ krb5_init_context_flags(unsigned int flags, krb5_context *context)
 
     *context = NULL;
 
-    p = calloc(1, sizeof(*p));
+    p = heim_uniq_alloc(sizeof(*p), "krb5-context", context_release);
     if (!p)
 	return ENOMEM;
 
     p->mutex = malloc(sizeof(HEIMDAL_MUTEX));
     if (p->mutex == NULL) {
-	free(p);
+	heim_release(p);
 	return ENOMEM;
     }
     HEIMDAL_MUTEX_init(p->mutex);
@@ -627,43 +668,7 @@ krb5_copy_context(krb5_context context, krb5_context *out)
 KRB5_LIB_FUNCTION void KRB5_LIB_CALL
 krb5_free_context(krb5_context context)
 {
-    if (context->default_cc_name)
-	free(context->default_cc_name);
-    if (context->default_cc_name_env)
-	free(context->default_cc_name_env);
-    if (context->config_files)
-	krb5_free_config_files(context->config_files);
-    free(context->etypes);
-    free(context->etypes_des);
-    heim_release(context->default_realms);
-    krb5_config_file_free (context, context->cf);
-    free_error_table (context->et_list);
-    free(rk_UNCONST(context->cc_ops));
-    free(context->kt_types);
-    krb5_clear_error_message(context);
-    if (context->warn_dest != NULL)
-	krb5_closelog(context, context->warn_dest);
-    if (context->debug_dest != NULL)
-	krb5_closelog(context, context->debug_dest);
-    krb5_set_extra_addresses(context, NULL);
-    krb5_set_ignore_addresses(context, NULL);
-#ifndef HEIMDAL_SMALLER
-    krb5_set_send_to_kdc_func(context, NULL, NULL);
-#endif
-
-#ifdef PKINIT
-    if (context->hx509ctx)
-	hx509_context_free(&context->hx509ctx);
-#endif
-
-    HEIMDAL_MUTEX_destroy(context->mutex);
-    free(context->mutex);
-    if (context->flags & KRB5_CTX_F_SOCKETS_INITIALIZED) {
- 	rk_SOCK_EXIT();
-    }
-
-    memset(context, 0, sizeof(*context));
-    free(context);
+    heim_release(context);
 }
 
 static krb5_error_code

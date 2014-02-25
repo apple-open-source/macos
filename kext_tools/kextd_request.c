@@ -1369,7 +1369,7 @@ kextdProcessUserLoadRequest(
         }
     }
 
-    /* <rdar://problem/12435992> Message tracing for kext loads
+    /* <rdar://problem/12435992> 
      */
     recordKextLoadForMT(theKext);
 

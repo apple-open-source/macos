@@ -165,11 +165,10 @@ test_sasl_digest_md5(void)
     heim_digest_set_key(ctx, "clientNonce", "OA6MHXh6VqTrRk");
     heim_digest_set_key(ctx, "clientQOP", "auth");
     heim_digest_set_key(ctx, "clientNC", "00000001");
-    heim_digest_set_key(ctx, "serverNonce", "OA6MG9tEQGm2hh");
     heim_digest_set_key(ctx, "clientURI", "imap/elwood.innosoft.com");
     heim_digest_set_key(ctx, "serverRealm", "elwood.innosoft.com");
     heim_digest_set_key(ctx, "serverNonce", "OA6MG9tEQGm2hh");
-    heim_digest_set_key(ctx, "H(A1)", "a2549853149b0536f01f0b850c643c57");
+    heim_digest_set_key(ctx, "userhash", "eb5a750053e4d2c34aa84bbc9b0b6ee7");
     
     resp = heim_digest_server_response(ctx);
 
@@ -184,7 +183,6 @@ test_sasl_digest_md5(void)
     heim_digest_set_key(ctx, "clientNonce", "OA6MHXh6VqTrRk");
     heim_digest_set_key(ctx, "clientQOP", "auth");
     heim_digest_set_key(ctx, "clientNC", "00000001");
-    heim_digest_set_key(ctx, "serverNonce", "OA6MG9tEQGm2hh");
     heim_digest_set_key(ctx, "clientURI", "imap/elwood.innosoft.com");
     heim_digest_set_key(ctx, "serverRealm", "elwood.innosoft.com");
     heim_digest_set_key(ctx, "serverNonce", "OA6MG9tEQGm2hh");
@@ -321,6 +319,50 @@ test_http_digest_md5(void)
     
     heim_digest_release(ctx);
     
+    /*
+     * Check md5-sess
+     */
+
+    /* server */
+    if ((ctx = heim_digest_create(1, HEIM_DIGEST_TYPE_MD5_SESS)) == NULL)
+	abort();
+    
+    heim_digest_set_key(ctx, "serverRealm", "myrealmhahaha");
+    
+    chal = heim_digest_generate_challenge(ctx);
+    if (chal == NULL)
+	abort();
+    
+    /* client */
+    if ((ctx2 = heim_digest_create(1, HEIM_DIGEST_TYPE_RFC2617_MD5_SESS)) == NULL)
+	abort();
+    
+    if (heim_digest_parse_challenge(ctx2, chal))
+	abort();
+    
+    heim_digest_set_key(ctx2, "username", "lha");
+    heim_digest_set_key(ctx2, "password", "passw0rd");
+    heim_digest_set_key(ctx2, "uri", "/uri");
+    
+    resp = heim_digest_create_response(ctx2, &serverresp);
+    if (resp == NULL)
+	abort();
+    
+    /* server */
+    if (heim_digest_parse_response(ctx, resp))
+	abort();
+    
+    heim_digest_set_key(ctx,  "password", "passw0rd");
+    heim_digest_verify(ctx, &serverresp2);
+    
+    /* client */
+    if (strcmp(serverresp, serverresp2) != 0)
+	abort();
+    
+    heim_digest_release(ctx);
+    heim_digest_release(ctx2);
+
+
     return 0;
 }
 

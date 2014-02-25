@@ -1,0 +1,5 @@
+# passwd: auth account
+auth       required       pam_permit.so
+account    required       pam_opendirectory.so
+password   required       pam_opendirectory.so
+session    required       pam_permit.so

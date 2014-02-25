@@ -34,18 +34,18 @@ typedef uint64_t IOPCIScalar;
 enum {
     kIOPCIRangeFlagMaximizeSize  = 0x00000001,
     kIOPCIRangeFlagNoCollapse    = 0x00000002,
-    kIOPCIRangeFlagSplay         = 0x00000004,
-    kIOPCIRangeFlagRelocatable   = 0x00000008,
-    kIOPCIRangeFlagReserve       = 0x00000010,
-	//
-	kIOPCIRangeFlagMaximizeFlags = kIOPCIRangeFlagMaximizeSize
-								  | kIOPCIRangeFlagNoCollapse
+    kIOPCIRangeFlagMaximizeRoot  = 0x00000004,
+    kIOPCIRangeFlagSplay         = 0x00000008,
+    kIOPCIRangeFlagRelocatable   = 0x00000010,
+    kIOPCIRangeFlagReserve       = 0x00000020,
 };
 
 struct IOPCIRange
 {
     IOPCIScalar         start;
     IOPCIScalar         size;
+    IOPCIScalar         totalSize;
+    IOPCIScalar         extendSize;
     IOPCIScalar         proposedSize;
 
     // end marker
@@ -57,9 +57,7 @@ struct IOPCIRange
     IOPCIScalar         maxAddress;
 
     uint8_t             type;
-    uint8_t             count;
-    uint8_t             pri;
-    uint8_t             resvB;
+    uint8_t             resvB[3];
     uint32_t            flags;
     struct IOPCIRange * next;
     struct IOPCIRange * nextSubRange;
@@ -108,6 +106,7 @@ IOPCIScalar IOPCIRangeCollapse(IOPCIRange * headRange, IOPCIScalar alignment);
 
 IOPCIScalar IOPCIRangeListLastFree(IOPCIRange * headRange, IOPCIScalar align);
 IOPCIScalar IOPCIRangeLastFree(IOPCIRange * headRange, IOPCIScalar align);
+void        IOPCIRangeListOptimize(IOPCIRange * headRange);
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
@@ -141,7 +140,7 @@ enum {
 
     kIOPCIConfiguratorDeepIdle       = 0x00000400,
     kIOPCIConfiguratorNoTB           = 0x00000800,
-    kIOPCIConfiguratorMSIEnable      = 0x00001000,
+    kIOPCIConfiguratorTBMSIEnable    = 0x00001000,
 
     kIOPCIConfiguratorPFM64          = 0x00002000,
     kIOPCIConfiguratorBoot	         = 0x00004000,
@@ -202,7 +201,7 @@ enum {
     kPCIDeviceStateEjected          = 0x40000000,
     kPCIDeviceStateToKill           = 0x20000000,
     kPCIDeviceStatePaused           = 0x10000000,
-    kPCIDeviceStateRequestPause     = 0x08000000,
+    kPCIDeviceStateRequestPause     = 0x08000000
 };
 
 enum {
@@ -249,9 +248,11 @@ enum
     kConfigOpKill,
     kConfigOpTerminated,
     kConfigOpProtect,
+    kConfigOpShadowed,
     kConfigOpPaused,
     kConfigOpUnpaused,
     kConfigOpTestPause,
+    kConfigOpFindEntry,
 };
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -274,12 +275,14 @@ struct IOPCIConfigEntry
     uint32_t            rangeBaseChanges;
     uint32_t            rangeSizeChanges;
     uint32_t            rangeRequestChanges;
+    uint32_t            haveAllocs;
 
     uint32_t            deviceState;
     uint8_t             iterator;
 
     uint8_t             headerType;
     uint8_t             isBridge;
+    uint8_t             countMaximize;
     uint8_t             isHostBridge;
     uint8_t             supportsHotPlug;
     uint8_t				linkInterrupts;
@@ -297,6 +300,7 @@ struct IOPCIConfigEntry
 #if ACPI_SUPPORT
     IORegistryEntry *   acpiDevice;
 #endif
+	uint8_t *			configShadow;
 
 #if PLX8680
     volatile uint32_t * plx;
@@ -341,7 +345,7 @@ protected:
 #endif
 
     typedef int32_t (IOPCIConfigurator::*IterateProc)(void * ref, IOPCIConfigEntry * bridge);
-    void    iterate(uint32_t options, 
+    void    iterate(const char * what, 
                     IterateProc topProc, IterateProc bottomProc, 
                     void * ref = NULL);
 
@@ -354,6 +358,7 @@ protected:
     void    configure(uint32_t options);
     void    bridgeScanBus(IOPCIConfigEntry * bridge, uint8_t busNum, uint32_t resetMask);
 
+    void    logAllocatorRange(IOPCIConfigEntry * device, IOPCIRange * range, char c);
     IOPCIRange * bridgeGetRange(IOPCIConfigEntry * bridge, uint32_t type);
     bool    bridgeTotalResources(IOPCIConfigEntry * bridge, uint32_t typeMask);
     int32_t bridgeAllocateResources( IOPCIConfigEntry * bridge, uint32_t typeMask );
@@ -395,8 +400,10 @@ protected:
 
     bool     createRoot(void);
     IOReturn addHostBridge(IOPCIBridge * hostBridge);
+    IOPCIConfigEntry * findEntry(IOPCIAddressSpace space);
 
 	bool     configAccess(IOPCIConfigEntry * device, bool write);
+    void     configAccess(IOPCIConfigEntry * device, uint32_t access, uint32_t offset, void * data);
 
     uint32_t configRead32( IOPCIAddressSpace space, uint32_t offset);
 	void     configWrite32(IOPCIAddressSpace space, uint32_t offset, uint32_t data);
@@ -415,7 +422,7 @@ public:
     virtual IOWorkLoop * getWorkLoop() const;
     virtual void     free(void);
 
-    IOReturn configOp(IOService * device, uintptr_t op, void * result);
+    IOReturn configOp(IOService * device, uintptr_t op, void * result, void * arg2 = NULL);
 };
 
 #endif /* KERNEL */

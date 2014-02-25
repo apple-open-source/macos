@@ -1095,7 +1095,7 @@ bool IOHIDSystem::genericNotificationHandler(void * handler,
             _delayedNotificationArray->setObject(data);
             IOLockUnlock(_delayedNotificationLock);
             data->release();
-            _delayedNotificationSource->setTimeoutUS(10);
+            _delayedNotificationSource->setTimeoutUS(1);
             result = true;
         }
     }
@@ -1120,11 +1120,11 @@ void IOHIDSystem::doProcessNotifications(IOTimerEventSource *sender __unused)
         // process the notification
         if (notificationData) {
             const IOHIDSystem_notificationData *data = (const IOHIDSystem_notificationData *)notificationData->getBytesNoCopy();
-            cmdGate->runAction(data->handler, data->newService);
-            data->newService->release();
-            notificationData->release();
+                cmdGate->runAction(data->handler, data->newService);
+                data->newService->release();
+                notificationData->release();
+            }
         }
-    }
 
     if (reschedule) {
         _delayedNotificationSource->setTimeoutUS(1);
@@ -1138,6 +1138,11 @@ bool IOHIDSystem::handlePublishNotification(
 {
     IOHIDSystem * self = (IOHIDSystem *) target;
 
+    if (newService->isInactive()) {
+        // device went away before we could add it. ignore.
+        return true;
+    }
+    
     // avoiding OSDynamicCast & dependency on graphics family
     if( newService->metaCast("IODisplayWrangler")) {
         if( !self->displayManager) {
@@ -1191,7 +1196,8 @@ bool IOHIDSystem::handleTerminateNotification(
         service->close(self);
     }
 
-    self->detach(service);
+    // <rdar://problem/14116334&14536084&14757282&14775621>
+    // self->detach(service);
 
     if (self->ioHIDevices) {
         if ((index = self->ioHIDevices->getNextIndexOfObject(service, 0)) != -1)

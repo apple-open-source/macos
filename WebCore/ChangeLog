@@ -1,3 +1,450 @@
+2014-01-22  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r158676: <rdar://problem/15886062>
+
+    2013-11-05  Daniel Bates  <dabates@apple.com>
+
+            XSSAuditor should catch reflected srcdoc properties even without a <frame> tag injection
+
+            From Blink r160615 by <tsepez@chromium.org>
+            https://src.chromium.org/viewvc/blink?view=rev&revision=160615
+
+            Test: http/tests/security/xssAuditor/iframe-srcdoc-property-blocked.html
+
+            * html/parser/XSSAuditor.cpp:
+            (WebCore::XSSAuditor::filterIframeToken):
+
+2014-01-21  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r162486: <rdar://problem/15877502>
+
+    2014-01-21  Tim Horton  <timothy_horton@apple.com>
+
+            REGRESSION (r161580): Some PDFs render outside their <img>
+            https://bugs.webkit.org/show_bug.cgi?id=127381
+            <rdar://problem/15872168>
+
+            Reviewed by Simon Fraser.
+
+            * platform/graphics/cg/PDFDocumentImage.cpp:
+            (WebCore::transformContextForPainting):
+            Only try to make the scale uniform if it isn't already, and use the minimum
+            of the two original scales when doing so, so that it is absolutely certain
+            to fit inside space allocated for the image during layout.
+
+2014-01-09  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r161568: <rdar://problem/15784802>
+
+    2014-01-09  Tim Horton  <timothy_horton@apple.com>
+
+            PDFDocumentImage can be very slow to do the initial paint
+            https://bugs.webkit.org/show_bug.cgi?id=126633
+            <rdar://problem/15770980>
+
+            Reviewed by Simon Fraser.
+
+            * platform/graphics/cg/PDFDocumentImage.cpp:
+            (WebCore::PDFDocumentImage::PDFDocumentImage):
+            (WebCore::PDFDocumentImage::size):
+            (WebCore::transformContextForPainting):
+            (WebCore::PDFDocumentImage::computeBoundsForCurrentPage):
+            (WebCore::applyRotationForPainting):
+            (WebCore::PDFDocumentImage::drawPDFPage):
+            * platform/graphics/cg/PDFDocumentImage.h:
+            * platform/graphics/mac/PDFDocumentImageMac.mm:
+            (WebCore::PDFDocumentImage::computeBoundsForCurrentPage):
+            Store rotation from the PDF in degrees, since it can
+            only be 0, 90, 180, or 270, and don't do any trig to
+            perform the rotation, to avoid introducing minor rounding
+            issues in the size.
+
+            Once we're going to paint, if the difference between the
+            computed scale for each axis is due only to integer rounding
+            of the image size, use the same scale for both axes, to avoid
+            a CG slow-path which occurs whenever the scale is nonuniform.
+
+2014-01-07  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r160479
+
+    2013-12-11  Darin Adler  <darin@apple.com>
+
+            StylePendingImage needs to correctly manage the CSSValue pointer lifetime
+            https://bugs.webkit.org/show_bug.cgi?id=125468
+
+            Reviewed by Andreas Kling.
+
+            Test: fast/css/pending-image-crash.xhtml
+
+            Disconnect the reference counted StylePendingImage from the CSSValue that owns
+            it when it's not needed any more, otherwise we could end up using a pointer
+            that might no longer be valid.
+
+            * css/CSSCursorImageValue.cpp:
+            (WebCore::CSSCursorImageValue::detachPendingImage): Added. Calls detachFromCSSValue
+            on the current image if it is a StylePendingImage.
+            (WebCore::CSSCursorImageValue::~CSSCursorImageValue): Call detachPendingImage.
+            (WebCore::CSSCursorImageValue::cachedImage): Call detachPendingImage before changing
+            m_image to a new value.
+            (WebCore::CSSCursorImageValue::clearCachedImage): Ditto.
+            * css/CSSCursorImageValue.h: Added detachPendingImage.
+
+            * css/CSSImageSetValue.cpp:
+            (WebCore::CSSImageSetValue::detachPendingImage): Added. Calls detachFromCSSValue
+            on the current image set if it is a StylePendingImage.
+            (WebCore::CSSImageSetValue::~CSSImageSetValue): Call detachPendingImage.
+            (WebCore::CSSImageSetValue::cachedImageSet): Call detachPendingImage before changing
+            m_imageSet to a new value.
+            * css/CSSImageSetValue.h: Added detachPendingImage.
+
+            * css/CSSImageValue.cpp:
+            (WebCore::CSSImageValue::detachPendingImage): Added. Calls detachFromCSSValue on the
+            current image if it is a StylePendingImage.
+            (WebCore::CSSImageValue::~CSSImageValue): Call detachPendingImage.
+            (WebCore::CSSImageValue::cachedImage): Call detachPendingImage before changing m_image
+            to a new value.
+            * css/CSSImageValue.h: Added detachPendingImage.
+
+            * rendering/style/StylePendingImage.h:
+            (WebCore::StylePendingImage::cssImageValue): Added a null check.
+            (WebCore::StylePendingImage::cssImageGeneratorValue): Added a null check.
+            (WebCore::StylePendingImage::cssCursorImageValue): Added a null check.
+            (WebCore::StylePendingImage::cssImageSetValue): Added a null check.
+            (WebCore::StylePendingImage::detachFromCSSValue): Added. Sets m_value to null since
+            the style is no longer using this StylePendingImage.
+            (WebCore::StylePendingImage::data): Changed to use the "this" pointer since all we
+            need is some arbitrary pointer uniquely identifying the image. Before loading the image,
+            we have no suitable weak identifier, so it suffices to use the unique pointer to each
+            StylePendingImage object. This function is used only in a limited way; it would be nice
+            to find a way to make the code less strange long term.
+
+2013-12-23  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge 161050: <rdar://problem/15754482>
+
+    2013-12-23  Ryosuke Niwa  <rniwa@webkit.org>
+
+            Crash in ReplaceSelectionCommand
+            https://bugs.webkit.org/show_bug.cgi?id=126107
+
+            Reviewed by Benjamin Poulain.
+
+            Merge https://chromium.googlesource.com/chromium/blink/+/c1ebe5c1e808daf9db5e348a8d0ab32570b9f7a5
+            except the test since it doesn't reproduce the crash in WebKit.
+
+            * editing/ReplaceSelectionCommand.cpp:
+            (WebCore::ReplaceSelectionCommand::doApply):
+
+2013-12-23  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge 161003: <rdar://problem/15719584>
+
+    2013-12-23  Lucas Forschler  <lforschler@apple.com>
+
+            <rdar://problem/15682948> Update copyright strings
+
+            Reviewed by Dan Bernstein
+
+            * Info.plist:
+
+2013-12-19  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r160898: <rdar://problems/15709940>
+
+    2013-12-19  Beth Dakin  <bdakin@apple.com>
+
+            REGRESSION: cnn.com will continue to reveal 1 px of overhang after rubber-banding 
+            at the top
+            https://bugs.webkit.org/show_bug.cgi?id=126054
+
+            Reviewed by Simon Fraser.
+
+            This regression was caused by http://trac.webkit.org/changeset/160791 It turns out 
+            that the line of code I removed was not always a no-op. In some instances, like on 
+            cnn.com, it would ensure that our final scroll position after a rubber-band was 
+            not something within the overhang area. It was still wrong in its assumption that 
+            rubber-band is always bouncing back the spot it originated from. So this patch 
+            continues to ignore the rubber-bands origin, and instead finds the nearest point 
+            that is not in the overhang area, and scrolls to that point instead of the origin.
+
+            * page/scrolling/mac/ScrollingTreeScrollingNodeMac.h:
+            * page/scrolling/mac/ScrollingTreeScrollingNodeMac.mm:
+            (WebCore::ScrollingTreeScrollingNodeMac::adjustScrollPositionToBoundsIfNecessary):
+            * platform/mac/ScrollAnimatorMac.h:
+            * platform/mac/ScrollAnimatorMac.mm:
+            (WebCore::ScrollAnimatorMac::adjustScrollPositionToBoundsIfNecessary):
+            * platform/mac/ScrollElasticityController.h:
+            * platform/mac/ScrollElasticityController.mm:
+            (WebCore::ScrollElasticityController::snapRubberBandTimerFired):
+
+2013-12-19  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r159463: <rdar://problems/15701094>
+
+    2013-11-18  Simon Fraser  <simon.fraser@apple.com>
+
+            At some scales, opaque compositing layers have garbage pixels around the edges
+            ​https://bugs.webkit.org/show_bug.cgi?id=124541
+
+            Reviewed by Dean Jackson.
+
+            Layers get marked as having opaque contents when their background is
+            known to paint the entire layer. However, this failed to take into
+            account two reasons why every pixel may not get painted.
+
+            First, subpixel layout can result in non-integral RenderLayer
+            bounds, which will get rounded up to an integral GraphicsLayer
+            size. When this happens we may not paint edge pixels.
+
+            Second, at non-integral scale factors, graphics context scaling
+            may cause us to not paint edge pixels.
+
+            Fix by only marking PlatformCALayers as having opaque contents
+            when the contentsScale of the layer is integral.
+
+            Not testable, because we can't guarantee to get garbage pixels
+            in a ref test, and layer dumps show GraphicsLayer's notion of
+            content opaqueness, not the one we set on the PlatformCALayer.
+
+            * platform/graphics/ca/GraphicsLayerCA.cpp:
+            (WebCore::isIntegral):
+            (WebCore::clampedContentsScaleForScale):
+            (WebCore::GraphicsLayerCA::updateRootRelativeScale):
+            (WebCore::GraphicsLayerCA::commitLayerChangesBeforeSublayers):
+            (WebCore::GraphicsLayerCA::updateContentsOpaque):
+            (WebCore::GraphicsLayerCA::getTransformFromAnimationsWithMaxScaleImpact):
+            Drive-by typo fix.
+            (WebCore::GraphicsLayerCA::noteChangesForScaleSensitiveProperties):
+            * platform/graphics/ca/GraphicsLayerCA.h:
+            * rendering/RenderLayerBacking.cpp:
+            (WebCore::RenderLayerBacking::updateGraphicsLayerGeometry):
+
+2013-12-19  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r160791: <rdar://problems/15694289>
+
+    2013-12-18  Beth Dakin  <bdakin@apple.com>
+
+            Starting a momentum scroll while rubber banding can cause scrolling to jump back 
+            when the rubberband snaps
+            https://bugs.webkit.org/show_bug.cgi?id=119507
+            -and corresponding-
+            <rdar://problem/14655893>
+
+            Reviewed by Simon Fraser.
+
+            This line of code was added with the very first implementation of rubber-banding. 
+            As far as I can tell, it was always a belt-and-suspenders line of code that is a 
+            no-op in all normal rubber-banding. In this J-shaped scrolling case, this line of 
+            code is what causes the bug to occur because this line of code assumes that your 
+            rubber-band is always trying to take you back to the origin. 
+            * platform/mac/ScrollElasticityController.mm:
+            (WebCore::ScrollElasticityController::snapRubberBandTimerFired):
+
+2013-12-19  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r160819: <rdar://problems/15701133>
+
+    2013-12-18  Ryosuke Niwa  <rniwa@webkit.org>
+
+            Crash in WebCore::LogicalSelectionOffsetCaches::LogicalSelectionOffsetCaches
+            https://bugs.webkit.org/show_bug.cgi?id=125970
+
+            Reviewed by Antti Koivisto.
+
+            The bug was caused by containingBlockForAbsolutePosition returning a non-RenderBlock render object.
+            Fixed the bug by obtaining its containg block.
+
+            Also changed the return type of containingBlockForFixedPosition, containingBlockForAbsolutePosition,
+            containingBlockForObjectInFlow from RenderElement to RenderBlock as all callers of these functions
+            had assumed the return value to be an instance of RenderBlock.
+
+            Test: svg/text/select-text-inside-non-static-position.html
+
+            * rendering/LogicalSelectionOffsetCaches.h:
+            (WebCore::containingBlockForFixedPosition):
+            (WebCore::containingBlockForAbsolutePosition):
+            (WebCore::containingBlockForObjectInFlow):
+            (WebCore::LogicalSelectionOffsetCaches::LogicalSelectionOffsetCaches):
+
+2013-12-11  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merged patch from <rdar://problems/15474133>.  This patch is a port of r157821.
+
+    2013-10-22  Samuel White  <samuel_white@apple.com>
+
+            AX: Add paramAttrs to fetch start and end text markers in a given rect.
+            https://bugs.webkit.org/show_bug.cgi?id=122164
+
+            Unreviewed change.
+
+            Added ability to fetch end and start text markers inside a given bounds. This gives ScreenReaders
+            like VoiceOver a way to retrieve the text markers for a specified column of page text.
+
+            Test: platform/mac/accessibility/text-marker-for-bounds.html
+
+            * accessibility/AccessibilityObject.cpp:
+            (WebCore::AccessibilityObject::mainFrame):
+            (WebCore::AccessibilityObject::topDocument):
+            (WebCore::AccessibilityObject::visiblePositionForBounds):
+            * accessibility/AccessibilityObject.h:
+            * accessibility/AccessibilityRenderObject.cpp:
+            * accessibility/AccessibilityRenderObject.h:
+            * accessibility/mac/WebAccessibilityObjectWrapperMac.mm:
+            (-[WebAccessibilityObjectWrapper screenToContents:]):
+            (-[WebAccessibilityObjectWrapper accessibilityParameterizedAttributeNames]):
+            (-[WebAccessibilityObjectWrapper accessibilityAttributeValue:forParameter:]):
+
+2013-12-11  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r154513
+
+    2013-08-23  Alex Christensen  <achristensen@apple.com>
+
+            Re-separating Win32 and Win64 builds.
+            https://bugs.webkit.org/show_bug.cgi?id=120178
+
+            Reviewed by Brent Fulgham.
+
+            * WebCore.vcxproj/WebCoreGenerated.make:
+            * WebCore.vcxproj/WebCoreGeneratedWinCairo.make:
+            Pass PlatformArchitecture as a command line parameter to bash scripts
+            and use PlatformArchitecture to determine which directory to delete
+            while cleaning (obj32 or obj64).
+            * WebCore.vcxproj/WebCoreGeneratedWinCairoCommon.props:
+            Export PlatformArchitecture to be used by make and cmd scripts.
+            * WebCore.vcxproj/build-generated-files.sh:
+            Use PlatformArchitecture from command line to determine which object directory to use (obj32 or obj64).
+            * WebCore.vcxproj/copyForwardingHeaders.cmd:
+            * WebCore.vcxproj/copyWebCoreResourceFiles.cmd:
+            Use PlatformArchitecture to determine which directory to copy to (obj32 or obj64).
+
+2013-12-11  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Rollout r160469.  Not rolling out from trunk because r160469 was
+        applied on the branch from a patch file.
+
+2013-12-11  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r157821
+
+    2013-10-22  Samuel White  <samuel_white@apple.com> 
+
+            AX: Add paramAttrs to fetch start and end text markers in a given rect. 
+            https://bugs.webkit.org/show_bug.cgi?id=122164 
+
+            Reviewed by Chris Fleizach. 
+
+            Added ability to fetch end and start text markers inside a given bounds. This gives ScreenReaders
+            like VoiceOver a way to retrieve the text markers for a specified column of page text.
+
+            Test: platform/mac/accessibility/text-marker-for-bounds.html
+
+            * accessibility/AccessibilityObject.cpp:
+            (WebCore::AccessibilityObject::mainFrame):
+            (WebCore::AccessibilityObject::topDocument):
+            (WebCore::AccessibilityObject::visiblePositionForBounds):
+            * accessibility/AccessibilityObject.h:
+            * accessibility/AccessibilityRenderObject.cpp:
+            * accessibility/AccessibilityRenderObject.h:
+            * accessibility/mac/WebAccessibilityObjectWrapperMac.mm:
+            (-[WebAccessibilityObjectWrapper screenToContents:]):
+            (-[WebAccessibilityObjectWrapper accessibilityParameterizedAttributeNames]):
+            (-[WebAccessibilityObjectWrapper accessibilityAttributeValue:forParameter:]):
+
+2013-12-11  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r159691
+
+    2013-11-22  Brent Fulgham  <bfulgham@apple.com>
+
+            [Win] Avoid deadlock when interacting with some AVFoundationCF content
+            <rdar://problem/15482977> and https://bugs.webkit.org/show_bug.cgi?id=124752
+
+            Prevent deadlock caused by conflict over the "mapLock" mutex. Notification handling in the file,
+            which modify assets and make other changes, are required to happen on the main thread. This
+            patch enforces this requirement.
+
+            Reviewed by Eric Carlson.
+
+            * platform/graphics/avfoundation/cf/MediaPlayerPrivateAVFoundationCF.cpp:
+            (WebCore::NotificationCallbackData::NotificationCallbackData): Added
+            (WebCore::AVFWrapper::processNotification): Moved logic from 'notificationCallback', which was
+            sometimes happening on a background thread.
+            (WebCore::AVFWrapper::notificationCallback): Dispatch calls to main thread.
+
+2013-12-11  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r159460
+
+    2013-11-18  David Hyatt  <hyatt@apple.com>
+
+            Add a quirk to not respect center text-align when positioning
+
+            <rdar://problem/15427571>
+            https://bugs.webkit.org/show_bug.cgi?id=124522
+
+            Reviewed by Simon Fraser.
+
+            Added fast/block/legacy-text-align-position-quirk.html
+
+            * page/Settings.in:
+            Add the quirk setting.
+
+            * rendering/RenderBlockLineLayout.cpp:
+            (WebCore::RenderBlock::startAlignedOffsetForLine):
+            Don't pay attention to center text-align when the quirk is set.
+
+2013-12-10  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge 154333
+
+    2013-08-20  Alex Christensen  <achristensen@apple.com>
+
+            Use PlatformArchitecture to distinguish between 32-bit and 64-bit builds on Windows.
+            https://bugs.webkit.org/show_bug.cgi?id=119512
+
+            Reviewed by Brent Fulgham.
+
+            * WebCore.vcxproj/WebCore.vcxproj:
+            * WebCore.vcxproj/WebCore.vcxproj.filters:
+            * WebCore.vcxproj/WebCoreCommon.props:
+            * WebCore.vcxproj/WebCoreGeneratedCommon.props:
+            * WebCore.vcxproj/WebCoreTestSupport.vcxproj:
+            * WebCore.vcxproj/WebCoreTestSupport.vcxproj.filters:
+            Replaced obj32, bin32, and lib32 with macros for 64-bit build.
+
+2013-12-10  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge 152982
+
+    2013-07-22  Alex Christensen  <achristensen@apple.com>
+
+            Added assembly files to Windows 64-bit builds.
+            https://bugs.webkit.org/show_bug.cgi?id=118931
+
+            Reviewed by Brent Fulgham.
+
+            * WebCore.vcxproj/WebCore.vcxproj: Added PaintHooks.asm for x64 and enabled MASM.
+            * WebCore.vcxproj/WebCore.vcxproj.filters: Added PaintHooks.asm.
+
+2013-12-10  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge 152921
+
+    2013-07-19  Alex Christensen  <achristensen@apple.com>
+
+            Added x64 configuration to Visual Studio build.
+            https://bugs.webkit.org/show_bug.cgi?id=118888
+
+            Reviewed by Brent Fulgham.
+
+            * WebCore.vcxproj/QTMovieWin/QTMovieWin.vcxproj:
+            * WebCore.vcxproj/WebCore.vcxproj:
+            * WebCore.vcxproj/WebCoreGenerated.vcxproj:
+            * WebCore.vcxproj/WebCoreTestSupport.vcxproj:
+
 2013-11-20  Lucas Forschler  <lforschler@apple.com>
 
         Merge r159481

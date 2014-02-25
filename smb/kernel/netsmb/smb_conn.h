@@ -309,7 +309,7 @@ struct smb_vc {
 	struct smb_connobj	obj;
 	char				*vc_srvname;		/* The server name used for tree connect, also used for logging */
 	char				*vc_localname;
-	char				ipv4DotName[SMB_MAXNetBIOSNAMELEN+1];
+	char				ipv4v6DotName[45+1];/* max IPv6 presentation len */
 	struct sockaddr		*vc_saddr;			/* server addr */
 	struct sockaddr		*vc_laddr;			/* local addr, if any, only used for port 139 */
 	char				*vc_username;
@@ -326,13 +326,16 @@ struct smb_vc {
 	struct smb_tran_desc *vc_tdesc;
 	int					vc_chlen;			/* actual challenge length */
 	u_char				vc_ch[SMB_MAXCHALLENGELEN];
-	uint32_t			vc_mid;				/* multiplex id, we use the high pid to make the larger */
+	uint16_t			vc_mid;				/* multiplex id */
+	uint16_t			vc_low_pid;			/* used for async requests only */
     uuid_t              vc_client_guid;     /* SMB2 client Guid for Neg req */
 	uint64_t            vc_message_id;		/* SMB2 request message id */
 	uint32_t            vc_credits_granted; /* SMB2 credits granted */
 	uint32_t            vc_credits_ss_granted; /* SMB2 credits granted from session setup replies */
 	uint32_t            vc_credits_max;     /* SMB2 max amount of credits server has granted us */
 	uint32_t            vc_credits_wait;    /* SMB2 credit wait */
+    uint32_t            vc_req_pending;     /* SMB2 set if there is a pending request */
+    uint64_t            vc_oldest_message_id; /* SMB2 oldest pending request message id */
 	lck_mtx_t			vc_credits_lock;
 	uint64_t            vc_session_id;      /* SMB2 session id */
 	uint64_t            vc_prev_session_id; /* SMB2 prev sessID for reconnect */

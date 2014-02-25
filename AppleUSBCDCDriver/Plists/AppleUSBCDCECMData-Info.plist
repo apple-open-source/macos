@@ -7,7 +7,7 @@
 	<key>CFBundleExecutable</key>
 	<string>AppleUSBCDCECMData</string>
 	<key>CFBundleGetInfoString</key>
-	<string>4.2.1b2, USB CDC ECM driver Data Interface</string>
+	<string>4.2.1b5, USB CDC ECM driver Data Interface</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -23,9 +23,31 @@
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>4.2.1b2</string>
+	<string>4.2.1b5</string>
 	<key>IOKitPersonalities</key>
 	<dict>
+		<key>RealTek 0xBDA/0x8153</key>
+		<dict>
+			<key>bConfigurationValue</key>
+			<integer>2</integer>
+			<key>bInterfaceNumber</key>
+			<integer>1</integer>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.driver.AppleUSBMergeNub</string>
+			<key>idProduct</key>
+			<integer>33107</integer>
+			<key>idVendor</key>
+			<integer>3034</integer>
+			<key>IOClass</key>
+			<string>AppleUSBMergeNub</string>
+			<key>IOProviderClass</key>
+			<string>IOUSBInterface</string>
+			<key>IOProviderMergeProperties</key>
+			<dict>
+				<key>EnumerateOnWake</key>
+				<false/>
+			</dict>
+		</dict>
 		<key>AppleUSBCDCECMData</key>
 		<dict>
 			<key>bInterfaceClass</key>

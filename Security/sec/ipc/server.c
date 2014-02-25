@@ -60,8 +60,12 @@
 #define kSecEntitlementKeychainCloudCircle CFSTR("keychain-cloud-circle")
 /* defines from <Security/SecTask.h> */
 /* defines from <Security/SecEntitlements.h> */
-#define kSecEntitlementGetTaskAllow CFSTR("get-task-allow")
+#if TARGET_OS_EMBEDDED
 #define kSecEntitlementApplicationIdentifier CFSTR("application-identifier")
+#else
+#define kSecEntitlementApplicationIdentifier CFSTR("com.apple.application-identifier")
+#endif
+#define kSecEntitlementGetTaskAllow CFSTR("get-task-allow")
 #define kSecEntitlementKeychainAccessGroups CFSTR("keychain-access-groups")
 #define kSecEntitlementModifyAnchorCertificates CFSTR("modify-anchor-certificates")
 #define kSecEntitlementDebugApplications CFSTR("com.apple.springboard.debugapplications")
@@ -691,7 +695,7 @@ static void securityd_xpc_dictionary_handler(const xpc_connection_t connection, 
                 secdebug("ipc", "%@ %@ %@", clientTask, SOSCCGetOperationDescription((enum SecXPCOperation)operation), error);
             else
                 secerror("%@ %@ %@", clientTask, SOSCCGetOperationDescription((enum SecXPCOperation)operation), error);
-           
+
             xpcError = SecCreateXPCObjectWithCFError(error);
             xpc_dictionary_set_value(replyMessage, kSecXPCKeyError, xpcError);
         } else if (replyMessage) {

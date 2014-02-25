@@ -294,6 +294,7 @@ closefrom(int);
 
 
 #define rk_random() arc4random()
+#define rk_random_uniform(_n) arc4random_uniform(_n)
 
 
 

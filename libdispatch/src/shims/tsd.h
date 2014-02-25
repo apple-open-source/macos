@@ -36,6 +36,9 @@
 #if USE_APPLE_TSD_OPTIMIZATIONS && HAVE_PTHREAD_KEY_INIT_NP && \
 	!defined(DISPATCH_USE_DIRECT_TSD)
 #define DISPATCH_USE_DIRECT_TSD 1
+#if __has_include(<os/tsd.h>)
+#include <os/tsd.h>
+#endif
 #endif
 
 #if DISPATCH_USE_DIRECT_TSD
@@ -128,3 +131,20 @@ DISPATCH_TSD_INLINE DISPATCH_CONST
 static inline unsigned int
 _dispatch_cpu_number(void)
 {
+#if TARGET_IPHONE_SIMULATOR && IPHONE_SIMULATOR_HOST_MIN_VERSION_REQUIRED < 1090
+	return 0;
+#elif __has_include(<os/tsd.h>)
+	return _os_cpu_number();
+#elif defined(__x86_64__) || defined(__i386__)
+	struct { uintptr_t p1, p2; } p;
+	__asm__("sidt %[p]" : [p] "=&m" (p));
+	return (unsigned int)(p.p1 & 0xfff);
+#else
+	// Not yet implemented.
+	return 0;
+#endif
+}
+
+#undef DISPATCH_TSD_INLINE
+
+#endif

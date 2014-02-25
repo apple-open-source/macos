@@ -861,7 +861,12 @@ __private_extern__ Boolean
 ValidateTimingInformation( IOFBConnectRef connectRef __unused, const IOTimingInformation * timingInfo )
 {
     if (!timingInfo->detailedInfo.v2.horizontalActive
-     || !timingInfo->detailedInfo.v2.verticalActive )
+     || !timingInfo->detailedInfo.v2.verticalActive
+     || ((timingInfo->detailedInfo.v2.horizontalSyncOffset + timingInfo->detailedInfo.v2.horizontalSyncPulseWidth) 
+            > timingInfo->detailedInfo.v2.horizontalBlanking)
+     || ((timingInfo->detailedInfo.v2.verticalSyncOffset + timingInfo->detailedInfo.v2.verticalSyncPulseWidth) 
+            > timingInfo->detailedInfo.v2.verticalBlanking)
+     || !timingInfo->detailedInfo.v2.verticalActive)
     {
 #if RLOG
         DEBG(connectRef, "!ValidateTimingInformation\n");
@@ -2461,6 +2466,14 @@ IOFBRebuild( IOFBConnectRef connectRef, Boolean forConnectChange )
     TIMESTART();
 
     IOFBBuildModeList( connectRef, forConnectChange );
+#if 0
+    if ((0 == CFArrayGetCount(connectRef->modesArray))
+        && (kIOFBConnectStateOnline & connectRef->state))
+    {
+        connectRef->state = 0;
+        IOFBBuildModeList( connectRef, true );
+    }
+#endif
 
     TIMEEND("IOFBBuildModeList");
 

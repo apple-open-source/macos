@@ -1032,8 +1032,10 @@ void releaseExtensions(
     }
     SAFE_RELEASE_NULL(sAllKexts);
 
-    // and now that we've dropped whatever we booted with, perhaps invalidate
-    checkSafeBootInvalidateCachesOnce();
+    // only contemplate safe boot after a timer has expired
+    if (timer) {
+        checkSafeBootInvalidateCachesOnce();
+    }
 
     return;
 }

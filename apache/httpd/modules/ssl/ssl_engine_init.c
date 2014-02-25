@@ -72,6 +72,9 @@ static void ssl_tmp_keys_free(server_rec *s)
 
     MODSSL_TMP_KEYS_FREE(mc, RSA);
     MODSSL_TMP_KEYS_FREE(mc, DH);
+#ifndef OPENSSL_NO_EC
+    MODSSL_TMP_KEY_FREE(mc, EC_KEY, SSL_TMP_KEY_EC_256);
+#endif
 }
 
 static int ssl_tmp_key_init_rsa(server_rec *s,
@@ -83,7 +86,7 @@ static int ssl_tmp_key_init_rsa(server_rec *s,
 
     if (FIPS_mode() && bits < 1024) {
         mc->pTmpKeys[idx] = NULL;
-        ap_log_error(APLOG_MARK, APLOG_ERR, 0, s,
+        ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, s,
                      "Init: Skipping generating temporary "
                      "%d bit RSA private key in FIPS mode", bits);
         return OK;
@@ -113,7 +116,7 @@ static int ssl_tmp_key_init_dh(server_rec *s,
 
     if (FIPS_mode() && bits < 1024) {
         mc->pTmpKeys[idx] = NULL;
-        ap_log_error(APLOG_MARK, APLOG_ERR, 0, s,
+        ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, s,
                      "Init: Skipping generating temporary "
                      "%d bit DH parameters in FIPS mode", bits);
         return OK;
@@ -132,6 +135,40 @@ static int ssl_tmp_key_init_dh(server_rec *s,
 
     return OK;
 }
+
+#ifndef OPENSSL_NO_EC
+static int ssl_tmp_key_init_ec(server_rec *s,
+                               int bits, int idx)
+{
+    SSLModConfigRec *mc = myModConfig(s);
+    EC_KEY *ecdh = NULL;
+
+    /* XXX: Are there any FIPS constraints we should enforce? */
+
+    if (bits != 256) {
+        ap_log_error(APLOG_MARK, APLOG_ERR, 0, s,
+                     "Init: Failed to generate temporary "
+                     "%d bit EC parameters, only 256 bits supported", bits);
+        return !OK;
+    }
+
+    if ((ecdh = EC_KEY_new()) == NULL ||
+        EC_KEY_set_group(ecdh, EC_GROUP_new_by_curve_name(NID_X9_62_prime256v1)) != 1)
+    {
+        ap_log_error(APLOG_MARK, APLOG_ERR, 0, s,
+                     "Init: Failed to generate temporary "
+                     "%d bit EC parameters", bits);
+        return !OK;
+    }
+
+    mc->pTmpKeys[idx] = ecdh;
+    return OK;
+}
+
+#define MODSSL_TMP_KEY_INIT_EC(s, bits) \
+    ssl_tmp_key_init_ec(s, bits, SSL_TMP_KEY_EC_##bits)
+
+#endif
 
 #define MODSSL_TMP_KEY_INIT_RSA(s, bits) \
     ssl_tmp_key_init_rsa(s, bits, SSL_TMP_KEY_RSA_##bits)
@@ -156,6 +193,15 @@ static int ssl_tmp_keys_init(server_rec *s)
         MODSSL_TMP_KEY_INIT_DH(s, 1024)) {
         return !OK;
     }
+
+#ifndef OPENSSL_NO_EC
+    ap_log_error(APLOG_MARK, APLOG_INFO, 0, s,
+                 "Init: Generating temporary EC parameters (256 bits)");
+
+    if (MODSSL_TMP_KEY_INIT_EC(s, 256)) {
+        return !OK;
+    }
+#endif
 
     return OK;
 }
@@ -279,7 +325,7 @@ int ssl_init_Module(apr_pool_t *p, apr_pool_t *plog,
         }
     }
     else {
-        ap_log_error(APLOG_MARK, APLOG_NOTICE, 0, s,
+        ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, s,
                      "SSL FIPS mode disabled");
     }
 #endif
@@ -402,7 +448,11 @@ static void ssl_init_server_check(server_rec *s,
      *  Check for problematic re-initializations
      */
     if (mctx->pks->certs[SSL_AIDX_RSA] ||
-        mctx->pks->certs[SSL_AIDX_DSA])
+        mctx->pks->certs[SSL_AIDX_DSA]
+#ifndef OPENSSL_NO_EC
+      || mctx->pks->certs[SSL_AIDX_ECC]
+#endif
+        )
     {
         ap_log_error(APLOG_MARK, APLOG_ERR, 0, s,
                 "Illegal attempt to re-initialise SSL for server "
@@ -542,7 +592,7 @@ static void ssl_init_ctx_protocol(server_rec *s,
 
 
 #ifndef OPENSSL_NO_COMP
-    if (sc->compression == FALSE) {
+    if (sc->compression != TRUE) {
 #ifdef SSL_OP_NO_COMPRESSION
         /* OpenSSL >= 1.0 only */
         SSL_CTX_set_options(ctx, SSL_OP_NO_COMPRESSION);
@@ -606,6 +656,9 @@ static void ssl_init_ctx_callbacks(server_rec *s,
 
     SSL_CTX_set_tmp_rsa_callback(ctx, ssl_callback_TmpRSA);
     SSL_CTX_set_tmp_dh_callback(ctx,  ssl_callback_TmpDH);
+#ifndef OPENSSL_NO_EC
+    SSL_CTX_set_tmp_ecdh_callback(ctx,ssl_callback_TmpECDH);
+#endif
 
     SSL_CTX_set_info_callback(ctx, ssl_callback_Info);
 }
@@ -873,8 +926,15 @@ static int ssl_server_import_key(server_rec *s,
     ssl_asn1_t *asn1;
     MODSSL_D2I_PrivateKey_CONST unsigned char *ptr;
     const char *type = ssl_asn1_keystr(idx);
-    int pkey_type = (idx == SSL_AIDX_RSA) ? EVP_PKEY_RSA : EVP_PKEY_DSA;
+    int pkey_type;
     EVP_PKEY *pkey;
+
+#ifndef OPENSSL_NO_EC
+    if (idx == SSL_AIDX_ECC)
+      pkey_type = EVP_PKEY_EC;
+    else
+#endif
+    pkey_type = (idx == SSL_AIDX_RSA) ? EVP_PKEY_RSA : EVP_PKEY_DSA;
 
     if (!(asn1 = ssl_asn1_table_get(mc->tPrivateKey, id))) {
         return FALSE;
@@ -986,19 +1046,39 @@ static void ssl_init_server_certs(server_rec *s,
                                   modssl_ctx_t *mctx)
 {
     const char *rsa_id, *dsa_id;
+#ifndef OPENSSL_NO_EC
+    const char *ecc_id;
+#endif
     const char *vhost_id = mctx->sc->vhost_id;
     int i;
     int have_rsa, have_dsa;
+#ifndef OPENSSL_NO_EC
+    int have_ecc;
+#endif
 
     rsa_id = ssl_asn1_table_keyfmt(ptemp, vhost_id, SSL_AIDX_RSA);
     dsa_id = ssl_asn1_table_keyfmt(ptemp, vhost_id, SSL_AIDX_DSA);
+#ifndef OPENSSL_NO_EC
+    ecc_id = ssl_asn1_table_keyfmt(ptemp, vhost_id, SSL_AIDX_ECC);
+#endif
 
     have_rsa = ssl_server_import_cert(s, mctx, rsa_id, SSL_AIDX_RSA);
     have_dsa = ssl_server_import_cert(s, mctx, dsa_id, SSL_AIDX_DSA);
+#ifndef OPENSSL_NO_EC
+    have_ecc = ssl_server_import_cert(s, mctx, ecc_id, SSL_AIDX_ECC);
+#endif
 
-    if (!(have_rsa || have_dsa)) {
+    if (!(have_rsa || have_dsa
+#ifndef OPENSSL_NO_EC
+        || have_ecc
+#endif
+)) {
         ap_log_error(APLOG_MARK, APLOG_ERR, 0, s,
+#ifndef OPENSSL_NO_EC
+                "Oops, no RSA, DSA or ECC server certificate found "
+#else
                 "Oops, no RSA or DSA server certificate found "
+#endif
                 "for '%s:%d'?!", s->server_hostname, s->port);
         ssl_die();
     }
@@ -1009,10 +1089,21 @@ static void ssl_init_server_certs(server_rec *s,
 
     have_rsa = ssl_server_import_key(s, mctx, rsa_id, SSL_AIDX_RSA);
     have_dsa = ssl_server_import_key(s, mctx, dsa_id, SSL_AIDX_DSA);
+#ifndef OPENSSL_NO_EC
+    have_ecc = ssl_server_import_key(s, mctx, ecc_id, SSL_AIDX_ECC);
+#endif
 
-    if (!(have_rsa || have_dsa)) {
+    if (!(have_rsa || have_dsa
+#ifndef OPENSSL_NO_EC
+        || have_ecc
+#endif
+          )) {
         ap_log_error(APLOG_MARK, APLOG_ERR, 0, s,
+#ifndef OPENSSL_NO_EC
+                "Oops, no RSA, DSA or ECC server private key found?!");
+#else
                 "Oops, no RSA or DSA server private key found?!");
+#endif
         ssl_die();
     }
 }
@@ -1058,11 +1149,21 @@ static void ssl_init_proxy_certs(server_rec *s,
     for (n = 0; n < ncerts; n++) {
         X509_INFO *inf = sk_X509_INFO_value(sk, n);
 
-        if (!inf->x509 || !inf->x_pkey) {
+        if (!inf->x509 || !inf->x_pkey || !inf->x_pkey->dec_pkey ||
+            inf->enc_data) {
             sk_X509_INFO_free(sk);
             ap_log_error(APLOG_MARK, APLOG_STARTUP, 0, s,
                          "incomplete client cert configured for SSL proxy "
                          "(missing or encrypted private key?)");
+            ssl_die();
+            return;
+        }
+        
+        if (X509_check_private_key(inf->x509, inf->x_pkey->dec_pkey) != 1) {
+            ap_log_error(APLOG_MARK, APLOG_STARTUP, 0, s,
+                           "proxy client certificate and "
+                           "private key do not match");
+            ssl_log_ssl_error(APLOG_MARK, APLOG_ERR, s);
             ssl_die();
             return;
         }
@@ -1077,7 +1178,11 @@ static void ssl_init_proxy_certs(server_rec *s,
         return;
     }
 
-    /* Load all of the CA certs and construct a chain */
+    /* If SSLProxyMachineCertificateChainFile is configured, load all
+     * the CA certs and have OpenSSL attempt to construct a full chain
+     * from each configured end-entity cert up to a root.  This will
+     * allow selection of the correct cert given a list of root CA
+     * names in the certificate request from the server.  */
     pkp->ca_certs = (STACK_OF(X509) **) apr_pcalloc(p, ncerts * sizeof(sk));
     sctx = X509_STORE_CTX_new();
 

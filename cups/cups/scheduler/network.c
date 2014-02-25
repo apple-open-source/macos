@@ -1,5 +1,5 @@
 /*
- * "$Id: network.c 11093 2013-07-03 20:48:42Z msweet $"
+ * "$Id: network.c 11528 2014-01-14 20:24:03Z msweet $"
  *
  *   Network interface functions for the CUPS scheduler.
  *
@@ -133,7 +133,10 @@ cupsdNetIFUpdate(void)
   */
 
   if (getifaddrs(&addrs) < 0)
+  {
+    cupsdLogMessage(CUPSD_LOG_DEBUG, "cupsdNetIFUpdate: Unable to get interface list - %s", strerror(errno));
     return;
+  }
 
   for (addr = addrs; addr != NULL; addr = addr->ifa_next)
   {
@@ -148,7 +151,10 @@ cupsdNetIFUpdate(void)
 #endif
 	) ||
         addr->ifa_netmask == NULL || addr->ifa_name == NULL)
+    {
+      cupsdLogMessage(CUPSD_LOG_DEBUG, "cupsdNetIFUpdate: Ignoring \"%s\".", addr->ifa_name);
       continue;
+    }
 
    /*
     * Try looking up the hostname for the address as needed...
@@ -178,7 +184,10 @@ cupsdNetIFUpdate(void)
 
     hostlen = strlen(hostname);
     if ((temp = calloc(1, sizeof(cupsd_netif_t) + hostlen)) == NULL)
+    {
+      cupsdLogMessage(CUPSD_LOG_DEBUG, "cupsdNetIFUpdate: Unable to allocate memory for interface.");
       break;
+    }
 
    /*
     * Copy all of the information...
@@ -296,5 +305,5 @@ compare_netif(cupsd_netif_t *a,		/* I - First network interface */
 
 
 /*
- * End of "$Id: network.c 11093 2013-07-03 20:48:42Z msweet $".
+ * End of "$Id: network.c 11528 2014-01-14 20:24:03Z msweet $".
  */

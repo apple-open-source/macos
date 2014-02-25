@@ -306,7 +306,7 @@ static NSUserNotificationCenter *appropriateNotificationCenter()
     
     note.userInfo = @{@"applicantName": applicant.name,
                       @"applicantId": applicant.idString,
-                      @"Dismiss": (__bridge NSString *)kMMPropertyKeychainMRRequestApprovalAEAction,
+                      @"Dismiss": (__bridge NSString *)kMMPropertyKeychainAADetailsAEAction,
                       };
 
     NSLog(@"About to post#%d/%lu (%@): %@", postCount, (unsigned long)noteCenter.deliveredNotifications.count, applicant.idString, note);

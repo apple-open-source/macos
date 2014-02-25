@@ -192,7 +192,8 @@ ike_session_release_session (ike_session_t *session)
 ike_session_t *
 ike_session_get_session (struct sockaddr_storage *local,
 						 struct sockaddr_storage *remote,
-						 int              alloc_if_absent)
+						 int              alloc_if_absent,
+						 isakmp_index *optionalIndex)
 {
 	ike_session_t    *p = NULL;
 	ike_session_id_t  id;
@@ -265,6 +266,11 @@ ike_session_get_session (struct sockaddr_storage *local,
 				 p->ikev1_state.active_ph1cnt, p->ikev1_state.active_ph2cnt);
 			continue;
 		}
+		
+		// Skip if the spi doesn't match
+		if (optionalIndex != NULL && ike_session_getph1byindex(p, optionalIndex) == NULL) {
+			continue;
+		}
 
 		if (memcmp(&p->session_id, &id, sizeof(id)) == 0) {
 			plog(ASL_LEVEL_DEBUG,
@@ -282,6 +288,9 @@ ike_session_get_session (struct sockaddr_storage *local,
 				 saddr2str((struct sockaddr *)remote));			
 			return p;
 		} else if (is_isakmp_remote_port && memcmp(&p->session_id, &id_wop, sizeof(id_wop)) == 0) {
+			best_match = p;
+		} else if (optionalIndex != NULL) {
+			// If the SPI did match, this one counts as a best match
 			best_match = p;
 		}
 	}
@@ -1975,7 +1984,7 @@ ike_session_assert (struct sockaddr_storage *local,
 		return -1;
 	}
 
-	if ((sess = ike_session_get_session(local, remote, FALSE))) {
+	if ((sess = ike_session_get_session(local, remote, FALSE, NULL))) {
 		return(ike_session_assert_session(sess));
 	}
 	return -1;

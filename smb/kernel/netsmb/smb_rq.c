@@ -157,7 +157,8 @@ smb_rq_init_internal(struct smb_rq *rqp, struct smb_connobj *obj, u_char cmd,
 					 int rq_flags, uint16_t flags2, vfs_context_t context)
 {
 	int error;
-	uint32_t mid;
+	uint16_t mid;
+	uint16_t low_pid;
 	
 	bzero(rqp, sizeof(*rqp));
 	rqp->sr_flags |= rq_flags;
@@ -173,25 +174,24 @@ smb_rq_init_internal(struct smb_rq *rqp, struct smb_connobj *obj, u_char cmd,
 	rqp->sr_context = context;
     
 	/*
-	 * We need to get the mid for this request. We now combine the low pid 
-	 * value and the mid when checking for matching message. So the vc mid is
-	 * now a uint32_t value which we split into the mid and low pid. This 
-	 * allows us to wrap on a much larger number. 
-     *
-     * <12071582> Only done for async NT transaction and now uses the low pid.
+	 * We need to get the mid for this request. 
 	 */
-	mid = OSIncrementAtomic(&rqp->sr_vc->vc_mid);
-	if ((mid & 0xffff) == 0xffff) {
-		/* Reserverd for oplock breaks */
-		mid = OSIncrementAtomic(&rqp->sr_vc->vc_mid);
+	mid = OSIncrementAtomic16((int16_t *) &rqp->sr_vc->vc_mid);
+	if (mid == 0xffff) {
+		/* Reserved for oplock breaks */
+		mid = OSIncrementAtomic16((int16_t *) &rqp->sr_vc->vc_mid);
 	}
-	rqp->sr_mid = mid & 0xffff;
+	rqp->sr_mid = mid;
 
+	/*
+	 * We need to get the low pid for this request.
+	 */
  	if (cmd == SMB_COM_NT_TRANSACT_ASYNC) {
         /* 
-         * <12071582> For async SMB_COM_NT_TRANSACT requests, the mid/pid can 
+         * <14478604> For async SMB_COM_NT_TRANSACT requests, the mid/pid can
          * wrap around and its possible that we will match a reply to the
-         * wrong pending request.
+         * wrong pending request. All other requests will have a pidLow of 1,
+         * so make sure that for async requests, the pidLow can never be 1.
          *
          * Example, you have a bunch of Async Change Notifications requests 
          * that have been waiting a long time for a reply.  Then we do a bunch 
@@ -201,18 +201,22 @@ smb_rq_init_internal(struct smb_rq *rqp, struct smb_connobj *obj, u_char cmd,
          * request waits for its reply until the request times out and is
          * retried.  This can cause hangs or long delays during an enumeration. 
          */
-		rqp->sr_pidLow = ((mid & 0xffff0000) >> 16) + 1;
+        low_pid = OSIncrementAtomic16((int16_t *) &rqp->sr_vc->vc_low_pid);
+        if (low_pid == 1) {
+            /* Reserved for non async requests */
+            low_pid = OSIncrementAtomic16((int16_t *) &rqp->sr_vc->vc_low_pid);
+        }
+
+		rqp->sr_pidLow = low_pid;
 		rqp->sr_pidHigh = 0;
 
         cmd = SMB_COM_NT_TRANSACT;
 	}
     else {
         /* 
-         * All other request just have a hard code value for PID. Since the 
-         * pidLow for an async request can never be 0, make sure non async 
-         * request use 0 for the pidLow.
+         * All other request just have a hard code value of 1 for PID.
          */
-		rqp->sr_pidLow = 0;
+		rqp->sr_pidLow = 1;
 		rqp->sr_pidHigh = 0;
 	}
    
@@ -268,9 +272,13 @@ smb_rq_done(struct smb_rq *rqp)
 
     /* 
      * For SMB2, if the request was never sent, then recover the unused credits 
+     * If the request was not sent due to reconnect, then no need to recover
+     * unused credits as the crediting has been completely reset to start all
+     * over.
      */
     if (rqp->sr_extflags & SMB2_REQUEST) {
-        if (!(rqp->sr_extflags & SMB2_REQ_SENT)) {
+        if (!(rqp->sr_extflags & SMB2_REQ_SENT) &&
+            !(rqp->sr_flags & SMBR_RECONNECTED)) {
             rqp->sr_rspcreditsgranted = rqp->sr_creditcharge;
             smb2_rq_credit_increment(rqp);
         }

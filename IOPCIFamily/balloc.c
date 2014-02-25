@@ -119,6 +119,7 @@ vtd_balloc(vtd_space_t * bf, vtd_baddr_t size,
 
 	list = vtd_log2up(size);
 
+	addr = 0;
 	for (idx = list; idx < bf->bheads_count; idx++)
 	{
 		addr = bf->bheads[idx].free.next;

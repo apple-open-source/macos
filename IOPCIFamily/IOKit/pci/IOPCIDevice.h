@@ -77,10 +77,12 @@ enum {
     kIOPCIPCIExpressCapability          = 0x10,
     kIOPCIMSIXCapability                = 0x11,
 
-    kIOPCIExpressErrorReportingCapability     = -1UL,
-    kIOPCIExpressVirtualChannelCapability     = -2UL,
-    kIOPCIExpressDeviceSerialNumberCapability = -3UL,
-    kIOPCIExpressPowerBudgetCapability        = -4UL
+    kIOPCIExpressErrorReportingCapability            = -0x01UL,
+    kIOPCIExpressVirtualChannelCapability            = -0x02UL,
+    kIOPCIExpressDeviceSerialNumberCapability        = -0x03UL,
+    kIOPCIExpressPowerBudgetCapability               = -0x04UL,
+    kIOPCIExpressLatencyTolerenceReportingCapability = -0x18UL,
+    kIOPCIExpressL1PMSubstatesCapability             = -0x1EUL,
 };
 
 /* Space definitions */
@@ -406,6 +408,8 @@ private:
 	bool configAccess(bool write);
 	bool initReserved(void);
     IOReturn setPCIPowerState(uint8_t powerState, uint32_t options);
+    void     updateWakeReason(uint16_t pmeState);
+    IOReturn enableLTR(IOPCIDevice * device, bool enable);
 
 public:
 

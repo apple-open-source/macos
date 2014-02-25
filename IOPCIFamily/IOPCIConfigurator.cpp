@@ -50,6 +50,7 @@ extern void mp_rendezvous_no_intrs(
 __END_DECLS
 
 #define PFM64_SIZE    (2ULL*GB)
+#define MAX_BAR_SIZE  (32ULL*GB)
 // NPHYSMAP
 // #define PFM64_MAX     (100ULL*GB)
 
@@ -142,7 +143,45 @@ IOWorkLoop * CLASS::getWorkLoop() const
     return (fWL);
 }
 
-IOReturn CLASS::configOp(IOService * device, uintptr_t op, void * result)
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
+IOPCIConfigEntry * CLASS::findEntry(IOPCIAddressSpace space)
+{
+    IOPCIConfigEntry * child;
+    IOPCIConfigEntry * entry;
+    IOPCIConfigEntry * next;
+    uint8_t            bus, dev, func;
+
+    bus   = space.s.busNum;
+    dev   = space.s.deviceNum;
+    func  = space.s.functionNum;
+    next  = fRoot;
+    child = NULL;
+
+    while ((entry = next))
+    {
+        next = NULL;
+        for (child = entry->child; child; child = child->peer)
+        {
+            if (bus == entry->secBusNum)
+            {
+                if (dev  != child->space.s.deviceNum)   continue;
+                if (func != child->space.s.functionNum) continue;
+                break;
+            }
+            if (!child->isBridge)            continue;
+            else if (bus < child->secBusNum) continue;
+            else if (bus > child->subBusNum) continue;
+            next = child;
+            break;
+        }
+    }
+
+    return (child);
+}
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
+IOReturn CLASS::configOp(IOService * device, uintptr_t op, void * arg, void * arg2)
 {
     IOReturn           ret = kIOReturnUnsupported;
     IOPCIConfigEntry * entry = NULL;
@@ -159,12 +198,26 @@ IOReturn CLASS::configOp(IOService * device, uintptr_t op, void * result)
             break;
 
         case kConfigOpGetState:
-			if (!entry) *((uint32_t *) result) = kPCIDeviceStateDead;
+			if (!entry) *((uint32_t *) arg) = kPCIDeviceStateDead;
 			else
 			{
-				*((uint32_t *) result) = entry->deviceState;
+				*((uint32_t *) arg) = entry->deviceState;
 			}
 			ret = kIOReturnSuccess;
+			return (ret);
+            break;
+
+
+		case kConfigOpFindEntry:
+            entry = findEntry(*((IOPCIAddressSpace *) arg2));
+            *((void **) arg) = NULL;
+            if (!entry || !entry->dtNub) ret = kIOReturnNotFound;
+            else
+            {
+                entry->dtNub->retain();
+                *((void **) arg) = entry->dtNub;
+                ret = kIOReturnSuccess;
+            }
 			return (ret);
             break;
     }
@@ -178,8 +231,14 @@ IOReturn CLASS::configOp(IOService * device, uintptr_t op, void * result)
 			ret = kIOReturnSuccess;
             break;
 
+        case kConfigOpShadowed:
+			entry->configShadow = (uint8_t *) arg;
+			ret = kIOReturnSuccess;
+			if (!arg) break;
+			/* fall thru */
         case kConfigOpPaused:
-			DLOG("kConfigOpPaused at "D()"\n", DEVICE_IDENT(entry));
+			DLOG("kConfigOpPaused%s at "D()"\n",
+				op == kConfigOpShadowed ? "(shadowed)" : "", DEVICE_IDENT(entry));
 
 			if (kPCIDeviceStateRequestPause & entry->deviceState)
 			{
@@ -228,7 +287,7 @@ IOReturn CLASS::configOp(IOService * device, uintptr_t op, void * result)
         case kConfigOpScan:
 			if (kPCIDeviceStateScanned & entry->deviceState)
 			{
-				*((void **)result) = NULL;
+				*((void **)arg) = NULL;
 				ret = kIOReturnSuccess;
 				return (ret);
 				break;
@@ -248,9 +307,9 @@ IOReturn CLASS::configOp(IOService * device, uintptr_t op, void * result)
 			DLOG("[ PCI configuration end, changed %d, bridges %d, devices %d, waiting %d ]\n", 
 				  fChangedServices->getCount(), fBridgeCount, fDeviceCount, fWaitingPause);
 
-			if (result)
+			if (arg)
 			{
-				*((void **)result) = fChangedServices;
+				*((void **)arg) = fChangedServices;
 			}
 			else
 			{
@@ -286,9 +345,9 @@ IOReturn CLASS::configOp(IOService * device, uintptr_t op, void * result)
 
 		case kConfigOpProtect:
 			entry->deviceState = (entry->deviceState & ~(kPCIDeviceStateConfigRProtect|kPCIDeviceStateConfigWProtect))
-								| (*((uint32_t *) result));
+								| (*((uint32_t *) arg));
 			DLOG("kConfigOpProtect at "D()" prot %x\n",
-				 DEVICE_IDENT(entry), *((uint32_t *) result));
+				 DEVICE_IDENT(entry), *((uint32_t *) arg));
 
 			ret = kIOReturnSuccess;
             break;
@@ -422,6 +481,8 @@ IOReturn CLASS::addHostBridge(IOPCIBridge * hostBridge)
     bridge->headerType   = kPCIHeaderType1;
     bridge->secBusNum    = hostBridge->firstBusNum();
     bridge->subBusNum    = hostBridge->lastBusNum();
+//#warning bus52
+//    if (bridge->subBusNum > 250) bridge->subBusNum = 52;
     bridge->space        = hostBridge->getBridgeSpace();
 
     bridge->dtNub           = hostBridge->getProvider();
@@ -1014,6 +1075,7 @@ void CLASS::matchACPIEntry( IORegistryEntry * dtEntry, void * _context )
 void CLASS::bridgeConnectDeviceTree(IOPCIConfigEntry * bridge)
 {
     IORegistryEntry *   dtBridge = bridge->dtNub;
+    IOPCIConfigEntry *  parent;
 	OSObject *          obj;
     MatchDTEntryContext context;
 	IOPCIRange *        childRange;
@@ -1043,7 +1105,7 @@ void CLASS::bridgeConnectDeviceTree(IOPCIConfigEntry * bridge)
     {
         if (!child->isBridge) continue;
 		if (kPCIDeviceStateTreeConnected & child->deviceState) continue;
-        child->deviceState |= kPCIDeviceStateTreeConnected;
+//        child->deviceState |= kPCIDeviceStateTreeConnected;
 		do
 		{
 			if ((kPCIHotPlugTunnelRoot == bridge->supportsHotPlug)
@@ -1096,6 +1158,31 @@ void CLASS::bridgeConnectDeviceTree(IOPCIConfigEntry * bridge)
 				child->supportsHotPlug = kPCIStatic;
 		}
 		while (false);
+    }
+
+	bridge->countMaximize = 0;
+	uint32_t flags = kIOPCIRangeFlagMaximizeRoot | kIOPCIRangeFlagNoCollapse;
+
+    FOREACH_CHILD(bridge, child)
+    {
+		if ((kPCIHotPlugTunnelRootParent == child->supportsHotPlug)
+		 || (kPCIHotPlugTunnelRoot == child->supportsHotPlug)) bridge->countMaximize++;
+	}
+
+	for (parent = bridge; parent; parent = parent->parent)
+	{
+		if (parent->countMaximize > 1)
+		{
+			flags = kIOPCIRangeFlagMaximizeSize | kIOPCIRangeFlagNoCollapse;
+			break;
+		}
+	}
+	
+    FOREACH_CHILD(bridge, child)
+    {
+        if (!child->isBridge) continue;
+		if (kPCIDeviceStateTreeConnected & child->deviceState) continue;
+        child->deviceState |= kPCIDeviceStateTreeConnected;
 
 		DLOG("bridge "D()" supportsHotPlug %d, linkInterrupts %d\n",
 			  DEVICE_IDENT(child),
@@ -1109,12 +1196,12 @@ void CLASS::bridgeConnectDeviceTree(IOPCIConfigEntry * bridge)
 
 			if (kPCIHotPlugTunnelRootParent == child->supportsHotPlug)
 			{
-				childRange->flags |= kIOPCIRangeFlagMaximizeFlags;
+				childRange->flags |= flags;
 				child->rangeSizeChanges |= (1 << BRN(childRange->type));
 			}
 			else if (kPCIHotPlugTunnelRoot == child->supportsHotPlug)
 			{
-				childRange->flags |= kIOPCIRangeFlagMaximizeFlags;
+				childRange->flags |= flags;
 				childRange->start = 0;
 				child->rangeSizeChanges |= (1 << BRN(childRange->type));
 			}
@@ -1245,17 +1332,23 @@ bool CLASS::bridgeConstructDeviceTree(void * unused, IOPCIConfigEntry * bridge)
 			{
 				// reloc existing
 				DLOG("IOPCIDevice::relocate at "D()"\n", DEVICE_IDENT(child));
+				for (uint32_t idx = 0; idx < kIOPCIRangeCount; idx++)
+				{
+					IOPCIRange * range;
+					range = child->ranges[idx];
+					if (!range)	continue;
+					if (range->size < range->proposedSize)
+					{
+						DLOG("  %s ", gPCIResourceTypeName[range->type]);
+						DLOG_RANGE("short range", range);
+					}
+				}
 				pciDevice->relocate(true);
 			}
         }
         propTable->release();
     }
-
-//    if ((kIOPCIConfiguratorAllocate & fFlags)
-//     || (kPCIHotPlug != bridge->supportsHotPlug))
-    {
-        dtBridge->setProperty(kIOPCIConfiguredKey, kOSBooleanTrue);
-    }
+	dtBridge->setProperty(kIOPCIConfiguredKey, kOSBooleanTrue);
 
     return (ok);
 }
@@ -1418,15 +1511,27 @@ bool CLASS::bridgeDeallocateChildRanges(IOPCIConfigEntry * bridge, IOPCIConfigEn
 
 		if (childRange->nextSubRange)
 		{
+			IOPCIScalar size  = childRange->size;
+			IOPCIScalar start = childRange->start;
+
 			range = bridgeGetRange(bridge, childRange->type);
 			if (!range) panic("!range");
-			childRange->proposedSize = childRange->size;
 			ok = IOPCIRangeListDeallocateSubRange(range, childRange);
 			if (!ok) panic("!IOPCIRangeListDeallocateSubRange");
+            if (rangeIndex <= kIOPCIRangeExpansionROM)
+            {
+                childRange->start = start;
+                childRange->proposedSize = size;
+            }
+            else
+            {
+                childRange->proposedSize = 0;
+            }
+            bridge->haveAllocs |= (1 << childRange->type);
 			dead->rangeBaseChanges |= (1 << rangeIndex);
+
 			didKeep |= !dispose;
 		}
-		childRange->proposedSize = childRange->size;
 		if (dispose)
 		{
 			IOPCIRangeFree(childRange);
@@ -1455,8 +1560,8 @@ void CLASS::bridgeRemoveChild(IOPCIConfigEntry * bridge, IOPCIConfigEntry * dead
         bridgeRemoveChild(dead, child, deallocTypes, freeTypes, childList);
     }
 
-    DLOG("bridge %p removing child %p at "D()"\n",
-         bridge, dead, DEVICE_IDENT(dead));
+    DLOG("bridge "B()" removing child %p "D()"\n",
+         BRIDGE_IDENT(bridge), dead, DEVICE_IDENT(dead));
 
 	if (kPCIDeviceStateRequestPause & dead->deviceState)
 	{
@@ -1474,6 +1579,9 @@ void CLASS::bridgeRemoveChild(IOPCIConfigEntry * bridge, IOPCIConfigEntry * dead
         }
         prev = &child->peer;
     }
+
+    if (!child) panic("bridgeRemoveChild");
+
 	bridge->deviceState |= kPCIDeviceStateChildChanged;
 	bridge->deviceState &= ~(kPCIDeviceStateTotalled | kPCIDeviceStateAllocated);
 
@@ -1535,10 +1643,11 @@ void CLASS::bridgeMoveChildren(IOPCIConfigEntry * to, IOPCIConfigEntry * list)
 				DLOG("Reserves on ("D()") for ("D()"):\n",
 						DEVICE_IDENT(to), DEVICE_IDENT(dead));
 			}
-			DLOG("  %s: 0x%llx reserve 0x%llx\n",
+			DLOG("  %s: 0x%llx reserve 0x%llx, 0x%llx\n",
 					gPCIResourceTypeName[childRange->type], 
-					childRange->start, childRange->proposedSize);
-			childRange->proposedSize = childRange->size;
+					childRange->start, childRange->proposedSize, childRange->totalSize);
+            if (childRange->nextSubRange) panic("bridgeMoveChildren");
+//			childRange->proposedSize = childRange->size;
 			childRange->flags |= kIOPCIRangeFlagReserve;
 			ok = IOPCIRangeListAllocateSubRange(range, childRange);
 			if (!ok) panic("!IOPCIRangeListAllocateSubRange");
@@ -1700,11 +1809,10 @@ void CLASS::bridgeProbeChild( IOPCIConfigEntry * bridge, IOPCIAddressSpace space
 	
 			child->expressCaps        = expressCaps;
 			child->linkCaps           = linkCaps;
-			child->expressDeviceCaps1 = configRead32(child, child->expressCapBlock + 0x04);
-	
 			DLOG("  expressCaps 0x%x, linkControl 0x%x, linkCaps 0x%x, slotCaps 0x%x\n",
 				 child->expressCaps, linkControl, child->linkCaps, slotCaps);
 		}
+		child->expressDeviceCaps1 = configRead32(child, child->expressCapBlock + 0x04);
 		child->expressMaxPayload  = (child->expressDeviceCaps1 & 7);
 		DLOG("  expressMaxPayload 0x%x\n", child->expressMaxPayload);
 	}
@@ -1726,9 +1834,10 @@ uint32_t CLASS::findPCICapability(IOPCIConfigEntry * device,
 uint32_t CLASS::findPCICapability(IOPCIAddressSpace space,
                                   uint32_t capabilityID, uint32_t * found)
 {
-    uint32_t data = 0;
-    uint32_t offset, firstOffset = 0;
+    uint32_t data;
+    uint32_t offset, expressCap, firstOffset;
 
+    data = expressCap = firstOffset = 0;
     if (found)
     {
         firstOffset = *found;
@@ -1741,6 +1850,8 @@ uint32_t CLASS::findPCICapability(IOPCIAddressSpace space,
 
     if (capabilityID >= 0x100)
     {
+        if (!findPCICapability(space, kIOPCIPCIExpressCapability, &expressCap)) return (0);
+
         capabilityID = -capabilityID;
         offset = 0x100;
         while (offset)
@@ -2021,7 +2132,7 @@ void CLASS::probeBaseAddressRegister(IOPCIConfigEntry * device, uint32_t lastBar
         value   &= ~barMask;
 		value64 |= value;
         size     = -value64;
-        if (start == value64) 
+        if ((start == value64) || (size > MAX_BAR_SIZE)) 
         {
             DLOG("  [0x%x] can't probe\n", barOffset);
             continue;
@@ -2036,7 +2147,7 @@ void CLASS::probeBaseAddressRegister(IOPCIConfigEntry * device, uint32_t lastBar
 		if ((0x91821b4b == configRead32(device->space, kIOPCIConfigVendorID))
 		 && (0x18 == barOffset))
 		{
-			range->proposedSize = 0xf000;
+			range->proposedSize = range->totalSize = 0x4000;
 		}
 #endif
     }
@@ -2327,15 +2438,14 @@ int32_t CLASS::bootResetProc(void * ref, IOPCIConfigEntry * bridge)
     bool     ok = true;
     uint32_t reg32;
 
-	if (kPCIStatic != bridge->supportsHotPlug)
+	if ((kPCIStatic != bridge->supportsHotPlug)
+	 && bridge->ranges[kIOPCIRangeBridgeBusNumber]
+	 && !bridge->ranges[kIOPCIRangeBridgeBusNumber]->nextSubRange)
 	{
-		if (bridge->ranges[kIOPCIRangeBridgeBusNumber])
-//		 && !(kIOPCIRangeFlagMaximizeSize & bridge->ranges[kIOPCIRangeBridgeBusNumber]->flags))
-		{
-			bridge->ranges[kIOPCIRangeBridgeBusNumber]->start        = 0;
-			bridge->ranges[kIOPCIRangeBridgeBusNumber]->size         = 0;
-			bridge->ranges[kIOPCIRangeBridgeBusNumber]->proposedSize = 1;
-		}
+        bridge->ranges[kIOPCIRangeBridgeBusNumber]->start        = 0;
+        bridge->ranges[kIOPCIRangeBridgeBusNumber]->size         = 0;
+        bridge->ranges[kIOPCIRangeBridgeBusNumber]->totalSize    = 1;
+        bridge->ranges[kIOPCIRangeBridgeBusNumber]->proposedSize = 1;
 		if (kPCIHotPlugTunnelRootParent != bridge->supportsHotPlug)
 		{
 			DLOG("boot reset "B()"\n", BRIDGE_IDENT(bridge));
@@ -2351,26 +2461,27 @@ int32_t CLASS::bootResetProc(void * ref, IOPCIConfigEntry * bridge)
 
 int32_t CLASS::totalProc(void * ref, IOPCIConfigEntry * bridge)
 {
-    bool ok = true;
+    bool ok;
 
-    if (!(kPCIDeviceStateAllocatedBus & bridge->deviceState)) return (ok);
-    if (kPCIDeviceStateTotalled & bridge->deviceState) return (ok);
+    if (!(kPCIDeviceStateAllocatedBus & bridge->deviceState)) return (true);
+    if (kPCIDeviceStateTotalled & bridge->deviceState) return (true);
 
-    bridgeTotalResources(bridge, 
+    ok = bridgeTotalResources(bridge, 
                           (1 << kIOPCIResourceTypeMemory)
                         | (1 << kIOPCIResourceTypePrefetchMemory)
                         | (1 << kIOPCIResourceTypeIO));
 
+	if (!ok) bridge->parent->deviceState &= ~kPCIDeviceStateAllocated;
 	bridge->deviceState |= kPCIDeviceStateTotalled;
 
-    return (ok);
+    return (true);
 }
 
 //---------------------------------------------------------------------------
 
 int32_t CLASS::allocateProc(void * ref, IOPCIConfigEntry * bridge)
 {
-    bool               ok = true;
+    int32_t ok = true;
 
     if (!(kPCIDeviceStateAllocatedBus & bridge->deviceState)) return (ok);
     if (kPCIDeviceStateAllocated & bridge->deviceState)       return (ok);
@@ -2381,8 +2492,8 @@ int32_t CLASS::allocateProc(void * ref, IOPCIConfigEntry * bridge)
 					  (1 << kIOPCIResourceTypeMemory)
 					| (1 << kIOPCIResourceTypePrefetchMemory)
 					| (1 << kIOPCIResourceTypeIO));
-	DLOG("alloc done (bridge "B()", state 0x%x, %s)\n", 
-			BRIDGE_IDENT(bridge), bridge->deviceState, ok ? "ok" : "moretodo");
+	DLOG("alloc done (bridge "B()", state 0x%x, ok %d)\n", 
+			BRIDGE_IDENT(bridge), bridge->deviceState, ok);
 
 	if (ok > 0) bridge->deviceState |= kPCIDeviceStateAllocated;
 	else        bridge->parent->deviceState &= ~kPCIDeviceStateAllocated;
@@ -2398,10 +2509,10 @@ void CLASS::doConfigure(uint32_t options)
 
 	fMaxPayload = 5;
 
-    if (bootConfig) iterate(0, &CLASS::scanProc,                 &CLASS::bootResetProc, this);
-					iterate(1, &CLASS::scanProc,                 &CLASS::totalProc,     NULL);
-					iterate(2, &CLASS::allocateProc,             NULL,	    			NULL);
-					iterate(3, &CLASS::bridgeFinalizeConfigProc, NULL,                  NULL);
+    if (bootConfig) iterate("boot reset", &CLASS::scanProc,                 &CLASS::bootResetProc, this);
+					iterate("scan total", &CLASS::scanProc,                 &CLASS::totalProc,     NULL);
+					iterate("allocate",   &CLASS::allocateProc,             NULL,	    			NULL);
+					iterate("finalize",   &CLASS::bridgeFinalizeConfigProc, NULL,                  NULL);
 }
 
 //---------------------------------------------------------------------------
@@ -2414,17 +2525,19 @@ enum
     kIteratorDoneCheck = 3,
 };
 
-void CLASS::iterate(uint32_t options, IterateProc topProc, IterateProc bottomProc, void * ref)
+void CLASS::iterate(const char * what, IterateProc topProc, IterateProc bottomProc, void * ref)
 {
     IOPCIConfigEntry * device;
     IOPCIConfigEntry * parent;
     int32_t			   ok;
+	uint32_t           revisits;
     bool               didCheck;
 
     device = fRoot;
     device->iterator = kIteratorCheck;
+    revisits = 0;
 
-    DLOG("iterate start(%d)\n", options);
+    DLOG("iterate %s: start\n", what);
     do
     {
         parent = device->parent;
@@ -2441,6 +2554,15 @@ void CLASS::iterate(uint32_t options, IterateProc topProc, IterateProc bottomPro
             }
             device->iterator = kIteratorDidCheck;
         }
+
+		if (!ok)
+		{
+			if (++revisits > (8 * fBridgeCount))
+			{
+				DLOG("iterate %s: HUNG?\n", what);
+				ok = -1;
+			}
+		}
 
 		if (ok < 0) break;
 
@@ -2478,7 +2600,7 @@ void CLASS::iterate(uint32_t options, IterateProc topProc, IterateProc bottomPro
         }
     }
     while (device);
-    DLOG("iterate done(%d)\n", options);
+    DLOG("iterate %s: end(%d)\n", what, revisits);
 }
 
 //---------------------------------------------------------------------------
@@ -2591,13 +2713,32 @@ IOPCIRange * CLASS::bridgeGetRange(IOPCIConfigEntry * bridge, uint32_t type)
 
 //---------------------------------------------------------------------------
 
+void CLASS::logAllocatorRange(IOPCIConfigEntry * device, IOPCIRange * range, char c)
+{
+    DLOG("  %s: 0x%llx:0x%llx,0x%llx-0x%llx,0x%llx:0x%llx (at "D()") %s%s%s%s%s%s%c",
+            gPCIResourceTypeName[range->type], 
+            range->start, 
+            range->size, range->proposedSize,
+            range->totalSize, range->extendSize, 
+            range->alignment,
+            DEVICE_IDENT(device),
+            (NULL != range->nextSubRange)                ? "A" : "a",
+            (kIOPCIRangeFlagRelocatable  & range->flags) ? "R" : "r",
+            (kIOPCIRangeFlagSplay        & range->flags) ? "S" : "s",
+            (kIOPCIRangeFlagMaximizeSize & range->flags) ? "M" : "m",
+            (kIOPCIRangeFlagMaximizeRoot & range->flags) ? "B" : "b",
+            (kIOPCIRangeFlagReserve      & range->flags) ? "V" : "v",
+            c);
+}
+
+//---------------------------------------------------------------------------
+
 bool CLASS::bridgeTotalResources(IOPCIConfigEntry * bridge, uint32_t typeMask)
 {
 	IOPCIConfigEntry * child;
 	IOPCIRange *       range;
     IOPCIRange *       childRange;
     uint32_t           type;
-    bool               expressCards = false;
 	bool		       ok = true;
 
     IOPCIScalar		   totalSize[kIOPCIResourceTypeCount];
@@ -2653,29 +2794,31 @@ bool CLASS::bridgeTotalResources(IOPCIConfigEntry * bridge, uint32_t typeMask)
 
 	for (child = bridge->child; child; child = child->peer)
     {
-		expressCards |= (kPCIHotPlugRoot == child->supportsHotPlug);
         for (int i = 0; i < kIOPCIRangeCount; i++)
         {
             childRange = child->ranges[i];
             if (!childRange)										continue;
             if (!((1 << childRange->type) & typeMask))				continue;
             range = bridgeGetRange(bridge, childRange->type);
-            if (kIOPCIRangeFlagMaximizeSize & childRange->flags) 
-                countMaximize[range->type]++;
-            if (!childRange->proposedSize) 							continue;
-			totalSize[range->type] += childRange->proposedSize;
+            if (!range)                                             continue;
+            type = range->type;
+            if (kIOPCIRangeFlagMaximizeSize & childRange->flags)    countMaximize[type]++;
+            if (!(childRange->totalSize + childRange->extendSize))  continue;
 
-//            if ((!childRange->nextSubRange) && (childRange->alignment > maxAlignment[range->type]))
-            if (childRange->alignment > maxAlignment[range->type])
-                maxAlignment[range->type] = childRange->alignment;
-            if (childRange->minAddress < minAddress[range->type])
-                minAddress[range->type] = childRange->minAddress;
-            if (childRange->maxAddress < maxAddress[range->type])
+            logAllocatorRange(child, childRange, '\n');
+
+			totalSize[type] += childRange->totalSize + childRange->extendSize;
+            if (childRange->alignment > maxAlignment[type])
+                maxAlignment[type] = childRange->alignment;
+
+            if (childRange->minAddress < minAddress[type])
+                minAddress[type] = childRange->minAddress;
+            if (childRange->maxAddress < maxAddress[type])
             {
                 DLOG("  %s: maxAddr change 0x%llx -> 0x%llx (at "D()")\n",
-                        gPCIResourceTypeName[range->type], 
-                        maxAddress[range->type], childRange->maxAddress, DEVICE_IDENT(child));
-                maxAddress[range->type] = childRange->maxAddress;
+                        gPCIResourceTypeName[type], 
+                        maxAddress[type], childRange->maxAddress, DEVICE_IDENT(child));
+                maxAddress[type] = childRange->maxAddress;
 			}
 
 			if (childRange->proposedSize
@@ -2693,46 +2836,39 @@ bool CLASS::bridgeTotalResources(IOPCIConfigEntry * bridge, uint32_t typeMask)
 
     for (type = 0; type < kIOPCIResourceTypeCount; type++)
     {
-        if (!((1 << type) & typeMask))
-            continue;
-
-        totalSize[type] = IOPCIScalarAlign(totalSize[type], minBridgeAlignments[type]);
+        if (!((1 << type) & typeMask)) continue;
+        if (bridge->isHostBridge)      continue;
         range = bridgeGetRange(bridge, type);
         if (range) do
         {
-			if (bridge->isHostBridge)
-			{
-				if (expressCards && (kIOPCIResourceTypeBusNumber == type))
-				{
-					// max ratio to give maximized allocs
-					range->pri   = 240;
-					range->count = 255;
-				}
-				continue;
-			}
-			if (countMaximize[type]) 
-			{
-				range->pri   = 1;
-				range->count = countMaximize[type];
-			}
-			if ((totalSize[type] != range->proposedSize)
-			 && ((!totalSize[type])	|| (totalSize[type] > range->proposedSize)))
+			if (((kIOPCIRangeFlagMaximizeSize | kIOPCIRangeFlagMaximizeRoot) & range->flags)
+			 && !totalSize[type])            totalSize[type] = minBridgeAlignments[type];
+            totalSize[type] = IOPCIScalarAlign(totalSize[type], minBridgeAlignments[type]);
+
+			if (totalSize[type] != range->totalSize)
 			{
 				DLOG("  %s: 0x%llx: size change 0x%llx -> 0x%llx\n",
-						gPCIResourceTypeName[type], 
-						range->start, range->proposedSize, totalSize[type]);
-				range->proposedSize          = totalSize[type];
-				bridge->rangeSizeChanges    |= (1 << BRN(type));
-				bridge->rangeRequestChanges |= (1 << type);
-				ok = false;
+					  gPCIResourceTypeName[type], 
+					  range->start, range->proposedSize, totalSize[type]);
+				range->totalSize = totalSize[type];
+				if (kIOPCIRangeFlagMaximizeRoot & range->flags) {}
+				else
+				{
+					bridge->rangeSizeChanges    |= (1 << BRN(type));
+					bridge->rangeRequestChanges |= (1 << type);
+					ok = false;
+				}
 			}
-			if (!(kIOPCIRangeFlagMaximizeSize & range->flags)) range->alignment = maxAlignment[type];
+			if (!((kIOPCIRangeFlagMaximizeSize | kIOPCIRangeFlagMaximizeRoot) & range->flags))
+			{
+				range->alignment = maxAlignment[type];
+			}
 			range->minAddress = minAddress[type];
 			range->maxAddress = maxAddress[type];
 
 			DLOG("  %s: total child reqs 0x%llx of 0x%llx maxalign 0x%llx\n",
 					gPCIResourceTypeName[type], 
-					totalSize[type], range->proposedSize, range->alignment);
+					range->totalSize, range->size, range->alignment);
         }
 		while (false);
     }
@@ -2753,12 +2889,12 @@ static uint32_t IOPCIRangeStateOrder(IOPCIRange * range)
 {
 	uint32_t order = 0;
 
-	// order 1st allocated, placed, nonresize, resize, maximise
+	// order 1st allocated, placed, nonresize or shrink, resize, maximise
 
 	if (range->nextSubRange) 											order |= (1 << 31);
 	if (range->start) 													order |= (1 << 30);
-	if (range->nextSubRange && (range->proposedSize == range->size))	order |= (1 << 29);
-	if (!((kIOPCIRangeFlagMaximizeSize | kIOPCIRangeFlagSplay) 
+	if (/*range->nextSubRange &&*/ (range->proposedSize <= range->size))    order |= (1 << 29);
+	if (!((kIOPCIRangeFlagMaximizeRoot | kIOPCIRangeFlagMaximizeSize | kIOPCIRangeFlagSplay) 
 		& range->flags)) 												order |= (1 << 28);
 
 	return (order);
@@ -2803,10 +2939,11 @@ int32_t CLASS::bridgeAllocateResources(IOPCIConfigEntry * bridge, uint32_t typeM
     uint32_t     type;
     uint32_t     haveAllocs = 0;
     uint32_t     haveRelocs = 0;
+    uint32_t     doOptimize = 0;
     uint32_t     failTypes  = 0;
     int32_t      result;
+    bool         expressCards = false;
     bool         ok;
-    bool         hotp;
 	bool         canRelocate;
 
     DLOG("bridgeAllocateResources(bridge "B()", state 0x%x, type 0x%x)\n", 
@@ -2822,44 +2959,44 @@ int32_t CLASS::bridgeAllocateResources(IOPCIConfigEntry * bridge, uint32_t typeM
     bzero(shortage, sizeof(shortage));
     bzero(shortageAlignments, sizeof(shortageAlignments));
 
-	hotp = (kPCIStatic != bridge->supportsHotPlug);
-	if (hotp)
-	{
-		// determine kIOPCIRangeFlagRelocatable
-		FOREACH_CHILD(bridge, child)
-		{
-			for (int rangeIndex = 0; rangeIndex < kIOPCIRangeCount; rangeIndex++)
-			{
-				childRange = child->ranges[rangeIndex];
-				if (!childRange)                           continue;
-				if (!((1 << childRange->type) & typeMask)) continue;
+    haveAllocs = bridge->haveAllocs;
+    bridge->haveAllocs = 0;
 
-				canRelocate = (!((kIOPCIRangeFlagMaximizeSize | kIOPCIRangeFlagSplay) & childRange->flags)
-							 && (kIOPCIConfiguratorBoot & fFlags));
-				canRelocate |= (0 != (kPCIDeviceStatePaused & child->deviceState));
+    // determine kIOPCIRangeFlagRelocatable
+    FOREACH_CHILD(bridge, child)
+    {
+        expressCards |= (kPCIHotPlugRoot == child->supportsHotPlug);
+        if (kPCIStatic == child->supportsHotPlug)      continue;
+        for (int rangeIndex = 0; rangeIndex < kIOPCIRangeCount; rangeIndex++)
+        {
+            childRange = child->ranges[rangeIndex];
+            if (!childRange)                           continue;
+            if (!((1 << childRange->type) & typeMask)) continue;
 
-				if ((rangeIndex == kIOPCIRangeBridgeBusNumber) && !canRelocate)
-				{
-					// bridges with no i/o allocations are bus relocatable
-					canRelocate |= 
-						((!child->ranges[kIOPCIRangeBridgeMemory]
-							|| !child->ranges[kIOPCIRangeBridgeMemory]->nextSubRange)
-						&& (!child->ranges[kIOPCIRangeBridgePFMemory]
-							|| !child->ranges[kIOPCIRangeBridgePFMemory]->nextSubRange)
-						&& (!child->ranges[kIOPCIRangeBridgeIO]
-							|| !child->ranges[kIOPCIRangeBridgeIO]->nextSubRange));
-				}
-				if (canRelocate)
-				{
-					childRange->flags |= kIOPCIRangeFlagRelocatable;
-				}
-				else
-				{
-					childRange->flags &= ~kIOPCIRangeFlagRelocatable;
-				}
-			}
-		}
-	}
+            canRelocate = (kIOPCIConfiguratorBoot & fFlags);
+            canRelocate |= (0 != (kPCIDeviceStatePaused & child->deviceState));
+
+            if ((rangeIndex == kIOPCIRangeBridgeBusNumber) && !canRelocate)
+            {
+                // bridges with no i/o allocations are bus relocatable
+                canRelocate |= 
+                    ((!child->ranges[kIOPCIRangeBridgeMemory]
+                        || !child->ranges[kIOPCIRangeBridgeMemory]->nextSubRange)
+                    && (!child->ranges[kIOPCIRangeBridgePFMemory]
+                        || !child->ranges[kIOPCIRangeBridgePFMemory]->nextSubRange)
+                    && (!child->ranges[kIOPCIRangeBridgeIO]
+                        || !child->ranges[kIOPCIRangeBridgeIO]->nextSubRange));
+            }
+            if (canRelocate)
+            {
+                childRange->flags |= kIOPCIRangeFlagRelocatable;
+            }
+            else
+            {
+                childRange->flags &= ~kIOPCIRangeFlagRelocatable;
+            }
+        }
+    }
 
 	if (((1 << kIOPCIResourceTypeBusNumber) & typeMask)
 	 && (range = bridgeGetRange(bridge, kIOPCIResourceTypeBusNumber))
@@ -2880,18 +3017,43 @@ int32_t CLASS::bridgeAllocateResources(IOPCIConfigEntry * bridge, uint32_t typeM
 			childRange = child->ranges[rangeIndex];
 			if (!childRange)                           continue;
 			if (!((1 << childRange->type) & typeMask)) continue;
+			range = bridgeGetRange(bridge, childRange->type);
+			if (!range)                                continue;
 
-			DLOG("  %s: 0x%llx:0x%llx-0x%llx:0x%llx (at "D()") %s%s%s%s%s%s\n",
-					gPCIResourceTypeName[childRange->type], 
-					childRange->start, childRange->size, 
-					childRange->proposedSize, childRange->alignment,
-					DEVICE_IDENT(child),
-					(NULL != childRange->nextSubRange)                ? "A" : "a",
-					(kIOPCIRangeFlagRelocatable  & childRange->flags) ? "R" : "r",
-					(kIOPCIRangeFlagSplay        & childRange->flags) ? "S" : "s",
-					(kIOPCIRangeFlagMaximizeSize & childRange->flags) ? "M" : "m",
-					(kIOPCIRangeFlagNoCollapse   & childRange->flags) ? "C" : "c",
-					(kIOPCIRangeFlagReserve      & childRange->flags) ? "V" : "v");
+			if (!childRange->nextSubRange
+			 && ((kIOPCIRangeFlagMaximizeRoot | kIOPCIRangeFlagMaximizeSize) & childRange->flags))
+			{
+                // minSize
+                childRange->size = minBridgeAlignments[childRange->type];
+
+                // maxSize
+                if (kIOPCIRangeFlagMaximizeRoot & childRange->flags)
+                {
+					if (bridge->isHostBridge && range && expressCards
+					 && (kIOPCIResourceTypeBusNumber == childRange->type)) 
+					{
+						childRange->proposedSize = (range->size * 240) / 255;
+					}
+					else
+					{
+						childRange->proposedSize = -1ULL;
+					}
+				}
+				else
+				{
+					childRange->proposedSize = childRange->totalSize + childRange->extendSize;
+                }
+			}
+			else 
+			{
+                // maxSize
+			    if (!childRange->nextSubRange 
+			     || ((childRange->totalSize + childRange->extendSize) > childRange->size))
+					childRange->proposedSize = childRange->totalSize + childRange->extendSize;
+			}
+            //
+    
+            logAllocatorRange(child, childRange, '\n');
 
 			if (!fConsoleRange 
 				&& fPFMConsole 
@@ -2904,6 +3066,9 @@ int32_t CLASS::bridgeAllocateResources(IOPCIConfigEntry * bridge, uint32_t typeM
 				fConsoleRange = childRange;
 			}
 
+			if (!range) continue;
+			type = range->type;
+
 			if (bridge->isHostBridge 
 				&& !childRange->nextSubRange
 				&& (kIOPCIResourceTypeMemory == type)
@@ -2912,10 +3077,6 @@ int32_t CLASS::bridgeAllocateResources(IOPCIConfigEntry * bridge, uint32_t typeM
 				childRange->minAddress = (1ULL << 32);
 				childRange->start = 0;
 			}
-
-			range = bridgeGetRange(bridge, childRange->type);
-			if (!range) continue;
-			type = range->type;
 
 			if (!childRange->proposedSize)
 			{
@@ -2931,9 +3092,9 @@ int32_t CLASS::bridgeAllocateResources(IOPCIConfigEntry * bridge, uint32_t typeM
 				childRange->size  = 0;
 				continue;
 			}
-			if (kIOPCIRangeFlagRelocatable & childRange->flags) haveRelocs |= (1 << type);
-			if (!childRange->nextSubRange)						haveAllocs |= (1 << type);
-			if (childRange->proposedSize != childRange->size)	haveAllocs |= (1 << type);
+			if (kIOPCIRangeFlagRelocatable & childRange->flags)  haveRelocs |= (1 << type);
+			if (!childRange->nextSubRange)						 haveAllocs |= (1 << type);
+			if (childRange->proposedSize != childRange->size)    haveAllocs |= (1 << type);
 		}
 	}
 
@@ -2948,12 +3109,12 @@ int32_t CLASS::bridgeAllocateResources(IOPCIConfigEntry * bridge, uint32_t typeM
 				childRange = child->ranges[rangeIndex];
 				if (!childRange)                             continue;
 				if (!((1 << childRange->type) & haveAllocs)) continue;
+                if (!childRange->nextSubRange)               continue;
 
-				if ((kIOPCIRangeFlagRelocatable & childRange->flags) && childRange->nextSubRange)
+                range = bridgeGetRange(bridge, childRange->type);
+                if (!range) continue;
+				if (kIOPCIRangeFlagRelocatable & childRange->flags)
 				{
-					range = bridgeGetRange(bridge, childRange->type);
-					if (!range) continue;
-					type = range->type;
 					DLOG("  %s:    free reloc 0x%llx:0x%llx (at "D()")\n",
 							gPCIResourceTypeName[childRange->type],
 							childRange->start, childRange->size,
@@ -2962,6 +3123,7 @@ int32_t CLASS::bridgeAllocateResources(IOPCIConfigEntry * bridge, uint32_t typeM
 					ok = IOPCIRangeListDeallocateSubRange(range, childRange);
 					if (!ok) panic("IOPCIRangeListDeallocateSubRange");
 					childRange->start = 0;
+					childRange->proposedSize = childRange->totalSize + childRange->extendSize;
 				}
 			}
 		}
@@ -2982,10 +3144,8 @@ int32_t CLASS::bridgeAllocateResources(IOPCIConfigEntry * bridge, uint32_t typeM
 			childRange = child->ranges[rangeIndex];
 			if (!childRange)                           continue;
 			if (!((1 << childRange->type) & typeMask)) continue;
-
 			if (!childRange->proposedSize)			   continue;
-
-			if (childRange->nextSubRange && (childRange->proposedSize == childRange->size))			   continue;
+			if (childRange->nextSubRange && (childRange->proposedSize == childRange->size))  continue;
 
 			range = bridgeGetRange(bridge, childRange->type);
 			if (!range) continue;
@@ -2994,6 +3154,9 @@ int32_t CLASS::bridgeAllocateResources(IOPCIConfigEntry * bridge, uint32_t typeM
 			child->rangeBaseChanges |= (1 << rangeIndex);
 			childRange->device = child;
 			IOPCIRangeAppendSubRange(&requests[type], childRange);
+
+		    if ((kIOPCIRangeFlagSplay | kIOPCIRangeFlagMaximizeSize)
+		             & childRange->flags)                       doOptimize |= (1 << type);
 		}
 	}
 
@@ -3001,8 +3164,9 @@ int32_t CLASS::bridgeAllocateResources(IOPCIConfigEntry * bridge, uint32_t typeM
 
     for (type = 0; type < kIOPCIResourceTypeCount; type++)
     {
-        if (!((1 << type) & typeMask)) continue;
+		if (!(haveAllocs & (1 << type))) continue;
         range = bridgeGetRange(bridge, type);
+        if (!range)                      continue;
         while ((childRange = requests[type]))
         {
             requests[type] = childRange->nextToAllocate;
@@ -3011,12 +3175,10 @@ int32_t CLASS::bridgeAllocateResources(IOPCIConfigEntry * bridge, uint32_t typeM
 			IOPCIScalar placed = childRange->start;
             ok = IOPCIRangeListAllocateSubRange(range, childRange);
 
-			DLOG("  %s: %sok allocated 0x%llx:0x%llx-0x%llx:0x%llx %s(at "D()")\n",
-					gPCIResourceTypeName[childRange->type], ok ? " " : "!",
-					childRange->start, childRange->size,
-					childRange->proposedSize, childRange->alignment,
-					(ok && (childRange->size != childRange->proposedSize)) ? "short " : "",
-					DEVICE_IDENT(childRange->device));
+            logAllocatorRange(childRange->device, childRange, ' ');
+			DLOG("%sok allocated%s\n", 
+                 ok ? " " : "!",
+                 (ok && (childRange->size != childRange->proposedSize)) ? "(short)" : "");
 
 			if (ok && (childRange->size == childRange->proposedSize))  continue;
 
@@ -3057,30 +3219,44 @@ int32_t CLASS::bridgeAllocateResources(IOPCIConfigEntry * bridge, uint32_t typeM
 		{
 			IOPCIScalar newSize, extendAvail;
 			extendAvail = IOPCIRangeListLastFree(range, shortageAlignments[type]);
-			if (shortage[type] <= extendAvail)
-				newSize = range->proposedSize;
-			else
-				newSize = range->size + shortage[type] - extendAvail;
-			if (newSize > range->proposedSize)
+			if (shortage[type] > extendAvail)
 			{
-				range->proposedSize = IOPCIScalarAlign(newSize, minBridgeAlignments[type]);;
-				DLOG("  %s: shortage 0x%llx -> 0x%llx\n",
-					   gPCIResourceTypeName[type], range->size, range->proposedSize);
-				bridge->rangeSizeChanges |= (1 << BRN(type));
-				bridge->rangeRequestChanges |= (1 << type);
+				newSize = range->size + shortage[type] - extendAvail;
+				if (newSize > (range->totalSize + range->extendSize))
+				{
+					if (kIOPCIRangeFlagMaximizeRoot & range->flags)	{}
+					else
+					{
+						range->extendSize = IOPCIScalarAlign(newSize - range->totalSize, minBridgeAlignments[type]);;
+						DLOG("  %s: shortage 0x%llx -> 0x%llx, 0x%llx\n",
+							   gPCIResourceTypeName[type], range->size, range->totalSize, range->extendSize);
+						bridge->rangeSizeChanges |= (1 << BRN(type));
+						bridge->rangeRequestChanges |= (1 << type);
+					}
+				}
 			}
 			failTypes |= (1 << type);
 		}
-		else if (range && !(kIOPCIRangeFlagNoCollapse & range->flags))
+		else
 		{
-			shrink = IOPCIRangeListCollapse(range, minBridgeAlignments[type]);
-			if (shrink)
+			if ((1 << type) & doOptimize)
 			{
-				DLOG("  %s: shrunk 0x%llx:0x%llx-0x%llx\n",
-					   gPCIResourceTypeName[type], range->start, range->size, range->proposedSize);
-				bridge->rangeSizeChanges    |= (1 << BRN(type));
-				bridge->rangeRequestChanges |= (1 << type);
-				failTypes |= (1 << type);
+                DLOG("  %s: optimize\n", gPCIResourceTypeName[type]);
+				IOPCIRangeListOptimize(range);
+			}
+			if (!(kIOPCIRangeFlagNoCollapse & range->flags))
+			{
+				shrink = IOPCIRangeListCollapse(range, minBridgeAlignments[type]);
+				if (shrink)
+				{
+					DLOG("  %s: shrunk 0x%llx:0x%llx-0x%llx, 0x%llx,0x%llx\n",
+						   gPCIResourceTypeName[type], range->start, 
+						   range->size, range->proposedSize,
+						   range->totalSize, range->extendSize);
+					bridge->rangeSizeChanges    |= (1 << BRN(type));
+					bridge->rangeRequestChanges |= (1 << type);
+					failTypes |= (1 << type);
+				}
 			}
 		}
     }
@@ -3089,15 +3265,18 @@ int32_t CLASS::bridgeAllocateResources(IOPCIConfigEntry * bridge, uint32_t typeM
 
     if (failTypes && !(bridge->rangeRequestChanges & typeMask))
     {
-        DLOG("  exhausted\n");
         result = true;
 		FOREACH_CHILD(bridge, child)
 		{
-			if (!(kIOPCIConfiguratorUsePause & fFlags))   					continue;
+			if (!(kIOPCIConfiguratorUsePause & fFlags))   				  continue;
 			// no pause for i/o
-			if ((1 << kIOPCIResourceTypeIO) == failTypes) 					continue;
-			if ((kPCIDeviceStateRequestPause | kPCIDeviceStatePaused) & child->deviceState) continue;
-			if (!child->dtNub || !child->dtNub->inPlane(gIOServicePlane))   continue;
+			if ((1 << kIOPCIResourceTypeIO) == failTypes) 				  continue;
+			if ((kPCIDeviceStateRequestPause | kPCIDeviceStatePaused) 
+				& child->deviceState) 				    				  continue;
+			if (child->supportsHotPlug < kPCIHotPlug)                     continue;
+			if (!child->dtNub || !child->dtNub->inPlane(gIOServicePlane)) continue;
+			if (treeInState(child, 
+				kPCIDeviceStatePaused, kPCIDeviceStatePaused))            continue;
 
 			DLOG("Request pause for "D()"\n", DEVICE_IDENT(child));
 			child->deviceState |= kPCIDeviceStateRequestPause;
@@ -3105,6 +3284,7 @@ int32_t CLASS::bridgeAllocateResources(IOPCIConfigEntry * bridge, uint32_t typeM
 			fWaitingPause++;
 			result = -1;
 		}
+        if (true == result) DLOG("  exhausted\n");
     }
 
     if (!result)
@@ -3548,12 +3728,14 @@ void CLASS::writeLatencyTimer(IOPCIConfigEntry * device)
 
 int32_t CLASS::bridgeFinalizeConfigProc(void * unused, IOPCIConfigEntry * bridge)
 {
-	uint32_t deviceControl, newControl;
+	uint32_t deviceControl, newControl, maxReadReq;
 
     if (!(kPCIDeviceStateAllocated & bridge->deviceState)) return (true);
     bridge->deviceState &= ~kPCIDeviceStateChildChanged;
 
+#if defined(__i386__) || defined(__x86_64__)
 	if (bridge->supportsHotPlug >= kPCIHotPlug)
+#endif
 	{
 		FOREACH_CHILD(bridge, child)
 		{
@@ -3562,7 +3744,12 @@ int32_t CLASS::bridgeFinalizeConfigProc(void * unused, IOPCIConfigEntry * bridge
 			if (!child->expressCapBlock) 							continue;
 			deviceControl = configRead16(child, child->expressCapBlock + 0x08);
 			newControl    = deviceControl & ~((7 << 5) | (7 << 12));
-			newControl    |= (fMaxPayload << 5) | (fMaxPayload << 12);
+#if defined(__i386__) || defined(__x86_64__)
+            maxReadReq    = fMaxPayload;
+#else
+            maxReadReq    = 0x05;   // 4096
+#endif
+			newControl    |= (fMaxPayload << 5) | (maxReadReq << 12);
 			if (newControl != deviceControl)
 			{
 				configWrite16(child, child->expressCapBlock + 0x08, deviceControl);
@@ -3627,20 +3814,6 @@ int32_t CLASS::bridgeFinalizeConfigProc(void * unused, IOPCIConfigEntry * bridge
  *
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
-bool CLASS::configAccess(IOPCIConfigEntry * device, bool write)
-{
-	bool ok = 
-	(0 == ((write ? kPCIDeviceStateConfigWProtect : kPCIDeviceStateConfigRProtect) 
-			& device->deviceState));
-	if (!ok)
-	{
-		DLOG("config protect fail(1) for device "D()"\n", DEVICE_IDENT(device));
-		OSReportWithBacktrace("config protect fail(1) for device "D()"\n", 
-								DEVICE_IDENT(device));
-	}
-	return (ok);
-}
-
 uint32_t CLASS::configRead32( IOPCIAddressSpace space, uint32_t offset )
 {
 	space.es.registerNumExtended = (offset >> 8);
@@ -3653,8 +3826,54 @@ void CLASS::configWrite32( IOPCIAddressSpace space, uint32_t offset, uint32_t da
     fHostBridge->configWrite32(space, offset, data);
 }
 
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
+bool CLASS::configAccess(IOPCIConfigEntry * device, bool write)
+{
+	bool ok = 
+	(0 == ((write ? kPCIDeviceStateConfigWProtect : kPCIDeviceStateConfigRProtect) 
+			& device->deviceState));
+	if (!ok)
+	{
+		DLOG("config protect fail(1) for device "D()"\n", DEVICE_IDENT(device));
+		OSReportWithBacktrace("config protect fail(1) for device "D()"\n", 
+								DEVICE_IDENT(device));
+	}
+
+	return (ok);
+}
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
+enum
+{
+   kConfigWrite = 0x00,
+   kConfigRead  = 0x01,
+   kConfig32    = (sizeof(uint32_t) << 1),
+   kConfig16    = (sizeof(uint16_t) << 1),
+   kConfig8     = (sizeof(uint8_t)  << 1),
+};
+
+void CLASS::configAccess(IOPCIConfigEntry * device, uint32_t access, uint32_t offset, void * data)
+{
+	uint8_t * addr;
+
+	addr = device->configShadow + offset;
+	if (kConfigRead & access) bcopy(addr, data, (access >> 1));
+	else                      bcopy(data, addr, (access >> 1));
+}
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
 uint32_t CLASS::configRead32( IOPCIConfigEntry * device, uint32_t offset )
 {
+	if (device->configShadow)
+	{
+		uint32_t data;
+		configAccess(device, kConfig32|kConfigRead, offset, &data);
+		return (data);
+	}
+
 	if (!configAccess(device, false)) return (0xFFFFFFFF);
 
 	IOPCIAddressSpace space      = device->space;
@@ -3665,6 +3884,11 @@ uint32_t CLASS::configRead32( IOPCIConfigEntry * device, uint32_t offset )
 void CLASS::configWrite32( IOPCIConfigEntry * device, 
                            uint32_t offset, uint32_t data )
 {
+	if (device->configShadow)
+	{
+		configAccess(device, kConfig32|kConfigWrite, offset, &data);
+	}
+
 	if (!configAccess(device, true)) return;
 
 	IOPCIAddressSpace space      = device->space;
@@ -3674,6 +3898,13 @@ void CLASS::configWrite32( IOPCIConfigEntry * device,
 
 uint16_t CLASS::configRead16( IOPCIConfigEntry * device, uint32_t offset )
 {
+	if (device->configShadow)
+	{
+		uint16_t data;
+		configAccess(device, kConfig16|kConfigRead, offset, &data);
+		return (data);
+	}
+
 	if (!configAccess(device, false)) return (0xFFFF);
 
 	IOPCIAddressSpace space      = device->space;
@@ -3684,6 +3915,11 @@ uint16_t CLASS::configRead16( IOPCIConfigEntry * device, uint32_t offset )
 void CLASS::configWrite16( IOPCIConfigEntry * device, 
                            uint32_t offset, uint16_t data )
 {
+	if (device->configShadow)
+	{
+		configAccess(device, kConfig16|kConfigWrite, offset, &data);
+	}
+
 	if (!configAccess(device, true)) return;
 
 	IOPCIAddressSpace space      = device->space;
@@ -3693,6 +3929,13 @@ void CLASS::configWrite16( IOPCIConfigEntry * device,
 
 uint8_t CLASS::configRead8( IOPCIConfigEntry * device, uint32_t offset )
 {
+	if (device->configShadow)
+	{
+		uint8_t data;
+		configAccess(device, kConfig8|kConfigRead, offset, &data);
+		return (data);
+	}
+
 	if (!configAccess(device, false)) return (0xFF);
 
 	IOPCIAddressSpace space      = device->space;
@@ -3703,6 +3946,11 @@ uint8_t CLASS::configRead8( IOPCIConfigEntry * device, uint32_t offset )
 void CLASS::configWrite8( IOPCIConfigEntry * device, 
                           uint32_t offset, uint8_t data )
 {
+	if (device->configShadow)
+	{
+		configAccess(device, kConfig8|kConfigWrite, offset, &data);
+	}
+
 	if (!configAccess(device, true)) return;
 
 	IOPCIAddressSpace space      = device->space;

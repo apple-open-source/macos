@@ -1407,6 +1407,40 @@ IOCheckTimingWithDisplay( IOFBConnectRef connectRef,
                 continue;
             }
 
+            uint64_t maxClock = 0;
+            if (connectRef->dpcdData
+             && ((size_t) CFDataGetLength(connectRef->dpcdData)) >= sizeof(DPCD))
+            do
+            {
+                const DPCD * dpcd = (typeof(dpcd)) CFDataGetBytePtr(connectRef->dpcdData);
+
+                if ((kDownStreamPortDetailed|kDownStreamPortPresent)
+                 != ((kDownStreamPortDetailed|kDownStreamPortPresent) & dpcd->downStreamPortPresent))
+                    continue;
+
+                switch (kDownStreamPortType & dpcd->downstreamPorts.detailed[0].type)
+                {
+                    case kDownStreamPortTypeHDMI:
+                    case kDownStreamPortTypeDPP:
+                        maxClock = dpcd->downstreamPorts.detailed[0].maxClock;
+                        maxClock *= 2500000ULL;
+                        break;
+                    default:
+                        break;
+                }
+            }
+            while (false);
+
+            if (maxClock && (timing->detailedInfo.v2.pixelClock > maxClock))
+            {
+#if RLOG
+                DEBG(connectRef, "out transport clock(%qd)\n", timing->detailedInfo.v2.pixelClock);
+                IOFBLogTiming(connectRef, timing);
+#endif
+                result = kIOReturnUnsupportedMode;
+                continue;
+            }
+
             data = CFDictionaryGetValue(connectRef->overrides, CFSTR("trng"));
             if (data && ((kIOFBGTFMode | kIOFBStdMode | kIOFBDriverMode) & modeGenFlags))
             {
@@ -2565,6 +2599,18 @@ IODisplayInstallTimings( IOFBConnectRef connectRef )
     if (fbRange && (size_t) CFDataGetLength(fbRange) >= sizeof(IODisplayTimingRange))
         connectRef->fbRange = (IODisplayTimingRange *) CFDataGetBytePtr(fbRange);
 
+
+    // dpcd
+    connectRef->dpcdData = (CFDataRef) IORegistryEntrySearchCFProperty(service, kIOServicePlane,
+                                                            CFSTR(kIOFBDisplayPortConfigurationDataKey),
+                                                            kCFAllocatorDefault, 
+                                                            kIORegistryIterateParents|kIORegistryIterateRecursively);
+    // hdmi dongle
+    connectRef->hdmiData = (CFDataRef) IORegistryEntrySearchCFProperty(service, kIOServicePlane,
+                                                            CFSTR(kIOFBHDMIDongleROMKey),
+                                                            kCFAllocatorDefault, 
+                                                            kIORegistryIterateParents|kIORegistryIterateRecursively);
+
     connectRef->vendorsFound = (1 << kAllVendors);
     for (i = 0; i < kNumVendors; i++)
     {
@@ -2834,8 +2880,10 @@ IODisplayInstallTimings( IOFBConnectRef connectRef )
     {
         if (CFDictionaryGetValue(connectRef->overrides, CFSTR("trng"))
         || ((!CFDictionaryGetValue(connectRef->overrides, CFSTR(kIODisplayIsDigitalKey)))
+#if 0
             && ((connectRef->displayVendor != kDisplayVendorIDUnknown)
              || (connectRef->displayProduct == kDisplayProductIDGeneric))
+#endif
             && (!edid || ((0xffffffff != connectRef->dimensions.width)
                         && (0xffffffff != connectRef->dimensions.height)))))
         {
@@ -2847,6 +2895,17 @@ IODisplayInstallTimings( IOFBConnectRef connectRef )
     connectRef->fbRange = 0;
     if (fbRange)
         CFRelease(fbRange);
+
+    if (connectRef->dpcdData)
+    {
+        CFRelease(connectRef->dpcdData);
+        connectRef->dpcdData = NULL;
+    }
+    if (connectRef->hdmiData)
+    {
+        CFRelease(connectRef->hdmiData);
+        connectRef->hdmiData = NULL;
+    }
 }
 
 SInt32

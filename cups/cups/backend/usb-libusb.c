@@ -1,5 +1,5 @@
 /*
- * "$Id: usb-libusb.c 11158 2013-07-17 18:31:56Z msweet $"
+ * "$Id: usb-libusb.c 11528 2014-01-14 20:24:03Z msweet $"
  *
  *   LIBUSB interface code for CUPS.
  *
@@ -496,7 +496,7 @@ print_device(const char *uri,		/* I - Device URI */
 	iostatus = libusb_bulk_transfer(g.printer->handle,
 					g.printer->write_endp,
 					print_buffer, g.print_bytes,
-					&bytes, 60000);
+					&bytes, 0);
        /*
 	* Ignore timeout errors, but retain the number of bytes written to
 	* avoid sending duplicate data...
@@ -519,7 +519,7 @@ print_device(const char *uri,		/* I - Device URI */
 	  iostatus = libusb_bulk_transfer(g.printer->handle,
 					  g.printer->write_endp,
 					  print_buffer, g.print_bytes,
-					  &bytes, 60000);
+					  &bytes, 0);
 	}
 
        /*
@@ -534,7 +534,7 @@ print_device(const char *uri,		/* I - Device URI */
 	  iostatus = libusb_bulk_transfer(g.printer->handle,
 					  g.printer->write_endp,
 					  print_buffer, g.print_bytes,
-					  &bytes, 60000);
+					  &bytes, 0);
         }
 
 	if (iostatus)
@@ -2021,6 +2021,6 @@ soft_reset_printer(
 
 
 /*
- * End of "$Id: usb-libusb.c 11158 2013-07-17 18:31:56Z msweet $".
+ * End of "$Id: usb-libusb.c 11528 2014-01-14 20:24:03Z msweet $".
  */
 

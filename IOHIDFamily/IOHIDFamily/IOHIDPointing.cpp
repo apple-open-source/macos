@@ -1,7 +1,7 @@
 /*
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2009 Apple Computer, Inc.  All Rights Reserved.
+ * Copyright (c) 1999-2013 Apple Computer, Inc.  All Rights Reserved.
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -94,6 +94,15 @@ bool IOHIDPointing::start(IOService *provider)
     setupProperties();
 	
     return super::start(provider);
+}
+
+//====================================================================================================
+// IOHIDPointing::stop
+//====================================================================================================
+void IOHIDPointing::stop(IOService *provider)
+{
+    _provider = NULL;
+    super::stop(provider);
 }
 
 //====================================================================================================
@@ -294,7 +303,7 @@ void IOHIDPointing::setupProperties()
     OSNumber *  number  = NULL;
     
 	// Store the resolution
-	number = (OSNumber*)_provider->copyProperty(kIOHIDPointerResolutionKey);
+	number = _provider ? (OSNumber*)_provider->copyProperty(kIOHIDPointerResolutionKey) : NULL;
     if ( OSDynamicCast(OSNumber, number) )
     {
         IOFixed newResolution = number->unsigned32BitValue();
@@ -311,7 +320,7 @@ void IOHIDPointing::setupProperties()
     OSSafeReleaseNULL(number);
     
 	// Store the scroll resolution
-	number = (OSNumber*)_provider->copyProperty(kIOHIDScrollResolutionKey);
+	number = _provider ? (OSNumber*)_provider->copyProperty(kIOHIDScrollResolutionKey) : NULL;
     if ( OSDynamicCast(OSNumber, number) )
     {
         _scrollResolution = number->unsigned32BitValue();
@@ -326,7 +335,7 @@ void IOHIDPointing::setupProperties()
 	
 	// deal with buttons
 	if ( (_numButtons == 1) && 
-	     (NULL != (number = (OSNumber*)_provider->copyProperty(kIOHIDPointerButtonCountKey))) && 
+        (NULL != (number = _provider ? (OSNumber*)_provider->copyProperty(kIOHIDPointerButtonCountKey) : NULL)) &&
 	     OSDynamicCast(OSNumber, number) )
 	{
 		_numButtons = number->unsigned32BitValue();
@@ -338,6 +347,7 @@ void IOHIDPointing::setupProperties()
         setProperty(kIOHIDVirtualHIDevice, kOSBooleanTrue);
 
     // vtn3: These unsafe, but unlikely to cause a problem. Additionally, making it "safe" is going to be cumbersome and irritating.
+    if (_provider) {
     setProperty(kIOHIDScrollAccelerationTypeKey, _provider->getProperty( kIOHIDScrollAccelerationTypeKey ));
     setProperty(kIOHIDPointerAccelerationTypeKey, _provider->getProperty( kIOHIDPointerAccelerationTypeKey ));
         
@@ -354,4 +364,7 @@ void IOHIDPointing::setupProperties()
     setProperty(kIOHIDScrollResolutionXKey, _provider->getProperty( kIOHIDScrollResolutionXKey ));
     setProperty(kIOHIDScrollResolutionYKey, _provider->getProperty( kIOHIDScrollResolutionYKey ));
     setProperty(kIOHIDScrollResolutionZKey, _provider->getProperty( kIOHIDScrollResolutionZKey ));
+    }
 }
+
+//====================================================================================================

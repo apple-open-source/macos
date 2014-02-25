@@ -23,7 +23,7 @@ LOCALTIME="US/Pacific"
 POSIXRULES="US/Pacific"
 
 # pacificnew is obsolete and was removed from ZONE_FILES
-ZONE_FILES="africa antarctica asia australasia europe northamerica southamerica etcetera factory backward systemv solar87 solar88 solar89"
+ZONE_FILES="africa antarctica asia australasia europe northamerica southamerica etcetera factory backward systemv"
 ZONEINFO="${BUILT_PRODUCTS_DIR}/zoneinfo"
 DATFILES="${BUILT_PRODUCTS_DIR}/datfiles"
 PRIVATEDIR="${BUILT_PRODUCTS_DIR}/private"

@@ -115,7 +115,7 @@ int ssl_hook_ReadReq(request_rec *r)
         if (rv != APR_SUCCESS || scope_id) {
             return HTTP_BAD_REQUEST;
         }
-        if (strcmp(host, servername)) {
+        if (strcasecmp(host, servername)) {
             ap_log_error(APLOG_MARK, APLOG_ERR, 0, r->server,
                         "Hostname %s provided via SNI and hostname %s provided"
                         " via HTTP are different", servername, host);
@@ -1266,6 +1266,27 @@ DH *ssl_callback_TmpDH(SSL *ssl, int export, int keylen)
 
     return (DH *)mc->pTmpKeys[idx];
 }
+
+#ifndef OPENSSL_NO_EC
+EC_KEY *ssl_callback_TmpECDH(SSL *ssl, int export, int keylen)
+{
+    conn_rec *c = (conn_rec *)SSL_get_app_data(ssl);
+    SSLModConfigRec *mc = myModConfigFromConn(c);
+    int idx;
+
+    /* XXX Uses 256-bit key for now. TODO: support other sizes. */
+    ap_log_cerror(APLOG_MARK, APLOG_DEBUG, 0, c,
+                  "handing out temporary 256 bit ECC key");
+
+    switch (keylen) {
+      case 256:
+      default:
+        idx = SSL_TMP_KEY_EC_256;
+    }
+
+    return (EC_KEY *)mc->pTmpKeys[idx];
+}
+#endif
 
 /*
  * This OpenSSL callback function is called when OpenSSL

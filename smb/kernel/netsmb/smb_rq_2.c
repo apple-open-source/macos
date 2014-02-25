@@ -174,7 +174,7 @@ smb2_rq_credit_check(struct smb_rq *rqp, uint32_t len)
      */
     
     /* Do simple checks first */
-    if (len < (64 * 1024)) {
+    if (len <= (64 * 1024)) {
         /* default of one credit is fine and length is fine as is */
         return ret_len;
     }
@@ -222,6 +222,7 @@ smb2_rq_credit_decrement(struct smb_rq *rqp, uint32_t *rq_len)
     int error = 0;
     struct smb_vc *vcp;
     uint32_t sleep_cnt, i;
+    uint64_t message_id_diff = 0;
     
 	if (rqp == NULL) {
         SMBERROR("rqp is NULL\n");
@@ -295,11 +296,34 @@ smb2_rq_credit_decrement(struct smb_rq *rqp, uint32_t *rq_len)
             break;
     }
     
-    /* Check to see if need to pause sending until we get more credits */
+    /*
+     * Check to see if need to pause sending until we get more credits 
+     * Two ways to run out of credits.
+     * 1) Just have no credits left
+     * 2) (curr message ID) - (oldest pending message ID) > current credits
+     */
  	for (;;) {
         curr_credits = OSAddAtomic(0, &vcp->vc_credits_granted);
         if (curr_credits >= kCREDIT_MIN_AMT) {
+            if (vcp->vc_req_pending == 0) {
+                /* Have enough credits and no pending reqs, so go send it */
             break;
+        }
+        
+            /* Have a pending request, see if send window is open */
+            if (vcp->vc_message_id > vcp->vc_oldest_message_id) {
+                message_id_diff = vcp->vc_message_id - vcp->vc_oldest_message_id;
+            }
+            else {
+                /* Must have wrapped around */
+                message_id_diff = UINT64_MAX - vcp->vc_oldest_message_id;
+                message_id_diff += vcp->vc_message_id;
+            }
+            
+            if (message_id_diff <= (uint64_t) curr_credits) {
+                /* Send window still open, so go send it */
+                break;
+            }
         }
         
         if (rqp->sr_command == SMB2_ECHO) {
@@ -322,9 +346,10 @@ smb2_rq_credit_decrement(struct smb_rq *rqp, uint32_t *rq_len)
         }
 
         /* Block until we get more credits */
-        SMBDEBUG("Wait for credits %d max %d mux_cnt %lld\n",
+        SMBDEBUG("Wait for credits curr %d max %d curr ID %lld pending ID %lld vc_credits_wait %d\n",
                  curr_credits, vcp->vc_credits_max,
-                 vcp->vc_iod->iod_muxcnt);
+                 vcp->vc_message_id, vcp->vc_oldest_message_id,
+                 vcp->vc_credits_wait);
                 
         /* Only wait a max of 60 seconds waiting for credits */
         sleep_cnt = 60;
@@ -555,6 +580,10 @@ smb2_rq_credit_start(struct smb_vc *vcp, uint16_t credits)
     /* Set max credits to same value */
     vcp->vc_credits_max = vcp->vc_credits_granted;
     
+    /* Clear out oldest message ID to open send window */
+    vcp->vc_req_pending = 0;
+    vcp->vc_oldest_message_id = 0;
+
 	/* Wake up any requests waiting for more credits */
     if (vcp->vc_credits_wait) {
         OSAddAtomic(-1, &vcp->vc_credits_wait);
@@ -990,12 +1019,36 @@ smb2_rq_parse_header(struct smb_rq *rqp, struct mdchain **mdp)
     
     /* Convert NT Status to an errno value */
     rperror = smb_ntstatus_to_errno(rqp->sr_ntstatus);
-    if (rqp->sr_ntstatus == STATUS_INSUFFICIENT_RESOURCES) {
-        SMBWARNING("STATUS_INSUFFICIENT_RESOURCES: while attempting cmd %x\n", 
-                   rqp->sr_cmd);
+    
+    switch (rqp->sr_ntstatus) {
+        case STATUS_INSUFFICIENT_RESOURCES:
+            SMBWARNING("STATUS_INSUFFICIENT_RESOURCES: while attempting cmd %x\n",
+                       rqp->sr_cmd);
+            break;
+            
+        case STATUS_NETWORK_SESSION_EXPIRED:
+            if (rqp->sr_context == rqp->sr_vc->vc_iod->iod_context) {
+                /*
+                 * Its a reconnect command so dont recurse into reconnect
+                 * again.  Just fail reconnect.
+                 */
+                SMBWARNING("STATUS_NETWORK_SESSION_EXPIRED: while reconnecting cmd %x. Disconnecting.\n",
+                         rqp->sr_cmd);
+                rperror = ENETRESET;
+            }
+            else {
+                SMBWARNING("STATUS_NETWORK_SESSION_EXPIRED: while attempting cmd %x. Reconnecting.\n",
+                         rqp->sr_cmd);
+                
+               (void) smb_vc_force_reconnect(rqp->sr_vc);
+            }
+            break;
+            
+        default:
+            break;
     }
-
-	/* The tree has gone away, umount the volume. */
+    
+    /* The tree has gone away, umount the volume. */
 	if ((rperror == ENETRESET) && rqp->sr_share) {
 		lck_mtx_lock(&rqp->sr_share->ss_shlock);
 		if ( rqp->sr_share->ss_dead)

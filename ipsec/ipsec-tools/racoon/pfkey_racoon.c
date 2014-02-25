@@ -1170,15 +1170,18 @@ pk_sendupdate(iph2)
 			memset (&natt, 0, sizeof (natt));
 			natt.sport = extract_port (iph2->ph1->remote);
 			flags |= SADB_X_EXT_NATT;
-			if (iph2->ph1->natt_flags & NAT_DETECTED_ME) {
+			if (iph2->ph1->rmconf->natt_multiple_user == TRUE &&
+				mode == IPSEC_MODE_TRANSPORT &&
+				src->ss_family == AF_INET) {
+				flags |= SADB_X_EXT_NATT_MULTIPLEUSERS;
+				if (iph2->ph1->natt_flags & NAT_DETECTED_PEER) {
+					// is mutually exclusive with SADB_X_EXT_NATT_KEEPALIVE
+					flags |= SADB_X_EXT_NATT_DETECTED_PEER;
+				}
+			} else if (iph2->ph1->natt_flags & NAT_DETECTED_ME) {
 				if (iph2->ph1->rmconf->natt_keepalive == TRUE)
 					flags |= SADB_X_EXT_NATT_KEEPALIVE;
 			} else {
-				if (iph2->ph1->rmconf->natt_multiple_user == TRUE &&
-					mode == IPSEC_MODE_TRANSPORT &&
-					src->ss_family == AF_INET) {
-					flags |= SADB_X_EXT_NATT_MULTIPLEUSERS;
-				}
 				if (iph2->ph1->natt_flags & NAT_DETECTED_PEER) {
 					// is mutually exclusive with SADB_X_EXT_NATT_KEEPALIVE
 					flags |= SADB_X_EXT_NATT_DETECTED_PEER;
@@ -1481,15 +1484,18 @@ pk_sendadd(iph2)
 			memset (&natt, 0, sizeof (natt));
 			natt.dport = extract_port (iph2->ph1->remote);
 			flags |= SADB_X_EXT_NATT;
-			if (iph2->ph1->natt_flags & NAT_DETECTED_ME) {
+			if (iph2->ph1->rmconf->natt_multiple_user == TRUE &&
+				mode == IPSEC_MODE_TRANSPORT &&
+				src->ss_family == AF_INET) {
+				flags |= SADB_X_EXT_NATT_MULTIPLEUSERS;
+				if (iph2->ph1->natt_flags & NAT_DETECTED_PEER) {
+					// is mutually exclusive with SADB_X_EXT_NATT_KEEPALIVE
+					flags |= SADB_X_EXT_NATT_DETECTED_PEER;
+				}
+			} else if (iph2->ph1->natt_flags & NAT_DETECTED_ME) {
 				if (iph2->ph1->rmconf->natt_keepalive == TRUE)
 					flags |= SADB_X_EXT_NATT_KEEPALIVE;
 			} else {
-				if (iph2->ph1->rmconf->natt_multiple_user == TRUE &&
-					mode == IPSEC_MODE_TRANSPORT &&
-					dst->ss_family == AF_INET) {
-					flags |= SADB_X_EXT_NATT_MULTIPLEUSERS;
-				}
 				if (iph2->ph1->natt_flags & NAT_DETECTED_PEER) {
 					// is mutually exclusive with SADB_X_EXT_NATT_KEEPALIVE
 					flags |= SADB_X_EXT_NATT_DETECTED_PEER;
@@ -1968,7 +1974,7 @@ pk_recvacquire(mhp)
 	}
 
     if (session == NULL)
-        session = ike_session_get_session(iph2->src, iph2->dst, 1);    
+        session = ike_session_get_session(iph2->src, iph2->dst, 1, NULL);
     if (session == NULL)
         fatal_error(-1);
 

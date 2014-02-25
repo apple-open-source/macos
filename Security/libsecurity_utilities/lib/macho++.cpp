@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2006-2013 Apple Computer, Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -405,8 +405,15 @@ Universal::Universal(FileDesc fd, size_t offset /* = 0 */)
 	case FAT_MAGIC:
 	case FAT_CIGAM:
 		{
+			//
+			// Hack alert.
+			// Under certain circumstances (15001604), mArchCount under-counts the architectures
+			// by one, and special testing is required to validate the extra-curricular entry.
+			// We always read an extra entry; in the situations where this might hit end-of-file,
+			// we are content to fail.
+			//
 			mArchCount = ntohl(header.nfat_arch);
-			size_t archSize = sizeof(fat_arch) * mArchCount;
+			size_t archSize = sizeof(fat_arch) * (mArchCount + 1);
 			mArchList = (fat_arch *)malloc(archSize);
 			if (!mArchList)
 				UnixError::throwMe();
@@ -414,12 +421,16 @@ Universal::Universal(FileDesc fd, size_t offset /* = 0 */)
 				::free(mArchList);
 				UnixError::throwMe(ENOEXEC);
 			}
-			for (fat_arch *arch = mArchList; arch < mArchList + mArchCount; arch++) {
+			for (fat_arch *arch = mArchList; arch <= mArchList + mArchCount; arch++) {
 				n2hi(arch->cputype);
 				n2hi(arch->cpusubtype);
 				n2hi(arch->offset);
 				n2hi(arch->size);
 				n2hi(arch->align);
+			}
+			const fat_arch *last_arch = mArchList + mArchCount;
+			if (last_arch->cputype == (CPU_ARCH_ABI64 | CPU_TYPE_ARM)) {
+				mArchCount++;
 			}
 			secdebug("macho", "%p is a fat file with %d architectures",
 				this, mArchCount);

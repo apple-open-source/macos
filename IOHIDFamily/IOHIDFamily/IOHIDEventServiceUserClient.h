@@ -77,6 +77,7 @@ private:
 protected:
     // IOUserClient methods
     virtual IOReturn clientClose( void );
+    
 
     virtual IOService * getService( void );
 
@@ -102,6 +103,7 @@ public:
     // others
     virtual bool initWithTask(task_t owningTask, void * security_id, UInt32 type);
     virtual bool start( IOService * provider );
+    virtual void stop( IOService * provider );
     virtual bool didTerminate(IOService *provider, IOOptionBits options, bool *defer);
     virtual void free();
     virtual IOReturn setProperties( OSObject * properties );

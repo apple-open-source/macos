@@ -1,3 +1,64 @@
+2013-12-23  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge 161003: <rdar://problem/15719584>
+
+    2013-12-23  Lucas Forschler  <lforschler@apple.com>
+
+            <rdar://problem/15682948> Update copyright strings
+
+            Reviewed by Dan Bernstein.
+
+            * Info.plist:
+
+2013-12-11  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r159460
+
+    2013-11-18  David Hyatt  <hyatt@apple.com>
+
+            Add a quirk to not respect center text-align when positioning
+
+            <rdar://problem/15427571>
+            https://bugs.webkit.org/show_bug.cgi?id=124522
+
+            Reviewed by Simon Fraser.
+
+            Added fast/block/legacy-text-align-position-quirk.html
+
+            * WebView/WebPreferenceKeysPrivate.h:
+            * WebView/WebPreferences.mm:
+            (+[WebPreferences initialize]):
+            (-[WebPreferences useLegacyTextAlignPositionedElementBehavior]):
+            (-[WebPreferences setUseLegacyTextAlignPositionedElementBehavior:]):
+            * WebView/WebPreferencesPrivate.h:
+            * WebView/WebView.mm:
+            (-[WebView _preferencesChanged:]):
+
+2013-12-11  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r157279
+
+    2013-10-10  Simon Fraser  <simon.fraser@apple.com>
+
+            Always force layout before flushing compositing layers
+            https://bugs.webkit.org/show_bug.cgi?id=122626
+
+            Reviewed by Tim Horton.
+
+            [m_webView _flushCompositingChanges] only actually flushes compositing
+            layers if the FrameView does not need layout (FrameView::flushCompositingStateForThisFrame()
+            returns in this case). In this situation, flushLayers() does actually try
+            to force a layout, but on some platforms it's possible for something else
+            to dirty layout before the runloop observer fires again. This can result
+            in flushLayers() never actually managing to flush, which stalls visual
+            updates.
+
+            Fix by always calling -viewWillDraw (which updates layout) before flushing
+            layers. This now matches WebKit2 behavior.
+
+            * WebView/WebView.mm:
+            (LayerFlushController::flushLayers):
+
 2013-10-24  Lucas Forschler  <lforschler@apple.com>
 
         Merge r154647

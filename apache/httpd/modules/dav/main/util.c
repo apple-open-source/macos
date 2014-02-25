@@ -634,9 +634,19 @@ static dav_error * dav_process_if_header(request_rec *r, dav_if_header **p_ih)
 
             /* clean up the URI a bit */
             ap_getparents(parsed_uri.path);
+
+            /* the resources we will compare to have unencoded paths */
+            if (ap_unescape_url(parsed_uri.path) != OK) {
+                return dav_new_error(r->pool, HTTP_BAD_REQUEST,
+                                     DAV_ERR_IF_TAGGED,
+                                     "Invalid percent encoded URI in "
+                                     "tagged If-header.");
+            }
+
             uri_len = strlen(parsed_uri.path);
-            if (uri_len > 1 && parsed_uri.path[uri_len - 1] == '/')
+            if (uri_len > 1 && parsed_uri.path[uri_len - 1] == '/') {
                 parsed_uri.path[--uri_len] = '\0';
+            }
 
             uri = parsed_uri.path;
             list_type = tagged;
@@ -919,13 +929,16 @@ static dav_error * dav_validate_resource_state(apr_pool_t *p,
         /*
         ** For methods other than LOCK:
         **
-        ** If we have no locks, then <seen_locktoken> can be set to true --
+        ** If we have no locks or if the resource is not being modified
+        ** (per RFC 4918 the lock token is not required on resources
+        ** we are not changing), then <seen_locktoken> can be set to true --
         ** pretending that we've already met the requirement of seeing one
         ** of the resource's locks in the If: header.
         **
         ** Otherwise, it must be cleared and we'll look for one.
         */
-        seen_locktoken = (lock_list == NULL);
+        seen_locktoken = (lock_list == NULL
+                          || flags & DAV_VALIDATE_NO_MODIFY);
     }
 
     /*

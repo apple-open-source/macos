@@ -339,7 +339,7 @@ by MIME type</td></tr>
 </td></tr>
 <tr><td><a href="mod_ext_filter.html#extfilterdefine">ExtFilterDefine <var>filtername</var> <var>parameters</var></a></td><td></td><td>s</td><td>E</td></tr><tr><td class="descr" colspan="4">Define an external filter</td></tr>
 <tr class="odd"><td><a href="mod_ext_filter.html#extfilteroptions">ExtFilterOptions <var>option</var> [<var>option</var>] ...</a></td><td> DebugLevel=0 NoLogS +</td><td>d</td><td>E</td></tr><tr class="odd"><td class="descr" colspan="4">Configure <code class="module"><a href="../mod/mod_ext_filter.html">mod_ext_filter</a></code> options</td></tr>
-<tr><td><a href="mod_dir.html#fallbackresource" id="F" name="F">FallbackResource <var>yerel-url</var></a></td><td></td><td>skdh</td><td>T</td></tr><tr><td class="descr" colspan="4">Bir dosyayla eşleşmeyen istekler için öntanımlı bir URL tanımlar
+<tr><td><a href="mod_dir.html#fallbackresource" id="F" name="F">FallbackResource disabled | <var>yerel-url</var></a></td><td></td><td>skdh</td><td>T</td></tr><tr><td class="descr" colspan="4">Bir dosyayla eşleşmeyen istekler için öntanımlı bir URL tanımlar
 </td></tr>
 <tr class="odd"><td><a href="core.html#fileetag">FileETag <var>bileşen</var> ...</a></td><td> INode MTime Size </td><td>skdh</td><td>Ç</td></tr><tr class="odd"><td class="descr" colspan="4"><code>ETag</code>Duruk dosyalar için HTTP yanıt başlığını
 oluşturmakta kullanılacak dosya özniteliklerini belirler.</td></tr>
@@ -675,7 +675,7 @@ kullanılacak konak adları için başka isimler belirtebilmeyi sağlar.
 </td></tr>
 <tr class="odd"><td><a href="core.html#servertokens">ServerTokens Major|Minor|Min[imal]|Prod[uctOnly]|OS|Full</a></td><td> Full </td><td>s</td><td>Ç</td></tr><tr class="odd"><td class="descr" colspan="4"><code>Server</code> HTTP yanıt başlığını yapılandırır.
 </td></tr>
-<tr><td><a href="mod_env.html#setenv">SetEnv <var>ortam-değişkeni</var> <var>değer</var></a></td><td></td><td>skdh</td><td>T</td></tr><tr><td class="descr" colspan="4">Ortam değişkenlerini tanımlar.</td></tr>
+<tr><td><a href="mod_env.html#setenv">SetEnv <var>ortam-değişkeni</var> [<var>değer</var>]</a></td><td></td><td>skdh</td><td>T</td></tr><tr><td class="descr" colspan="4">Ortam değişkenlerini tanımlar.</td></tr>
 <tr class="odd"><td><a href="mod_setenvif.html#setenvif">SetEnvIf <em>öznitelik
     düzifd [!]ort-değişkeni</em>[=<em>değer</em>]
     [[!]<em>ort-değişkeni</em>[=<em>değer</em>]] ...</a></td><td></td><td>skdh</td><td>T</td></tr><tr class="odd"><td class="descr" colspan="4">Ortam değişkenlerini isteğin özniteliklerine göre atar.
@@ -717,7 +717,7 @@ Client Auth</td></tr>
 <tr><td><a href="mod_ssl.html#sslcertificatekeyfile">SSLCertificateKeyFile <em>file-path</em></a></td><td></td><td>sk</td><td>E</td></tr><tr><td class="descr" colspan="4">Server PEM-encoded Private Key file</td></tr>
 <tr class="odd"><td><a href="mod_ssl.html#sslciphersuite">SSLCipherSuite <em>cipher-spec</em></a></td><td> ALL:!ADH:RC4+RSA:+H +</td><td>skdh</td><td>E</td></tr><tr class="odd"><td class="descr" colspan="4">Cipher Suite available for negotiation in SSL 
 handshake</td></tr>
-<tr><td><a href="mod_ssl.html#sslcompression">SSLCompression on|off</a></td><td> on </td><td>sk</td><td>E</td></tr><tr><td class="descr" colspan="4">Disallow compression on the SSL level</td></tr>
+<tr><td><a href="mod_ssl.html#sslcompression">SSLCompression on|off</a></td><td> off </td><td>sk</td><td>E</td></tr><tr><td class="descr" colspan="4">Enable compression on the SSL level</td></tr>
 <tr class="odd"><td><a href="mod_ssl.html#sslcryptodevice">SSLCryptoDevice <em>engine</em></a></td><td> builtin </td><td>s</td><td>E</td></tr><tr class="odd"><td class="descr" colspan="4">Enable use of a cryptographic hardware accelerator</td></tr>
 <tr><td><a href="mod_ssl.html#sslengine">SSLEngine on|off|optional</a></td><td> off </td><td>sk</td><td>E</td></tr><tr><td class="descr" colspan="4">SSL Engine Operation Switch</td></tr>
 <tr class="odd"><td><a href="mod_ssl.html#sslfips">SSLFIPS on|off</a></td><td> off </td><td>s</td><td>E</td></tr><tr class="odd"><td class="descr" colspan="4">SSL FIPS mode Switch</td></tr>

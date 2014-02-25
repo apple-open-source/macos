@@ -295,6 +295,7 @@ void smb_vc_reset(struct smb_vc *vcp)
 	vcp->vc_hflags2 &= (SMB_FLAGS2_EXT_SEC | SMB_FLAGS2_KNOWS_LONG_NAMES | SMB_FLAGS2_UNICODE);
 	
 	vcp->vc_mid = 0;
+	vcp->vc_low_pid = 1;
 
     vcp->vc_message_id = 1;
     

@@ -41,7 +41,7 @@ __strncpy_chk (char *restrict dest, char *restrict src,
   if (n == len + 1)
     n--;
 
-  if (__builtin_expect (__chk_assert_no_overlap, 1))
+  if (__builtin_expect (__chk_assert_no_overlap != 0, 1))
     __chk_overlap(dest, n, src, n);
 
   return dest;

@@ -621,7 +621,7 @@ resend:
      *    Create path to dnp and strm_namep is stream name to add to the path.
      * 5) Just createp->namep and no create->dnp. Only used when 
      *    SMB2_CREATE_NAME_IS_PATH is set. namep points to a pre built path to 
-     *    just copy in. smb_usr_check_dir() calling us.
+     *    just copy in. smb_usr_check_dir() calling us or early in mount.
      * 6) createp->dnp and createp->namep and createp->strm_namep. From
      *    readdirattr. Create path to parent dnp, add child of namep, then
      *    add stream name in strm_namep on. Used for reading Finder Info stream.
@@ -643,7 +643,7 @@ resend:
         else {
             /* 
              * Network path is already in createp->namep, just copy it in.
-             * Must be smb_usr_check_dir() calling us. 
+             * Must be smb_usr_check_dir() calling us or early in mount.
              */
             mb_put_mem(mbp, (char *) createp->namep, createp->name_len,
                        MB_MSYSTEM);
@@ -1733,14 +1733,22 @@ smb2_smb_negotiate(struct smb_vc *vcp, struct smb_rq *in_rqp, int inReconnect,
             goto bad;
         }
         
-        /* See if we got SMB2.002 or SMB2.x */
-        if (sp->sv_dialect == SMB2_DIALECT_0202) {
+        /* See if we got SMB 2.002 or SMB 2.1 */
+        if ((sp->sv_dialect == SMB2_DIALECT_0202) ||
+            (sp->sv_dialect == SMB2_DIALECT_0210)) {
             /* 
-             * For SMB 2.002, we are done with the Neg and can go directly to
-             * the SessionSetup phase
+             * For SMB 2.002 or 2.1, we are done with the Neg and can go
+             * directly to the SessionSetup phase
              */
-            vcp->vc_flags |= SMBV_SMB2002;
-            SMBDEBUG("SMB 2.002 DIALECT\n");
+            if (sp->sv_dialect == SMB2_DIALECT_0202) {
+                vcp->vc_flags |= SMBV_SMB2002;
+                SMBDEBUG("SMB 2.002 DIALECT\n");
+            }
+            else {
+                vcp->vc_flags |= SMBV_SMB21;
+                SMBDEBUG("SMB 2.1 DIALECT\n");
+            }
+            
             goto do_session_setup;
         }
         
@@ -2332,7 +2340,7 @@ smb2_smb_parse_create(struct smb_share *share, struct mdchain *mdp,
     /* Did we try to see if this is an OS X server and fail? */
     if ((createp->flags & SMB2_CREATE_AAPL_QUERY) &&
         !(vcp->vc_misc_flags & SMBV_OSX_SERVER)) {
-        SMBDEBUG("Found an NON OS X server\n");
+        SMBDEBUG("Found a NON OS X server\n");
         vcp->vc_misc_flags |= SMBV_OTHER_SERVER;
     }
 
@@ -4307,15 +4315,28 @@ smb2_smb_parse_negotiate(struct smb_vc *vcp, struct smb_rq *rqp, int smb1_req)
             goto bad;
     }
     
-    if ((sp->sv_dialect != SMB2_DIALECT_0202) && (smb1_req == 1)) {
+    if ((sp->sv_dialect != SMB2_DIALECT_0202) &&
+        (sp->sv_dialect != SMB2_DIALECT_0210) &&
+        (smb1_req == 1)) {
         /*
-         * We started with SMB1 Neg requst and got back a SMB2 Neg response and
-         * that is the response we are parsing right now.
+         * We started with SMB1 Negotiate requst and got back a SMB 2 Negotiate
+         * response and that is the response we are parsing right now.
          *
-         * Start over with a SMB2 Neg request from the client since in
-         * SMB2.1 and later, the client SMB2 Neg request will have information
-         * that the server will need. Thus we dont have to finish parsing this
-         * response and can just skip out.
+         * For SMB 2.002 and 2.1, we need to continue parsing the SMB 2
+         * Negotiate response as we are going directly to the Session Setup
+         * exchange next.
+         *
+         * Any other dialect from the server, we will start over with a
+         * SMB 2 Negotiate request from the client. The SMB 2 Negotiate request 
+         * will have information about the client that the server will need. 
+         * In this case, we dont have to finish parsing the SMB 1 response and 
+         * can just skip out.
+         *
+         * NOTE: If the server is replying with SMB 2.1 to a SMB 1 Negotiate
+         * request, then this is wrong according to [MS-SMB2] sections 3.3.5.3.1
+         * and 4.2 where it states the server should be returning SMB 2.??.
+         * Windows 8 Client handles this by going directly to the Session Setup
+         * and that is the behavior we are following.
          */
         error = 0;
         goto bad;
@@ -4424,19 +4445,22 @@ smb2_smb_parse_negotiate(struct smb_vc *vcp, struct smb_rq *rqp, int smb1_req)
         }
     }
     
-    SMB_MALLOC(vcp->negotiate_token, uint8_t *, sec_buf_len, M_SMBTEMP, M_WAITOK);
-    if (vcp->negotiate_token) {
-        vcp->negotiate_tokenlen = sec_buf_len;
-        error = md_get_mem(mdp,
-                           (void *)vcp->negotiate_token,
-                           vcp->negotiate_tokenlen,
-                           MB_MSYSTEM);
-        if (error) {
-            goto bad;
+    /* Its ok if the sec_buf_len is 0 */
+    if (sec_buf_len > 0) {
+        SMB_MALLOC(vcp->negotiate_token, uint8_t *, sec_buf_len, M_SMBTEMP, M_WAITOK);
+        if (vcp->negotiate_token) {
+            vcp->negotiate_tokenlen = sec_buf_len;
+            error = md_get_mem(mdp,
+                               (void *)vcp->negotiate_token,
+                               vcp->negotiate_tokenlen,
+                               MB_MSYSTEM);
+            if (error) {
+                goto bad;
+            }
         }
-    }
-    else {
-        error = ENOMEM;
+        else {
+            error = ENOMEM;
+        }
     }
     
 bad:
@@ -5980,6 +6004,9 @@ resend:
                 /* Running out of credits, clear error and send what we have */
                 SMBDEBUG("low on credits %d\n", error);
                 error = 0;
+                
+                /* i equals number of initial rw_pb's filled in */
+                i += 1;
                 break;
             }
             else {
@@ -6076,8 +6103,9 @@ resend:
                                                      do_read,
                                                      context);
                     
-                    if (error) {
-                        SMBERROR("smb2_smb_fillin_x failed %d\n", error);
+                    if ((error) && !(error == ENOBUFS)) {
+                        /* Being low on credits is ok to ignore */
+                        SMBERROR("smb2_smb_fillin_read/write2 failed %d\n", error);
                         goto bad;
                     }
                     
@@ -6224,7 +6252,6 @@ smb2_smb_read_write_fill(struct smb_share *share,
     }
     
     if (len != saved_len) {
-        SMBERROR("len got reduced, must be running low on credits\n");
         error = ENOBUFS;
     }
     

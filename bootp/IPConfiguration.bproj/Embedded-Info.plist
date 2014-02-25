@@ -7,7 +7,7 @@
 	<key>CFBundleName</key>
 	<string>SystemConfiguration</string>
 	<key>CFBundleShortVersionString</key>
-	<string>13.0.0</string>
+	<string>13.0.1</string>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>English</string>
 	<key>Requires</key>

@@ -1103,10 +1103,13 @@ rk_qsort(void *, size_t, size_t, int (*)(const void *, const void *));
 
 #if defined(HAVE_ARC4RANDOM)
 #define rk_random() arc4random()
+#define rk_random_uniform(_n) arc4random_uniform(_n)
 #elif defined(HAVE_RANDOM)
 #define rk_random() random()
+#define rk_random_uniform(_n) (random() % (_n))
 #else
 #define rk_random() rand()
+#define rk_random_uniform(_n) (rand() % (_n))
 #endif
 
 #ifndef HAVE_TDELETE

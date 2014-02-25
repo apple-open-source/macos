@@ -1,3 +1,87 @@
+2013-12-11  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r154513
+
+    2013-08-23  Alex Christensen  <achristensen@apple.com>
+
+            Re-separating Win32 and Win64 builds.
+            https://bugs.webkit.org/show_bug.cgi?id=120178
+
+            Reviewed by Brent Fulgham.
+
+            * WebKit.vcxproj/WebKit/WebKitPostBuild.cmd:
+            * WebKit.vcxproj/WebKitExportGenerator/WebKitExportGeneratorBuildCmd.cmd:
+            * WebKit.vcxproj/WebKitExportGenerator/WebKitExportGeneratorPostBuild.cmd:
+            * WebKit.vcxproj/WebKitExportGenerator/WebKitExportGeneratorPreBuild.cmd:
+            Use PlatformArchitecture to determine correct object directory (obj32 or obj64).
+
+2013-12-11  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r160118
+
+    2013-12-04  Brent Fulgham  <bfulgham@apple.com>
+
+            [Win] Correct WebKit.make copy command to land resources in proper directory.
+            https://bugs.webkit.org/show_bug.cgi?id=125249
+
+            Reviewed by Tim Horton.
+
+            * WebKit.vcxproj/WebKit.make: Correct the copy command.
+
+2013-12-11  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r160017
+
+    2013-12-03  Brent Fulgham  <bfulgham@apple.com>
+
+            [Win] WebKit.make Makefile doesn't copy resource bundle to DSTROOT
+            https://bugs.webkit.org/show_bug.cgi?id=125160
+
+            Reviewed by Tim Horton.
+
+            * WebKit.vcxproj/WebKit.make: Add copy command for resource bundle.
+
+2013-12-10  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge 154333
+
+    2013-08-20  Alex Christensen  <achristensen@apple.com>
+
+            Use PlatformArchitecture to distinguish between 32-bit and 64-bit builds on Windows.
+            https://bugs.webkit.org/show_bug.cgi?id=119512
+
+            Reviewed by Brent Fulgham.
+
+            * WebKit.vcxproj/Interfaces/InterfacesCommon.props:
+            * WebKit.vcxproj/WebKit/WebKit.vcxproj:
+            * WebKit.vcxproj/WebKit/WebKit.vcxproj.filters:
+            * WebKit.vcxproj/WebKit/WebKitCommon.props:
+            * WebKit.vcxproj/WebKitExportGenerator/WebKitExportGenerator.vcxproj:
+            * WebKit.vcxproj/WebKitExportGenerator/WebKitExportGenerator.vcxproj.filters:
+            * WebKit.vcxproj/WebKitGUID/WebKitGUID.vcxproj:
+            * WebKit.vcxproj/WebKitGUID/WebKitGUID.vcxproj.filters:
+            * WebKit.vcxproj/WebKitGUID/WebKitGUIDCommon.props:
+            Replaced obj32, bin32, and lib32 with macros fo
+
+2013-12-10  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge 152921
+
+    2013-07-19  Alex Christensen  <achristensen@apple.com>
+
+            Added x64 configuration to Visual Studio build.
+            https://bugs.webkit.org/show_bug.cgi?id=118888
+
+            Reviewed by Brent Fulgham.
+
+            * WebKit.vcxproj/Interfaces/Interfaces.vcxproj:
+            * WebKit.vcxproj/WebKit.sln:
+            * WebKit.vcxproj/WebKit/WebKit.vcxproj:
+            * WebKit.vcxproj/WebKitExportGenerator/WebKitExportGenerator.vcxproj:
+            * WebKit.vcxproj/WebKitExportGenerator/WebKitExportGenerator.vcxproj.filters:
+            * WebKit.vcxproj/WebKitGUID/WebKitGUID.vcxproj:
+            * WebKit.vcxproj/WebKitGUID/WebKitGUID.vcxproj.filters:
+
 2013-11-04  Lucas Forschler  <lforschler@apple.com>
 
         Merge r158602

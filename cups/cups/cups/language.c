@@ -1,5 +1,5 @@
 /*
- * "$Id: language.c 11093 2013-07-03 20:48:42Z msweet $"
+ * "$Id: language.c 11433 2013-11-20 18:57:44Z msweet $"
  *
  *   I18N/language support for CUPS.
  *
@@ -134,7 +134,7 @@ static const char * const lang_encodings[] =
 			  "unknown",		"unknown",
 			  "euc-cn",		"euc-jp",
 			  "euc-kr",		"euc-tw",
-			  "jis-x0213"
+			  "shift_jisx0213"
 			};
 
 #ifdef __APPLE__
@@ -1586,5 +1586,5 @@ cups_unquote(char       *d,		/* O - Unquoted string */
 
 
 /*
- * End of "$Id: language.c 11093 2013-07-03 20:48:42Z msweet $".
+ * End of "$Id: language.c 11433 2013-11-20 18:57:44Z msweet $".
  */

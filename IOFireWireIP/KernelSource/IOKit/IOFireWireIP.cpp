@@ -347,8 +347,11 @@ void IOFireWireIP::stop(IOService *provider)
 	fLcb = NULL;
 	
 	if (networkInterface != NULL)
-		networkInterface->release();
-		
+    {
+        detachInterface(networkInterface);
+        networkInterface->release();
+	}
+    
 	networkInterface = NULL;
 
 	if(fControl != NULL)

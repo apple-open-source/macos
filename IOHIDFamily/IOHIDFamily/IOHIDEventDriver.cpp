@@ -214,7 +214,7 @@ bool IOHIDEventDriver::handleStart( IOService * provider )
 //====================================================================================================
 OSString * IOHIDEventDriver::getTransport ()
 {
-    return _interface->getTransport();
+    return _interface ? _interface->getTransport() : (OSString *)OSSymbol::withCString("unknown:") ;
 }
 
 //====================================================================================================
@@ -222,7 +222,7 @@ OSString * IOHIDEventDriver::getTransport ()
 //====================================================================================================
 OSString * IOHIDEventDriver::getManufacturer ()
 {
-    return _interface->getManufacturer();
+    return _interface ? _interface->getManufacturer() : (OSString *)OSSymbol::withCString("unknown:") ;
 }
 
 //====================================================================================================
@@ -230,7 +230,7 @@ OSString * IOHIDEventDriver::getManufacturer ()
 //====================================================================================================
 OSString * IOHIDEventDriver::getProduct ()
 {
-    return _interface->getProduct();
+    return _interface ? _interface->getProduct() : (OSString *)OSSymbol::withCString("unknown:") ;
 }
 
 //====================================================================================================
@@ -238,7 +238,7 @@ OSString * IOHIDEventDriver::getProduct ()
 //====================================================================================================
 OSString * IOHIDEventDriver::getSerialNumber ()
 {
-    return _interface->getSerialNumber();
+    return _interface ? _interface->getSerialNumber() : (OSString *)OSSymbol::withCString("unknown:") ;
 }
 
 //====================================================================================================
@@ -246,7 +246,7 @@ OSString * IOHIDEventDriver::getSerialNumber ()
 //====================================================================================================
 UInt32 IOHIDEventDriver::getLocationID ()
 {
-    return _interface->getLocationID();
+    return _interface ? _interface->getLocationID() : -1 ;
 }
 
 //====================================================================================================
@@ -254,7 +254,7 @@ UInt32 IOHIDEventDriver::getLocationID ()
 //====================================================================================================
 UInt32 IOHIDEventDriver::getVendorID ()
 {
-    return _interface->getVendorID();
+    return _interface ? _interface->getVendorID() : -1 ;
 }
 
 //====================================================================================================
@@ -262,7 +262,7 @@ UInt32 IOHIDEventDriver::getVendorID ()
 //====================================================================================================
 UInt32 IOHIDEventDriver::getVendorIDSource ()
 {
-    return _interface->getVendorIDSource();
+    return _interface ? _interface->getVendorIDSource() : -1 ;
 }
 
 //====================================================================================================
@@ -270,7 +270,7 @@ UInt32 IOHIDEventDriver::getVendorIDSource ()
 //====================================================================================================
 UInt32 IOHIDEventDriver::getProductID ()
 {
-    return _interface->getProductID();
+    return _interface ? _interface->getProductID() : -1 ;
 }
 
 //====================================================================================================
@@ -278,7 +278,7 @@ UInt32 IOHIDEventDriver::getProductID ()
 //====================================================================================================
 UInt32 IOHIDEventDriver::getVersion ()
 {
-    return _interface->getVersion();
+    return _interface ? _interface->getVersion() : -1 ;
 }
 
 //====================================================================================================
@@ -286,7 +286,7 @@ UInt32 IOHIDEventDriver::getVersion ()
 //====================================================================================================
 UInt32 IOHIDEventDriver::getCountryCode ()
 {
-    return _interface->getCountryCode();
+    return _interface ? _interface->getCountryCode() : -1 ;
 }
 
 
@@ -303,7 +303,9 @@ void IOHIDEventDriver::handleStop(  IOService * provider __unused )
 //=============================================================================================
 bool IOHIDEventDriver::didTerminate( IOService * provider, IOOptionBits options, bool * defer )
 {
-    _interface->close(this);
+    if (_interface)
+        _interface->close(this);
+    _interface = NULL;
 
     return super::didTerminate(provider, options, defer);
 }

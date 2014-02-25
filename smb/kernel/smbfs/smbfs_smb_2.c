@@ -955,6 +955,7 @@ smb2fs_smb_cmpd_query(struct smb_share *share, struct smbnode *create_np,
     uint64_t create_flags = create_xattr ? SMB2_CREATE_IS_NAMED_STREAM : 0;
     char *file_namep = NULL, *stream_namep = NULL;
     size_t file_name_len = 0, stream_name_len = 0;
+    int add_submount_path = 0;
 
     /*
      * Note: Be careful as 
@@ -984,11 +985,26 @@ smb2fs_smb_cmpd_query(struct smb_share *share, struct smbnode *create_np,
         goto bad;
     }
     
+    if ((create_np == NULL) && (create_namep != NULL) &&
+        ((query_file_info_class == FileFsAttributeInformation) ||
+         (query_file_info_class == FileFsSizeInformation))) {
+            /*
+             * Must be during mount time which means we do not have the root
+             * vnode yet, but we do have a submount path. Submount path is
+             * inside the create_namep and already in network form.
+             */
+            add_submount_path = 1;
+        }
+
 resend:
     /*
      * Build the Create call 
      */
     create_flags |= SMB2_CREATE_GET_MAX_ACCESS;
+    
+    if (add_submount_path == 1) {
+        create_flags |= SMB2_CREATE_NAME_IS_PATH;
+    }
     
     /* Should we check to see if the server is OS X based? */
     if (!(SSTOVC(share)->vc_misc_flags & (SMBV_OSX_SERVER | SMBV_OTHER_SERVER))) {
@@ -1011,7 +1027,7 @@ resend:
         stream_name_len = create_name_len;
     }
 
-    error = smb2fs_smb_ntcreatex(share, create_np, 
+    error = smb2fs_smb_ntcreatex(share, create_np,
                                  file_namep, file_name_len,
                                  stream_namep, stream_name_len,
                                  create_desired_access, VREG,
@@ -1023,6 +1039,11 @@ resend:
     if (error) {
         SMBERROR("smb2fs_smb_ntcreatex failed %d\n", error);
         goto bad;
+    }
+    
+    if (add_submount_path == 1) {
+        /* Clear DFS Operation flag that got set */
+        *create_rqp->sr_flagsp &= ~(htolel(SMB2_FLAGS_DFS_OPERATIONS));
     }
     
     /* Update Create hdr */
@@ -1118,6 +1139,17 @@ resend:
             SMBDEBUG("smb_rq_simple failed %d id %lld\n",
                      error, create_rqp->sr_messageid);
         }
+        
+        /* 
+         * Some servers return an error with the AAPL Create context instead 
+         * of just ignoring the context like it says in the MS-SMB doc.
+         * Obviously must be a non OS X Server.
+         */
+        if (createp->flags & SMB2_CREATE_AAPL_QUERY) {
+            SMBDEBUG("Found a NON OS X server\n");
+            SSTOVC(share)->vc_misc_flags |= SMBV_OTHER_SERVER;
+        }
+        
         goto parse_query;
     }
     
@@ -4713,10 +4745,12 @@ smb2fs_smb_ntcreatex(struct smb_share *share, struct smbnode *np,
         }
 	}
 	/*
-	 * The server supports reparse points so open the item with a reparse point
-	 * and bypass normal reparse point processing for the file.
+	 * The server supports reparse points and its a symlink so open the item 
+     * with a reparse point bit set and bypass normal reparse point processing 
+     * for the file.
 	 */
-	if (share->ss_attributes & FILE_SUPPORTS_REPARSE_POINTS) {
+	if ((share->ss_attributes & FILE_SUPPORTS_REPARSE_POINTS) &&
+        (np && (np->n_vnode) && vnode_islnk(np->n_vnode))) {
 		create_options |= NTCREATEX_OPTIONS_OPEN_REPARSE_POINT;
 
 		if (np && (np->n_dosattr & SMB_EFA_OFFLINE)) {
@@ -5042,8 +5076,7 @@ smb2fs_smb_parse_ntcreatex(struct smb_share *share, struct smbnode *np,
              * createp->name_len is the same as the orig in_nmlen.
              */
             
-            /* This is a create so better have a name */
-            DBG_ASSERT(createp->namep != NULL);	
+            /* This is a create so better have a name, but root does not have a name */
             fap->fa_ino = smbfs_getino(np, createp->namep, createp->name_len);
             goto done;			
         }
@@ -5079,10 +5112,11 @@ done:
 }
 
 static int
-smb2fs_smb_qfsattr(struct smb_share *share,
+smb2fs_smb_qfsattr(struct smbmount *smp,
                    struct FILE_FS_ATTRIBUTE_INFORMATION *fs_attrs,
                    vfs_context_t context)
 {
+    struct smb_share *share = smp->sm_share;
 	int error;
     uint32_t output_buffer_len;
     
@@ -5092,9 +5126,13 @@ smb2fs_smb_qfsattr(struct smb_share *share,
     /*
      * Do the Compound Create/Query Info/Close call
      * Query results are passed back in *fs_attrs
+     *
+     * Have to pass in submount path if it exists because we have no root vnode,
+     * and smbmount and smb_share may not be fully set up yet.
      */
-    error = smb2fs_smb_cmpd_query(share, NULL, 
-                                  NULL, 0,
+    error = smb2fs_smb_cmpd_query(share, NULL,
+                                  (smp->sm_args.path_len == 0 ? NULL : smp->sm_args.path),
+                                  smp->sm_args.path_len,
                                   0, SMB2_FILE_READ_ATTRIBUTES | SMB2_SYNCHRONIZE,
                                   SMB2_0_INFO_FILESYSTEM, FileFsAttributeInformation,
                                   0, NULL,
@@ -5114,8 +5152,9 @@ smb2fs_smb_qfsattr(struct smb_share *share,
  * 
  */
 void 
-smbfs_smb_qfsattr(struct smb_share *share, vfs_context_t context)
+smbfs_smb_qfsattr(struct smbmount *smp, vfs_context_t context)
 {
+    struct smb_share *share = smp->sm_share;
    	struct smb_vc *vcp = SSTOVC(share);
     struct FILE_FS_ATTRIBUTE_INFORMATION fs_attrs;
 	int error;
@@ -5130,7 +5169,7 @@ smbfs_smb_qfsattr(struct smb_share *share, vfs_context_t context)
     bzero(&fs_attrs, sizeof(fs_attrs));
     
     if (vcp->vc_flags & SMBV_SMB2) {
-        error = smb2fs_smb_qfsattr(share, &fs_attrs, context);
+        error = smb2fs_smb_qfsattr(smp, &fs_attrs, context);
     }
     else {
         /* 
@@ -5511,7 +5550,7 @@ smbfs_smb_qstreaminfo(struct smb_share *share, struct smbnode *np,
  *
  */
 int 
-smbfs_smb_query_info(struct smb_share *share, struct smbnode *np, 
+smbfs_smb_query_info(struct smb_share *share, struct smbnode *dnp,
                      const char *in_name, size_t len, uint32_t *attr, 
                      vfs_context_t context)
 {
@@ -5533,13 +5572,23 @@ smbfs_smb_query_info(struct smb_share *share, struct smbnode *np,
             goto out;
         }
         
-        error = smb2fs_smb_qpathinfo(share,
-                                     np,
-                                     fap,
-                                     SMB_QFILEINFO_ALL_INFO,
-                                     &name,
-                                     &name_len,
-                                     context);
+        if (vcp->vc_misc_flags & SMBV_NO_QUERYINFO) {
+            /* Use Query Dir instead of Query Info, but only if SMB 2/3 */
+            error = smb2fs_smb_cmpd_query_dir_one(share, dnp,
+                                                  name, name_len,
+                                                  fap, (char **) &name, &name_len,
+                                                  context);
+        }
+        else {
+            error = smb2fs_smb_qpathinfo(share,
+                                         dnp,
+                                         fap,
+                                         SMB_QFILEINFO_ALL_INFO,
+                                         &name,
+                                         &name_len,
+                                         context);
+        }
+        
         if (error) {
             goto out;
         }
@@ -5556,7 +5605,7 @@ smbfs_smb_query_info(struct smb_share *share, struct smbnode *np,
     }
     else {
         error = smb1fs_smb_query_info(share,
-                                      np,
+                                      dnp,
                                       name,
                                       len,
                                       attr,
@@ -6201,21 +6250,26 @@ smbfs_smb_setpattrNT(struct smb_share *share, struct smbnode *np,
 }
 
 static int
-smb2fs_smb_statfs(struct smb_share *share,
+smb2fs_smb_statfs(struct smbmount *smp,
                   struct FILE_FS_SIZE_INFORMATION *fs_size,
                   vfs_context_t context)
 {
+    struct smb_share *share = smp->sm_share;
 	int error;
     uint32_t output_buffer_len;
     
     output_buffer_len = sizeof(struct FILE_FS_SIZE_INFORMATION);
     
     /*
-     * Do the Compound Create/SetInfo/Close call
+     * Do the Compound Create/GetInfo/Close call
      * Query results are passed back in *fs_size
+     *
+     * Have to pass in submount path if it exists because we have no root vnode,
+     * and smbmount and smb_share may not be fully set up yet.
      */
     error = smb2fs_smb_cmpd_query(share, NULL, 
-                                  NULL, 0,
+                                  (smp->sm_args.path_len == 0 ? NULL : smp->sm_args.path),
+                                  smp->sm_args.path_len,
                                   0, SMB2_FILE_READ_ATTRIBUTES | SMB2_SYNCHRONIZE,
                                   SMB2_0_INFO_FILESYSTEM, FileFsSizeInformation,
                                   0, NULL,
@@ -6229,9 +6283,10 @@ smb2fs_smb_statfs(struct smb_share *share,
  * The calling routine must hold a reference on the share
  */
 int
-smbfs_smb_statfs(struct smb_share *share, struct vfsstatfs *sbp, 
+smbfs_smb_statfs(struct smbmount *smp, struct vfsstatfs *sbp, 
                  vfs_context_t context)
 {
+    struct smb_share *share = smp->sm_share;
    	struct smb_vc *vcp = SSTOVC(share);
     struct FILE_FS_SIZE_INFORMATION fs_size;
 	int error;
@@ -6241,7 +6296,7 @@ smbfs_smb_statfs(struct smb_share *share, struct vfsstatfs *sbp,
     bzero(&fs_size, sizeof(fs_size));
     
     if (vcp->vc_flags & SMBV_SMB2) {
-        error = smb2fs_smb_statfs(share, &fs_size, context);
+        error = smb2fs_smb_statfs(smp, &fs_size, context);
     }
     else {
         /* 

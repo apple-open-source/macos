@@ -5668,83 +5668,12 @@ if test "x$apr_preload_done" != "xyes" ; then
 
 	;;
     *-linux*)
-        case `uname -r` in
-	    2.* )
-  if test "x$CPPFLAGS" = "x"; then
-    test "x$silent" != "xyes" && echo "  setting CPPFLAGS to \"-DLINUX=2\""
-    CPPFLAGS="-DLINUX=2"
-  else
-    apr_addto_bugger="-DLINUX=2"
-    for i in $apr_addto_bugger; do
-      apr_addto_duplicate="0"
-      for j in $CPPFLAGS; do
-        if test "x$i" = "x$j"; then
-          apr_addto_duplicate="1"
-          break
-        fi
-      done
-      if test $apr_addto_duplicate = "0"; then
-        test "x$silent" != "xyes" && echo "  adding \"$i\" to CPPFLAGS"
-        CPPFLAGS="$CPPFLAGS $i"
-      fi
-    done
-  fi
-
-	           ;;
-	    1.* )
-  if test "x$CPPFLAGS" = "x"; then
-    test "x$silent" != "xyes" && echo "  setting CPPFLAGS to \"-DLINUX=1\""
-    CPPFLAGS="-DLINUX=1"
-  else
-    apr_addto_bugger="-DLINUX=1"
-    for i in $apr_addto_bugger; do
-      apr_addto_duplicate="0"
-      for j in $CPPFLAGS; do
-        if test "x$i" = "x$j"; then
-          apr_addto_duplicate="1"
-          break
-        fi
-      done
-      if test $apr_addto_duplicate = "0"; then
-        test "x$silent" != "xyes" && echo "  adding \"$i\" to CPPFLAGS"
-        CPPFLAGS="$CPPFLAGS $i"
-      fi
-    done
-  fi
-
-	           ;;
-	    * )
-	           ;;
-        esac
 
   if test "x$CPPFLAGS" = "x"; then
-    test "x$silent" != "xyes" && echo "  setting CPPFLAGS to \"-D_REENTRANT -D_GNU_SOURCE\""
-    CPPFLAGS="-D_REENTRANT -D_GNU_SOURCE"
+    test "x$silent" != "xyes" && echo "  setting CPPFLAGS to \"-DLINUX -D_REENTRANT -D_GNU_SOURCE\""
+    CPPFLAGS="-DLINUX -D_REENTRANT -D_GNU_SOURCE"
   else
-    apr_addto_bugger="-D_REENTRANT -D_GNU_SOURCE"
-    for i in $apr_addto_bugger; do
-      apr_addto_duplicate="0"
-      for j in $CPPFLAGS; do
-        if test "x$i" = "x$j"; then
-          apr_addto_duplicate="1"
-          break
-        fi
-      done
-      if test $apr_addto_duplicate = "0"; then
-        test "x$silent" != "xyes" && echo "  adding \"$i\" to CPPFLAGS"
-        CPPFLAGS="$CPPFLAGS $i"
-      fi
-    done
-  fi
-
-	;;
-    *-GNU*)
-
-  if test "x$CPPFLAGS" = "x"; then
-    test "x$silent" != "xyes" && echo "  setting CPPFLAGS to \"-DHURD -D_GNU_SOURCE\""
-    CPPFLAGS="-DHURD -D_GNU_SOURCE"
-  else
-    apr_addto_bugger="-DHURD -D_GNU_SOURCE"
+    apr_addto_bugger="-DLINUX -D_REENTRANT -D_GNU_SOURCE"
     for i in $apr_addto_bugger; do
       apr_addto_duplicate="0"
       for j in $CPPFLAGS; do
@@ -5994,6 +5923,29 @@ if test "x$apr_preload_done" != "xyes" ; then
   fi
 
         ;;
+    *-gnu*|*-GNU*)
+
+  if test "x$CPPFLAGS" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting CPPFLAGS to \"-D_REENTRANT -D_GNU_SOURCE -DHURD\""
+    CPPFLAGS="-D_REENTRANT -D_GNU_SOURCE -DHURD"
+  else
+    apr_addto_bugger="-D_REENTRANT -D_GNU_SOURCE -DHURD"
+    for i in $apr_addto_bugger; do
+      apr_addto_duplicate="0"
+      for j in $CPPFLAGS; do
+        if test "x$i" = "x$j"; then
+          apr_addto_duplicate="1"
+          break
+        fi
+      done
+      if test $apr_addto_duplicate = "0"; then
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to CPPFLAGS"
+        CPPFLAGS="$CPPFLAGS $i"
+      fi
+    done
+  fi
+
+        ;;
     *-next-nextstep*)
 
   if test -z "$CFLAGS"; then
@@ -6122,7 +6074,7 @@ if test "x$apr_preload_done" != "xyes" ; then
   fi
  # See issue 34332
             ;;
-            *-apple-darwin1[01].*)
+            *-apple-darwin1?.*)
 
   if test "x$CPPFLAGS" = "x"; then
     test "x$silent" != "xyes" && echo "  setting CPPFLAGS to \"-DDARWIN_10\""
@@ -10175,7 +10127,7 @@ ia64-*-hpux*)
   ;;
 *-*-irix6*)
   # Find out which ABI we are using.
-  echo '#line 10178 "configure"' > conftest.$ac_ext
+  echo '#line 10130 "configure"' > conftest.$ac_ext
   if { { eval echo "\"\$as_me\":${as_lineno-$LINENO}: \"$ac_compile\""; } >&5
   (eval $ac_compile) 2>&5
   ac_status=$?
@@ -12480,11 +12432,11 @@ else
    -e 's:.*FLAGS}\{0,1\} :&$lt_compiler_flag :; t' \
    -e 's: [^ ]*conftest\.: $lt_compiler_flag&:; t' \
    -e 's:$: $lt_compiler_flag:'`
-   (eval echo "\"\$as_me:12483: $lt_compile\"" >&5)
+   (eval echo "\"\$as_me:12435: $lt_compile\"" >&5)
    (eval "$lt_compile" 2>conftest.err)
    ac_status=$?
    cat conftest.err >&5
-   echo "$as_me:12487: \$? = $ac_status" >&5
+   echo "$as_me:12439: \$? = $ac_status" >&5
    if (exit $ac_status) && test -s "$ac_outfile"; then
      # The compiler can only warn and ignore the option if not recognized
      # So say no if there are warnings other than the usual output.
@@ -12770,11 +12722,11 @@ else
    -e 's:.*FLAGS}\{0,1\} :&$lt_compiler_flag :; t' \
    -e 's: [^ ]*conftest\.: $lt_compiler_flag&:; t' \
    -e 's:$: $lt_compiler_flag:'`
-   (eval echo "\"\$as_me:12773: $lt_compile\"" >&5)
+   (eval echo "\"\$as_me:12725: $lt_compile\"" >&5)
    (eval "$lt_compile" 2>conftest.err)
    ac_status=$?
    cat conftest.err >&5
-   echo "$as_me:12777: \$? = $ac_status" >&5
+   echo "$as_me:12729: \$? = $ac_status" >&5
    if (exit $ac_status) && test -s "$ac_outfile"; then
      # The compiler can only warn and ignore the option if not recognized
      # So say no if there are warnings other than the usual output.
@@ -12874,11 +12826,11 @@ else
    -e 's:.*FLAGS}\{0,1\} :&$lt_compiler_flag :; t' \
    -e 's: [^ ]*conftest\.: $lt_compiler_flag&:; t' \
    -e 's:$: $lt_compiler_flag:'`
-   (eval echo "\"\$as_me:12877: $lt_compile\"" >&5)
+   (eval echo "\"\$as_me:12829: $lt_compile\"" >&5)
    (eval "$lt_compile" 2>out/conftest.err)
    ac_status=$?
    cat out/conftest.err >&5
-   echo "$as_me:12881: \$? = $ac_status" >&5
+   echo "$as_me:12833: \$? = $ac_status" >&5
    if (exit $ac_status) && test -s out/conftest2.$ac_objext
    then
      # The compiler can only warn and ignore the option if not recognized
@@ -14899,7 +14851,7 @@ else
   lt_dlunknown=0; lt_dlno_uscore=1; lt_dlneed_uscore=2
   lt_status=$lt_dlunknown
   cat > conftest.$ac_ext <<EOF
-#line 14902 "configure"
+#line 14854 "configure"
 #include "confdefs.h"
 
 #if HAVE_DLFCN_H
@@ -14999,7 +14951,7 @@ else
   lt_dlunknown=0; lt_dlno_uscore=1; lt_dlneed_uscore=2
   lt_status=$lt_dlunknown
   cat > conftest.$ac_ext <<EOF
-#line 15002 "configure"
+#line 14954 "configure"
 #include "confdefs.h"
 
 #if HAVE_DLFCN_H
@@ -17344,11 +17296,11 @@ else
    -e 's:.*FLAGS}\{0,1\} :&$lt_compiler_flag :; t' \
    -e 's: [^ ]*conftest\.: $lt_compiler_flag&:; t' \
    -e 's:$: $lt_compiler_flag:'`
-   (eval echo "\"\$as_me:17347: $lt_compile\"" >&5)
+   (eval echo "\"\$as_me:17299: $lt_compile\"" >&5)
    (eval "$lt_compile" 2>conftest.err)
    ac_status=$?
    cat conftest.err >&5
-   echo "$as_me:17351: \$? = $ac_status" >&5
+   echo "$as_me:17303: \$? = $ac_status" >&5
    if (exit $ac_status) && test -s "$ac_outfile"; then
      # The compiler can only warn and ignore the option if not recognized
      # So say no if there are warnings other than the usual output.
@@ -17448,11 +17400,11 @@ else
    -e 's:.*FLAGS}\{0,1\} :&$lt_compiler_flag :; t' \
    -e 's: [^ ]*conftest\.: $lt_compiler_flag&:; t' \
    -e 's:$: $lt_compiler_flag:'`
-   (eval echo "\"\$as_me:17451: $lt_compile\"" >&5)
+   (eval echo "\"\$as_me:17403: $lt_compile\"" >&5)
    (eval "$lt_compile" 2>out/conftest.err)
    ac_status=$?
    cat out/conftest.err >&5
-   echo "$as_me:17455: \$? = $ac_status" >&5
+   echo "$as_me:17407: \$? = $ac_status" >&5
    if (exit $ac_status) && test -s out/conftest2.$ac_objext
    then
      # The compiler can only warn and ignore the option if not recognized
@@ -19031,11 +18983,11 @@ else
    -e 's:.*FLAGS}\{0,1\} :&$lt_compiler_flag :; t' \
    -e 's: [^ ]*conftest\.: $lt_compiler_flag&:; t' \
    -e 's:$: $lt_compiler_flag:'`
-   (eval echo "\"\$as_me:19034: $lt_compile\"" >&5)
+   (eval echo "\"\$as_me:18986: $lt_compile\"" >&5)
    (eval "$lt_compile" 2>conftest.err)
    ac_status=$?
    cat conftest.err >&5
-   echo "$as_me:19038: \$? = $ac_status" >&5
+   echo "$as_me:18990: \$? = $ac_status" >&5
    if (exit $ac_status) && test -s "$ac_outfile"; then
      # The compiler can only warn and ignore the option if not recognized
      # So say no if there are warnings other than the usual output.
@@ -19135,11 +19087,11 @@ else
    -e 's:.*FLAGS}\{0,1\} :&$lt_compiler_flag :; t' \
    -e 's: [^ ]*conftest\.: $lt_compiler_flag&:; t' \
    -e 's:$: $lt_compiler_flag:'`
-   (eval echo "\"\$as_me:19138: $lt_compile\"" >&5)
+   (eval echo "\"\$as_me:19090: $lt_compile\"" >&5)
    (eval "$lt_compile" 2>out/conftest.err)
    ac_status=$?
    cat out/conftest.err >&5
-   echo "$as_me:19142: \$? = $ac_status" >&5
+   echo "$as_me:19094: \$? = $ac_status" >&5
    if (exit $ac_status) && test -s out/conftest2.$ac_objext
    then
      # The compiler can only warn and ignore the option if not recognized
@@ -21300,11 +21252,11 @@ else
    -e 's:.*FLAGS}\{0,1\} :&$lt_compiler_flag :; t' \
    -e 's: [^ ]*conftest\.: $lt_compiler_flag&:; t' \
    -e 's:$: $lt_compiler_flag:'`
-   (eval echo "\"\$as_me:21303: $lt_compile\"" >&5)
+   (eval echo "\"\$as_me:21255: $lt_compile\"" >&5)
    (eval "$lt_compile" 2>conftest.err)
    ac_status=$?
    cat conftest.err >&5
-   echo "$as_me:21307: \$? = $ac_status" >&5
+   echo "$as_me:21259: \$? = $ac_status" >&5
    if (exit $ac_status) && test -s "$ac_outfile"; then
      # The compiler can only warn and ignore the option if not recognized
      # So say no if there are warnings other than the usual output.
@@ -21590,11 +21542,11 @@ else
    -e 's:.*FLAGS}\{0,1\} :&$lt_compiler_flag :; t' \
    -e 's: [^ ]*conftest\.: $lt_compiler_flag&:; t' \
    -e 's:$: $lt_compiler_flag:'`
-   (eval echo "\"\$as_me:21593: $lt_compile\"" >&5)
+   (eval echo "\"\$as_me:21545: $lt_compile\"" >&5)
    (eval "$lt_compile" 2>conftest.err)
    ac_status=$?
    cat conftest.err >&5
-   echo "$as_me:21597: \$? = $ac_status" >&5
+   echo "$as_me:21549: \$? = $ac_status" >&5
    if (exit $ac_status) && test -s "$ac_outfile"; then
      # The compiler can only warn and ignore the option if not recognized
      # So say no if there are warnings other than the usual output.
@@ -21694,11 +21646,11 @@ else
    -e 's:.*FLAGS}\{0,1\} :&$lt_compiler_flag :; t' \
    -e 's: [^ ]*conftest\.: $lt_compiler_flag&:; t' \
    -e 's:$: $lt_compiler_flag:'`
-   (eval echo "\"\$as_me:21697: $lt_compile\"" >&5)
+   (eval echo "\"\$as_me:21649: $lt_compile\"" >&5)
    (eval "$lt_compile" 2>out/conftest.err)
    ac_status=$?
    cat out/conftest.err >&5
-   echo "$as_me:21701: \$? = $ac_status" >&5
+   echo "$as_me:21653: \$? = $ac_status" >&5
    if (exit $ac_status) && test -s out/conftest2.$ac_objext
    then
      # The compiler can only warn and ignore the option if not recognized
@@ -33654,12 +33606,23 @@ else
   cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
 
+#ifdef HAVE_STDLIB_H
+#include <stdlib.h>
+#endif
+#ifdef HAVE_STRING_H
+#include <string.h>
+#endif
+#ifdef HAVE_STDIO_H
 #include <stdio.h>
+#endif
 #ifdef HAVE_SYS_TYPES_H
 #include <sys/types.h>
 #endif
 #ifdef HAVE_SYS_SOCKET_H
 #include <sys/socket.h>
+#endif
+#ifdef HAVE_SYS_SELECT_H
+#include <sys/select.h>
 #endif
 #ifdef HAVE_NETINET_IN_H
 #include <netinet/in.h>
@@ -33731,6 +33694,26 @@ int main(void) {
         exit(1);
     }
     sa_len = sizeof sa;
+    /* 1 second select timeout */
+    tv.tv_sec = 1;
+    tv.tv_usec = 0;
+    /* Set up fd set */
+    FD_ZERO(&fds);
+    FD_SET(listen_s, &fds);
+    /* Wait for socket to become readable */
+    rc = select(listen_s + 1, &fds, NULL, NULL, &tv);
+    if (rc < 0) {
+        perror("select");
+        exit(1);
+    }
+    if (rc == 0) {
+        fprintf(stderr, "Socket failed to become readable (timeout)\n");
+        exit(1);
+    }
+    if (!FD_ISSET(listen_s, &fds)) {
+        fprintf(stderr, "Socket failed to become readable (selected another fd)\n");
+        exit(1);
+    }
     connected_s = accept(listen_s, (struct sockaddr *)&sa, &sa_len);
     if (connected_s < 0) {
         perror("accept");

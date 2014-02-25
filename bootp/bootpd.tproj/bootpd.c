@@ -1999,7 +1999,7 @@ S_dispatch_packet(struct bootp * bp, int n, interface_t * if_p,
 	S_relay_packet((struct bootp *)(void *)S_rxpkt, n, if_p);
     }
 
-    if (verbose || debug) {
+    if (verbose) {
 	struct timeval now;
 	struct timeval result;
 

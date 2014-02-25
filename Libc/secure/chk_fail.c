@@ -28,6 +28,3 @@
 #include <stdlib.h>
 #include <TargetConditionals.h>
 
-__attribute__ ((visibility ("hidden")))
-int __chk_assert_no_overlap = 1;
-

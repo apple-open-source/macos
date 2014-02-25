@@ -3678,6 +3678,7 @@ _dispatch_mach_msg_invoke(dispatch_mach_msg_t dmsg)
 	_dispatch_client_callout4(dr->dm_handler_ctxt, reason, dmsg, err,
 			dr->dm_handler_func);
 	_dispatch_thread_setspecific(dispatch_queue_key, (dispatch_queue_t)dm);
+	_dispatch_introspection_queue_item_complete(dmsg);
 	dispatch_release(dmsg);
 }
 

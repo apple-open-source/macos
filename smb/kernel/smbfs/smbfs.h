@@ -40,10 +40,10 @@
 #include <netsmb/netbios.h>
 
 #define SMBFS_VERMAJ	2
-#define SMBFS_VERMIN	0000
+#define SMBFS_VERMIN	0100
 #define SMBFS_VERSION	(SMBFS_VERMAJ*100000 + SMBFS_VERMIN)
 #define	SMBFS_VFSNAME	"smbfs"
-#define SMBFS_LANMAN	"SMBFS 2.0.0"	/* Needs to match SMBFS_VERSION */
+#define SMBFS_LANMAN	"SMBFS 2.0.1"	/* Needs to match SMBFS_VERSION */
 #define SMBFS_NATIVEOS	"Mac OS X 10.9"	/* Needs to match current OS version major number only */
 #define SMBFS_SLASH_TONAME "/Volumes/0x2f"
 
@@ -194,8 +194,8 @@ struct smbfs_args {
 	guid_t		uuid;		/* The UUID of the user that mounted the volume */
 	mode_t 		file_mode;
 	mode_t 		dir_mode;
-	size_t		path_len;	/* Must be less than MAXPATHLEN and does not count the nuull byte */
-	char		*path;		/* The starting path they want to used with this mounted volume */
+	size_t		path_len;	/* Must be less than MAXPATHLEN and does not count the null byte */
+	char		*path;		/* The starting path they want to use with this mounted volume */
 	int32_t		unique_id_len;
 	unsigned char	*unique_id;	/* A set of bytes that uniquely identifies this volume */
 	char		*volume_name;

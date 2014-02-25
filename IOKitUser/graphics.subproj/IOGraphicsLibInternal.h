@@ -319,6 +319,49 @@ enum {
                                      | (kIODisplayDitherDefault << kIODisplayDitherYCbCr422Shift),
 };
 
+enum
+{
+    kDownStreamPortType      = 0x07,
+    kDownStreamPortTypeDP    = 0x00,
+    kDownStreamPortTypeVGA   = 0x01,
+    kDownStreamPortTypeDVI   = 0x02,
+    kDownStreamPortTypeHDMI  = 0x03,
+    kDownStreamPortTypeOther = 0x04,
+    kDownStreamPortTypeDPP   = 0x05,
+};
+
+struct DPCDPortDetailed
+{
+    uint8_t type;
+    uint8_t maxClock;
+    uint8_t maxDepth;
+    uint8_t pack;
+};
+typedef struct DPCDPortDetailed DPCDPortDetailed;
+
+enum
+{
+    kDownStreamPortPresent  = 0x01,
+    kDownStreamPortDetailed = 0x10,
+};
+
+struct DPCD
+{
+    uint8_t     revision;
+    uint8_t     maxLinkRate;
+    uint8_t     maxLaneCount;
+    uint8_t     maxDownSpread;
+    uint8_t     numReceiverVoltageCap;
+    uint8_t     downStreamPortPresent;
+    uint8_t     _resvA[0x80-0x06];
+    union
+    {
+      DPCDPortDetailed detailed[4];
+      uint8_t          type[16];
+    }                  downstreamPorts;
+};
+typedef struct DPCD DPCD;
+
 struct IOFBConnect
 {
     io_service_t                framebuffer;
@@ -371,7 +414,11 @@ struct IOFBConnect
     UInt64                      dualLinkCrossover;
     UInt32                      maxDisplayLinks;
     float                       nativeAspect;
-    IODisplayTimingRange *       fbRange;       // only during IODisplayInstallTimings()
+    // only during IODisplayInstallTimings()
+    IODisplayTimingRange *      fbRange;
+    CFDataRef                   dpcdData;
+    CFDataRef                   hdmiData;
+    //
     IODisplayScalerInformation * scalerInfo;    // only during IOFBBuildModeList()
     GTFTimingCurve              gtfCurves[2];
     UInt32                      numGTFCurves;

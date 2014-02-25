@@ -159,10 +159,11 @@ CFStringRef		gBundleDir = 0;
 CFURLRef			gIconURLRef = 0;
 CFStringRef		gIconDir = 0;
 CFMutableArrayRef	gVPNBundlesRef = 0;
+#if TARGET_OS_EMBEDDED
 io_connect_t		gIOPort;
+long				gSleepArgument = 0;
+#endif
 int					gSleeping;
-long				gSleepArgument;
-CFUserNotificationRef 	gSleepNotification;
 time_t				gSleptAt = -1;
 time_t				gWokeAt = -1;
 uint64_t			gWakeUpTime = 0;
@@ -194,6 +195,7 @@ TAILQ_HEAD(, service) 	service_head;
 static vproc_transaction_t gController_vt = NULL;		/* opaque handle used to track outstanding transactions, used by instant off */
 static int gDarkWake = 0;
 IOPMConnection      gIOconnection = NULL;
+IOPMConnectionMessageToken gSleepToken = 0;
 #endif
 static u_int32_t           gWaitForPrimaryService = 0;
 
@@ -329,6 +331,19 @@ int allow_dispose(struct service *serv)
 }
 
 
+static int change_sleep_state(Boolean sleep)
+{
+    if (sleep) {
+        gSleeping = 1;
+        time(&gSleptAt);
+        return will_sleep(0);
+    } else {
+        gSleeping = 0;
+        gWakeUpTime = mach_absolute_time();
+        return 0;
+    }
+}
+
 #if	!TARGET_OS_EMBEDDED
 
 #define DARKWAKE (kIOPMSystemPowerStateCapabilityCPU | kIOPMSystemPowerStateCapabilityNetwork | kIOPMSystemPowerStateCapabilityDisk)
@@ -342,52 +357,57 @@ void pm_ConnectionHandler(void *param, IOPMConnection connection, IOPMConnection
     /* On in GUI: Capabilities = 0x1f = CPU + Disk + Network + Graphics + Audio. */
     
     IOReturn                ret;
+    int                     delay = 0;
     
-    SCLog(TRUE, LOG_DEBUG, CFSTR("SCNC Controller: pm_ConnectionHandler capabilities = 0x%x."), capabilities);
+    SCLog(TRUE, LOG_DEBUG, CFSTR("SCNC Controller: pm_ConnectionHandler capabilities = 0x%x, sleeping = %d and DarkWake = %d."), capabilities, gSleeping, gDarkWake);
     if ( capabilities & kIOPMSystemPowerStateCapabilityCPU )
     {
         if ((capabilities & kIOPMSystemPowerStateCapabilityNetwork)){
-            /* wake from sleep or darkwake */
-            Boolean fullWake = FALSE, wasDarkWake = gDarkWake;
+            /* dark/full wake from sleep, full wake from dark wake, or dark wake from full wake */
+            Boolean fullWake = FALSE, wasDarkWake = gDarkWake, wasSleeping = gSleeping;
 
             if ((capabilities & NORMALWAKE) == NORMALWAKE) {
                 fullWake = true;
                 time(&gWokeAt); // set fullwake time for OS X
             }
 
-            gDarkWake = !fullWake;
+           	/* wake up to full/dark wake. */
+            if (gSleeping)
+                (void)change_sleep_state(false);
 
-            if (!wasDarkWake) {
-                // We are waking up from sleep to dark/full wake.
-
-                gSleeping = 0;
-                if (gSleepNotification) {
-                    CFUserNotificationCancel(gSleepNotification);
-                    CFRelease(gSleepNotification);
-                    gSleepNotification = 0;
-                }
-				
-                gWakeUpTime = mach_absolute_time();
-            }
-
+            /* Full wake from dark wake. */
             if (wasDarkWake && fullWake)
-            	wake_from_dark();
+                wake_from_dark();
 
-            wake_up(fullWake);
+            /* Full wake from sleep or dark wake.
+             * Note that there is nothing to do for full wake to dark wake.
+             */
+            gDarkWake = !fullWake;
+            if (wasSleeping || wasDarkWake)
+                wake_up(fullWake);
         }
     } else {
-        SCLog(TRUE, LOG_DEBUG, CFSTR("SCNC Controller: pm_ConnectionHandler going to sleep"));
-       /* sleep */
+
+        /* At this moment, the device is going to (full) sleep. The screen had
+         * turned dark. We need to disconnect VPN sessions if so configured but
+         * would not put up any dialog about disconnecting VPN sessions.
+         */
+
         if (0 != capabilities) {
             SCLog(TRUE, LOG_ERR, CFSTR("SCNC Controller: pm_ConnectionHandler capabilities=0x%x, should be 0"), capabilities);
         }
+
+        gDarkWake = 0;
+        delay = change_sleep_state(true);
+        SCLog(TRUE, LOG_DEBUG, CFSTR("SCNC Controller: pm_ConnectionHandler going to sleep, delay = %d."), delay);
     }
 
-    if ((ret = IOPMConnectionAcknowledgeEvent(connection, token)) != kIOReturnSuccess)
+    if (delay) {
+        gSleepToken = token;
+    } else if ((ret = IOPMConnectionAcknowledgeEvent(connection, token)) != kIOReturnSuccess)
         SCLog(TRUE, LOG_ERR, CFSTR("SCNC Controller: IOPMConnectionAcknowledgeEvent fails with error %d."), ret);
-    
+
     return;
-    
 }
 #endif
 
@@ -406,7 +426,6 @@ int init_things()
 {
     CFURLRef 		urlref, absurlref;
 	IONotificationPortRef	notify;
-    io_object_t			iterator;
     mach_timebase_info_data_t   timebaseInfo;
     CFStringRef         key = NULL, setup = NULL, entity = NULL;
     CFMutableArrayRef	keys = NULL, patterns = NULL;
@@ -426,7 +445,9 @@ int init_things()
 #endif
         NULL,
     };
-#if	!TARGET_OS_EMBEDDED
+#if	TARGET_OS_EMBEDDED
+    io_object_t			iterator;
+#else
     IOReturn ioret;
 #endif
 	
@@ -481,9 +502,9 @@ int init_things()
 	
 	/* setup power management callback  */
     gSleeping = 0;
-    gSleepNotification = 0;    
     gStopRls = 0;    
 
+#if	TARGET_OS_EMBEDDED
     gIOPort = IORegisterForSystemPower(0, &notify, iosleep_notifier, &iterator);
     if (gIOPort == 0) {
         SCLog(TRUE, LOG_ERR, CFSTR("SCNC Controller: IORegisterForSystemPower failed"));
@@ -493,7 +514,8 @@ int init_things()
     CFRunLoopAddSource(CFRunLoopGetCurrent(),
                        IONotificationPortGetRunLoopSource(notify),
                        kCFRunLoopDefaultMode);
-    
+#endif
+
 #if	!TARGET_OS_EMBEDDED
 
     ioret = IOPMConnectionCreate( CFSTR("VPN"), kIOPMSystemPowerStateCapabilityDisk 
@@ -692,49 +714,36 @@ fail:
 /* -----------------------------------------------------------------------------
 call back from power management
 ----------------------------------------------------------------------------- */
+#if	TARGET_OS_EMBEDDED
 static 
 void iosleep_notifier(void * x, io_service_t y, natural_t messageType, void *messageArgument)
 {
-    CFMutableDictionaryRef 	dict;
-    SInt32 			error;
     int 			delay;
 
     //printf("messageType %08lx, arg %08lx\n",(long unsigned int)messageType, (long unsigned int)messageArgument);
+    SCLog(TRUE, LOG_DEBUG, CFSTR("SCNC Controller: iosleep_notifier event %lx"), (long unsigned int)messageType);
     
     switch ( messageType ) {
     
         case kIOMessageSystemWillSleep:
-            gSleeping  = 1;	// time to sleep
-            gSleepArgument = (long)messageArgument;   
-            time(&gSleptAt);
+            SCLog(TRUE, LOG_DEBUG, CFSTR("SCNC Controller: iosleep_notifier kIOMessageSystemWillSleep, sleep arg %d"), (long)messageArgument);
+            /* On iOS devices, we should never put up any dialog to inform
+             * users of vpn session diconnection, but we'll delay the
+             * call to IOAllowPowerChange() to be after the disconnection.
+             */
              
-            delay = will_sleep(0);
+            delay = change_sleep_state(true);
             if (delay == 0)
                 IOAllowPowerChange(gIOPort, (long)messageArgument);
-            else {
-#if	!TARGET_OS_EMBEDDED
-                if (gDarkWake)      /* we are in dark wake, do not display error */
-                    break;
-#endif
-                if (delay & 2) {
-                    dict = CFDictionaryCreateMutable(NULL, 0, 
-                        &kCFCopyStringDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
-                    if (dict) {
-                        CFDictionaryAddValue(dict, kCFUserNotificationIconURLKey, gIconURLRef);
-                        CFDictionaryAddValue(dict, kCFUserNotificationLocalizationURLKey, gBundleURLRef);
-                        CFDictionaryAddValue(dict, kCFUserNotificationAlertHeaderKey, CFSTR("Network Connection"));
-                        CFDictionaryAddValue(dict, kCFUserNotificationAlertMessageKey, CFSTR("Waiting for disconnection"));
-                        gSleepNotification = CFUserNotificationCreate(NULL, 0, 
-                                            kCFUserNotificationNoteAlertLevel 
-                                            + kCFUserNotificationNoDefaultButtonFlag, &error, dict);
-						CFRelease(dict);
-                    }
-                }
-            }
+            else 
+                gSleepArgument = (long)messageArgument;   	// save event context for IOAllowPowerChange() later.
             break;
 
         case kIOMessageCanSystemSleep:
-            if (can_sleep()) 
+            
+            SCLog(TRUE, LOG_DEBUG, CFSTR("SCNC Controller: iosleep_notifier kIOMessageCanSystemSleep"));
+
+            if (can_sleep())
                 IOAllowPowerChange(gIOPort, (long)messageArgument);
             else
                 IOCancelPowerChange(gIOPort, (long)messageArgument);
@@ -746,30 +755,19 @@ void iosleep_notifier(void * x, io_service_t y, natural_t messageType, void *mes
             break;
 			
         case kIOMessageSystemWillPowerOn:
-#if TARGET_OS_EMBEDDED
-			gSleeping = 0; // time to wakeup
-			gWakeUpTime = mach_absolute_time();
-            if (gSleepNotification) {
-                CFUserNotificationCancel(gSleepNotification);
-                CFRelease(gSleepNotification);
-                gSleepNotification = 0;
-            }
-#else
+            (void)change_sleep_state(false);
             SCLog(TRUE, LOG_DEBUG, CFSTR("SCNC Controller: iosleep_notifier kIOMessageSystemWillPowerOn"));
-#endif
             break;
             
         case kIOMessageSystemHasPoweredOn:
-#if TARGET_OS_EMBEDDED
             time(&gWokeAt);
             wake_up(TRUE);
-#else
             SCLog(TRUE, LOG_DEBUG, CFSTR("SCNC Controller: iosleep_notifier kIOMessageSystemHasPoweredOn"));
-#endif
             break;
     }
-    
 }
+#else
+#endif
 
 void do_network_signature_changed()
 {
@@ -1152,16 +1150,30 @@ system is allowed to sleep now
 ----------------------------------------------------------------------------- */
 int allow_sleep()
 {
+	int rc = 0;
+
+	SCLog(TRUE, LOG_DEBUG, CFSTR("SCNC Controller: allow_sleep, sleeping %d"), gSleeping);
+
 	if (gSleeping && !will_sleep(1)) {
-        if (gSleepNotification) {
-            CFUserNotificationCancel(gSleepNotification);
-            CFRelease(gSleepNotification);
-            gSleepNotification = 0;
-        }
-        IOAllowPowerChange(gIOPort, gSleepArgument);
-		return 1;
-    }
-	return 0;
+#if	TARGET_OS_EMBEDDED
+		SCLog(TRUE, LOG_DEBUG, CFSTR("SCNC Controller: can sleep now, sleep arg %d."), gSleepArgument);
+		if (gSleepArgument) {
+			IOAllowPowerChange(gIOPort, gSleepArgument);
+			gSleepArgument = 0;
+		}
+#else
+		SCLog(TRUE, LOG_DEBUG, CFSTR("SCNC Controller: can sleep now, sleep token %d."), gSleepToken);
+		if (gSleepToken) {
+			IOReturn ret;
+			ret = IOPMConnectionAcknowledgeEvent(gIOconnection, gSleepToken);
+			gSleepToken = 0;
+			if (ret != kIOReturnSuccess)
+				SCLog(TRUE, LOG_ERR, CFSTR("SCNC Controller: allow_sleep fails with error %d."), ret);
+		}
+#endif
+		rc = 1;
+	}
+	return (rc);
 }
 
 #if	!TARGET_OS_EMBEDDED

@@ -878,7 +878,7 @@ static int odusers_rename(Operation *op, SlapReply *rs) {
 	m->sml_flags = 0;
 	m->sml_type = draftkrbAD->ad_cname;
 	m->sml_values = (struct berval*) ch_malloc(2 * sizeof(struct berval));
-	m->sml_values[0].bv_val = princname;
+	m->sml_values[0].bv_val = ch_strdup(princname);
 	m->sml_values[0].bv_len = strlen(princname);
 	m->sml_values[1].bv_val = NULL;
 	m->sml_values[1].bv_len = 0;
@@ -932,31 +932,30 @@ static int odusers_rename(Operation *op, SlapReply *rs) {
 	userm->sml_numvals = i;
 	userm->sml_nvalues = NULL;
 	userm->sml_desc = aaAD;
-	userm->sml_next = (Modifications *) ch_malloc(sizeof(Modifications));
-	userm = userm->sml_next;
+	userm->sml_next = NULL;
 
 	altsec = attrs_find(usere->e_attrs, altsecAD);
-	if(!altsec) {
-		Debug(LDAP_DEBUG_ANY, "%s: User has no altsecidentity: %s\n", __func__, op->o_req_dn.bv_val, 0);
-		goto out;
-	}
-	userm->sml_op = LDAP_MOD_REPLACE;
-	userm->sml_flags = 0;
-	userm->sml_type = altsecAD->ad_cname;
-	userm->sml_values = (struct berval*) ch_malloc((altsec->a_numvals+1) * sizeof(struct berval));
-	for(i = 0; i < altsec->a_numvals; i++) {
-		if(strnstr(altsec->a_vals[i].bv_val, oldprincname, altsec->a_vals[i].bv_len) != NULL) {
-			userm->sml_values[i].bv_len = asprintf(&userm->sml_values[i].bv_val, "Kerberos:%s", princname);
-		} else {
-			ber_dupbv(&userm->sml_values[i], &altsec->a_vals[i]);
+	if(altsec) {
+		userm->sml_next = (Modifications *) ch_malloc(sizeof(Modifications));
+		userm = userm->sml_next;
+		userm->sml_op = LDAP_MOD_REPLACE;
+		userm->sml_flags = 0;
+		userm->sml_type = altsecAD->ad_cname;
+		userm->sml_values = (struct berval*) ch_malloc((altsec->a_numvals+1) * sizeof(struct berval));
+		for(i = 0; i < altsec->a_numvals; i++) {
+			if(strnstr(altsec->a_vals[i].bv_val, oldprincname, altsec->a_vals[i].bv_len) != NULL) {
+				userm->sml_values[i].bv_len = asprintf(&userm->sml_values[i].bv_val, "Kerberos:%s", princname);
+			} else {
+				ber_dupbv(&userm->sml_values[i], &altsec->a_vals[i]);
+			}
 		}
+		userm->sml_values[i].bv_val = NULL;
+		userm->sml_values[i].bv_len = 0;
+		userm->sml_numvals = i;
+		userm->sml_nvalues = NULL;
+		userm->sml_desc = altsecAD;
+		userm->sml_next = NULL;
 	}
-	userm->sml_values[i].bv_val = NULL;
-	userm->sml_values[i].bv_len = 0;
-	userm->sml_numvals = i;
-	userm->sml_nvalues = NULL;
-	userm->sml_desc = altsecAD;
-	userm->sml_next = NULL;
 
 	bool isldapi = false;
 	if((op->o_conn->c_listener->sl_url.bv_len == strlen("ldapi://%2Fvar%2Frun%2Fldapi")) && (strncmp(op->o_conn->c_listener->sl_url.bv_val, "ldapi://%2Fvar%2Frun%2Fldapi", op->o_conn->c_listener->sl_url.bv_len) == 0)) {
@@ -999,6 +998,7 @@ out:
 	if(m) slap_mods_free(fakeop->orm_modlist, 1);
 	if(userm) slap_mods_free(userfakeop->orm_modlist, 1);
 	if(realmname) free(realmname);
+	if(princname) free(princname);
 	if(oldprincname) free(oldprincname);
 	if(oldname) free(oldname);
 

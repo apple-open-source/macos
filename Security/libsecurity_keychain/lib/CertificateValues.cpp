@@ -141,7 +141,7 @@ CFDictionaryRef CertificateValues::copyFieldValues(CFArrayRef keys, CFErrorRef *
 	}
 
 	// These can exist in the subject alt name or in the subject
-	CFArrayRef dnsNames=SecCertificateCopyDNSNames(certificateP);
+	CFArrayRef dnsNames=SecCertificateCopyDNSNamesP(certificateP);
 	if (dnsNames)
 	{
 		CFMutableArrayRef additionalValues = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks);

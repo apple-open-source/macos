@@ -238,6 +238,7 @@ enum
 //  kIOMirrorForced        = 0x00000002,
     kIOGPlatformYCbCr      = 0x00000004,
 //  kIOMirrorHint          = 0x00010000,
+    kIOMirrorNoAutoHDMI    = 0x00000010,
 };
 
 // values for displayOnline options

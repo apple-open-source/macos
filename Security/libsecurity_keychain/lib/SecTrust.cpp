@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2010,2012 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2002-2010,2012-2013 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -27,8 +27,11 @@
 #include <security_keychain/SecTrustSettingsPriv.h>
 #include "SecBridge.h"
 #include "SecInternal.h"
+#include "SecInternalP.h"
 #include "SecTrustSettings.h"
 #include "SecCertificatePriv.h"
+#include "SecCertificateP.h"
+#include "SecCertificatePrivP.h"
 #include <security_utilities/cfutilities.h>
 #include <security_utilities/cfmunge.h>
 #include <CoreFoundation/CoreFoundation.h>
@@ -170,7 +173,6 @@ CFAbsoluteTime SecTrustGetVerifyTime(SecTrustRef trust)
 	catch (...) { __secapiresult=errSecInternalComponent; }
 	return verifyTime;
 }
-
 
 
 OSStatus SecTrustEvaluate(SecTrustRef trust, SecTrustResultType *resultP)

@@ -3,9 +3,8 @@
 # Script to make a CUPS root compatible with the darwinup command.  Standard
 # instructions for people getting these roots are:
 #
-#    sudo echo LogLevel debug >>/etc/cups/cupsd.conf
 #    sudo darwinup install ~/Desktop/Shared_cups-NNNNNNNN_DSTROOT_osx.tar.gz
-#    sudo killall cupsd
+#    cupsctl --debug-logging
 #
 # Usage:
 #
@@ -22,6 +21,5 @@ echo "Send ~/Desktop/Shared_cups-$1_DSTROOT_osx.tar.gz to tester."
 echo ""
 echo "Commands for tester to run:"
 echo ""
-echo "  sudo echo LogLevel debug >>/etc/cups/cupsd.conf"
 echo "  sudo darwinup install ~/Desktop/Shared_cups-$1_DSTROOT_osx.tar.gz"
-echo "  sudo killall cupsd"
+echo "  cupsctl --debug-logging"

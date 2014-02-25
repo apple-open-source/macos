@@ -73,7 +73,7 @@ static SOSCCAccountDataSourceFactoryBlock accountDataSourceOverride = NULL;
 bool SOSKeychainAccountSetFactoryForAccount(SOSCCAccountDataSourceFactoryBlock block)
 {
     accountDataSourceOverride = Block_copy(block);
-    
+
     return true;
 }
 
@@ -170,17 +170,17 @@ static const uint8_t* ccder_decode_bool(bool* boolean, const uint8_t* der, const
 {
     if (NULL == der)
         return NULL;
-    
+
     size_t payload_size = 0;
     const uint8_t *payload = ccder_decode_tl(CCDER_BOOLEAN, &payload_size, der, der_end);
-    
+
     if (NULL == payload || (der_end - payload) < 1 || payload_size != 1) {
         return NULL;
     }
-    
+
     if (boolean)
         *boolean = (*payload != 0);
-    
+
     return payload + payload_size;
 }
 
@@ -189,19 +189,19 @@ bool SOSCCCircleIsOn_Artifact(void) {
     CFDataRef accountStatus = (CFDataRef) CFPropertyListReadFromFile(accountStatusFileURL);
     CFReleaseSafe(accountStatusFileURL);
     bool circle_on = false;
-    
+
     if (accountStatus && !isData(accountStatus)) {
         CFReleaseNull(accountStatus);
     } else if(accountStatus) {
         size_t size = CFDataGetLength(accountStatus);
         const uint8_t *der = CFDataGetBytePtr(accountStatus);
         const uint8_t *der_p = der;
-        
+
         const uint8_t *sequence_end;
         der_p = ccder_decode_constructed_tl(CCDER_CONSTRUCTED_SEQUENCE, &sequence_end, der_p, der_p + size);
         der_p = ccder_decode_bool(&circle_on, der_p, sequence_end);
     } else {
-        
+
     }
     return circle_on;
 }
@@ -216,7 +216,7 @@ static size_t ccder_sizeof_bool(bool value __unused, CFErrorRef *error)
 static uint8_t* ccder_encode_bool(bool value, const uint8_t *der, uint8_t *der_end)
 {
     uint8_t value_byte = value;
-    
+
     return ccder_encode_tl(CCDER_BOOLEAN, 1, der,
                            ccder_encode_body(1, &value_byte, der, der_end));
 }
@@ -231,47 +231,62 @@ static void SOSCCCircleIsOn_SetArtifact(bool account_on) {
                                            ccder_encode_bool(account_on, der, der_end));
 
     CFDataRef accountStatusAsData = CFDataCreate(kCFAllocatorDefault, der_end, der_size);
-    
+
     require_quiet(accountStatusAsData, exit);
     if (sLastSavedAccountStatus && CFEqual(sLastSavedAccountStatus, accountStatusAsData))  goto exit;
-    
+
     CFURLRef accountStatusFileURL = SecCopyURLForFileInKeychainDirectory(accountStatusFileName);
     CFPropertyListWriteToFile((CFPropertyListRef) accountStatusAsData, accountStatusFileURL);
     CFReleaseSafe(accountStatusFileURL);
-    
+
     CFReleaseNull(sLastSavedAccountStatus);
     sLastSavedAccountStatus = accountStatusAsData;
     accountStatusAsData = NULL;
-    
+
 exit:
     CFReleaseNull(saveError);
     CFReleaseNull(accountStatusAsData);
 }
 
+static void SOSCCCircleIsOn_UpdateArtifact(SOSCCStatus status)
+{
+	switch (status) {
+		case kSOSCCCircleAbsent:
+		case kSOSCCNotInCircle:
+			SOSCCCircleIsOn_SetArtifact(false);
+			break;
+		case kSOSCCInCircle:
+		case kSOSCCRequestPending:
+			SOSCCCircleIsOn_SetArtifact(true);
+			break;
+		case kSOSCCError:
+		default:
+			// do nothing
+			break;
+	}
+}
 
 static void SOSKeychainAccountEnsureSaved(SOSAccountRef account)
 {
     static CFDataRef sLastSavedAccountData = NULL;
-    
+
     CFErrorRef saveError = NULL;
-    SOSCCStatus currentStatus = SOSAccountIsInCircles(account, NULL);
-    bool account_on = (currentStatus == kSOSCCCircleAbsent || currentStatus == kSOSCCNotInCircle) ? false: true;
-    SOSCCCircleIsOn_SetArtifact(account_on);
-    
+	SOSCCCircleIsOn_UpdateArtifact(SOSAccountIsInCircles(account, NULL));
+
     CFDataRef accountAsData = SOSAccountCopyEncodedData(account, kCFAllocatorDefault, &saveError);
-    
+
     require_action_quiet(accountAsData, exit, secerror("Failed to transform account into data, error: %@", saveError));
     require_quiet(!CFEqualSafe(sLastSavedAccountData, accountAsData), exit);
-    
+
     if (!SOSItemUpdateOrAdd(kSOSAccountLabel, kSecAttrAccessibleAlwaysThisDeviceOnly, accountAsData, &saveError)) {
         secerror("Can't save account: %@", saveError);
         goto exit;
     }
-    
+
     CFReleaseNull(sLastSavedAccountData);
     sLastSavedAccountData = accountAsData;
     accountAsData = NULL;
-    
+
 exit:
     CFReleaseNull(saveError);
     CFReleaseNull(accountAsData);
@@ -331,7 +346,7 @@ static SOSAccountRef SOSKeychainAccountCreateSharedAccount(CFDictionaryRef our_g
 
         CFReleaseNull(error);
     };
-    
+
     SOSAccountDataUpdateBlock updateKVS = ^ bool (CFDictionaryRef changes, CFErrorRef *error) {
         SOSCloudKeychainPutObjectsInCloud(changes, dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), log_error);
 
@@ -343,20 +358,20 @@ static SOSAccountRef SOSKeychainAccountCreateSharedAccount(CFDictionaryRef our_g
     };
 
     secdebug("account", "Created account");
-        
+
     CFDataRef savedAccount = SOSKeychainCopySavedAccountData();
-    
+
     // At this point we might have an account structure from keychain that may or may not match the account we're building this for
     // murf ZZZ we should probably make sure this is a good thing before using it.
 
     SOSAccountRef account = NULL;
-    
+
     if (savedAccount) {
         CFErrorRef inflationError = NULL;
         SOSDataSourceFactoryRef factory = accountDataSourceOverride ? accountDataSourceOverride() : SecItemDataSourceFactoryCreateDefault();
 
         account = SOSAccountCreateFromData(kCFAllocatorDefault, savedAccount, factory, updateKVSKeys, updateKVS, &inflationError);
-        
+
         if (account)
             SOSAccountUpdateGestalt(account, our_gestalt);
         else
@@ -365,7 +380,7 @@ static SOSAccountRef SOSKeychainAccountCreateSharedAccount(CFDictionaryRef our_g
     }
 
     CFReleaseSafe(savedAccount);
-    
+
     if (!account) {
 		// If we get here then we are creating a new accout and so increment the peer count for ourselves.
         SOSDataSourceFactoryRef factory = accountDataSourceOverride ? accountDataSourceOverride() : SecItemDataSourceFactoryCreateDefault();
@@ -467,12 +482,12 @@ static void do_with_account_async(void (^action)(SOSAccountRef account));
 static void do_with_account_dynamic(void (^action)(SOSAccountRef account), bool sync) {
     static SOSAccountRef sSharedAccount;
     static dispatch_once_t onceToken;
-    
+
     dispatch_once(&onceToken, ^{
         secdebug(SOSCKCSCOPE, "Account Creation start");
-        
+
         CFDictionaryRef gestalt = RegisterForGestaltUpdate(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), NULL);
-        
+
         if (!gestalt) {
 #if TARGET_OS_IPHONE && TARGET_IPHONE_SIMULATOR
             gestalt = CFDictionaryCreateForCFTypes(kCFAllocatorDefault, NULL);
@@ -484,9 +499,9 @@ static void do_with_account_dynamic(void (^action)(SOSAccountRef account), bool 
         sSharedAccount = SOSKeychainAccountCreateSharedAccount(gestalt);
 
         CFReleaseSafe(gestalt);
-        
+
         SOSCCSetThisDeviceDefinitelyNotActiveInCircle(SOSAccountIsInCircles(sSharedAccount, NULL));
-        
+
         SOSAccountAddChangeBlock(sSharedAccount, ^(SOSCircleRef circle,
                                                    CFArrayRef peer_additions,      CFArrayRef peer_removals,
                                                    CFArrayRef applicant_additions, CFArrayRef applicant_removals) {
@@ -497,7 +512,7 @@ static void do_with_account_dynamic(void (^action)(SOSAccountRef account), bool 
                 CFReleaseNull(pi_error);
             } else {
                 CFReleaseSafe(pi_error);
-                
+
                 if (CFArrayContainsValue(peer_additions, CFRangeMake(0, CFArrayGetCount(peer_additions)), me)) {
                     SOSCCSyncWithAllPeers();
                 }
@@ -507,19 +522,19 @@ static void do_with_account_dynamic(void (^action)(SOSAccountRef account), bool 
                 CFArrayGetCount(peer_removals) != 0 ||
                 CFArrayGetCount(applicant_additions) != 0 ||
                 CFArrayGetCount(applicant_removals) != 0) {
-                
+
                 SOSCCSetThisDeviceDefinitelyNotActiveInCircle(SOSAccountIsInCircles(sSharedAccount, NULL));
                 notify_post(kSOSCCCircleChangedNotification);
            }
         });
-        
+
         SOSCloudKeychainSetItemsChangedBlock(^(CFDictionaryRef changes) {
             CFRetainSafe(changes);
             do_with_account_async(^(SOSAccountRef account) {
                 CFStringRef changeDescription = SOSChangesCopyDescription(changes, false);
                 secdebug(SOSCKCSCOPE, "Received: %@", changeDescription);
                 CFReleaseSafe(changeDescription);
-                
+
                 CFErrorRef error = NULL;
                 if (!SOSAccountHandleUpdates(account, changes, &error)) {
                     secerror("Error handling updates: %@", error);
@@ -532,7 +547,7 @@ static void do_with_account_dynamic(void (^action)(SOSAccountRef account), bool 
         });
 
     });
-    
+
     dispatch_block_t do_action_and_save =  ^{
         action(sSharedAccount);
         SOSKeychainAccountEnsureSaved(sSharedAccount);
@@ -600,11 +615,11 @@ static bool do_with_account_while_unlocked(CFErrorRef *error, bool (^action)(SOS
 SOSAccountRef SOSKeychainAccountGetSharedAccount()
 {
     __block SOSAccountRef result = NULL;
-    
+
     do_with_account(^(SOSAccountRef account) {
         result = account;
     });
-    
+
     return result;
 }
 
@@ -624,19 +639,19 @@ bool SOSCCTryUserCredentials_Server(CFStringRef user_label, CFDataRef user_passw
 static bool EnsureFreshParameters(SOSAccountRef account, CFErrorRef *error) {
     dispatch_semaphore_t wait_for = dispatch_semaphore_create(0);
     dispatch_retain(wait_for); // Both this scope and the block own it.
-    
+
     CFMutableArrayRef keysToGet = CFArrayCreateMutableForCFTypes(kCFAllocatorDefault);
     CFArrayAppendValue(keysToGet, kSOSKVSKeyParametersKey);
-    
+
     __block CFDictionaryRef valuesToUpdate = NULL;
     __block bool success = false;
-    
+
     SOSAccountForEachCircle(account, ^(SOSCircleRef circle) {
         CFStringRef circle_key = SOSCircleKeyCreateWithName(SOSCircleGetName(circle), NULL);
         CFArrayAppendValue(keysToGet, circle_key);
         CFReleaseNull(circle_key);
     });
-    
+
     secnotice("updates", "***** EnsureFreshParameters *****");
 
     SOSCloudKeychainSynchronizeAndWait(keysToGet, dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^(CFDictionaryRef returnedValues, CFErrorRef sync_error) {
@@ -653,7 +668,7 @@ static bool EnsureFreshParameters(SOSAccountRef account, CFErrorRef *error) {
             CFRetainSafe(valuesToUpdate);
             success = true;
         }
-        
+
         dispatch_semaphore_signal(wait_for);
         dispatch_release(wait_for);
     });
@@ -661,11 +676,11 @@ static bool EnsureFreshParameters(SOSAccountRef account, CFErrorRef *error) {
     dispatch_semaphore_wait(wait_for, DISPATCH_TIME_FOREVER);
     // TODO: Maybe we timeout here... used to dispatch_time(DISPATCH_TIME_NOW, 30ull * NSEC_PER_SEC));
     dispatch_release(wait_for);
-    
+
     if ((valuesToUpdate) && (account)) {
         if (!SOSAccountHandleUpdates(account, valuesToUpdate, error)) {
             secerror("Freshness update failed: %@", *error);
-            
+
             success = false;
         }
     }
@@ -687,7 +702,7 @@ static bool EnsureFreshParameters_once(SOSAccountRef account, CFErrorRef *error)
 
 bool SOSCCSetUserCredentials_Server(CFStringRef user_label, CFDataRef user_password, CFErrorRef *error)
 {
-    return do_with_account_if_after_first_unlock(error, ^bool (SOSAccountRef account, CFErrorRef* block_error) {        
+    return do_with_account_if_after_first_unlock(error, ^bool (SOSAccountRef account, CFErrorRef* block_error) {
         if (!EnsureFreshParameters(account, block_error)) {
             secnotice("updates", "EnsureFreshParameters error: %@", *block_error);
             return false;
@@ -707,7 +722,7 @@ bool SOSCCCanAuthenticate_Server(CFErrorRef *error)
     bool result = do_with_account_if_after_first_unlock(error, ^bool (SOSAccountRef account, CFErrorRef* block_error) {
         return SOSAccountGetPrivateCredential(account, block_error) != NULL;
     });
-    
+
     if (!result && error && *error && CFErrorGetDomain(*error) == kSOSErrorDomain) {
         CFIndex code = CFErrorGetCode(*error);
         if (code == kSOSErrorPrivateKeyAbsent || code == kSOSErrorPublicKeyAbsent) {
@@ -742,7 +757,7 @@ static void do_with_not_in_circle_bool_queue(bool start_account, dispatch_block_
         account_start_queue = dispatch_queue_create("init nis queue", DISPATCH_QUEUE_SERIAL);;
         account_started = false;
     });
-    
+
     __block bool done = false;
     dispatch_sync(not_in_circle_queue, ^{
         if (account_started) {
@@ -750,7 +765,7 @@ static void do_with_not_in_circle_bool_queue(bool start_account, dispatch_block_
             action();
         }
     });
-    
+
     if (!done && start_account) {
         dispatch_sync(account_start_queue, ^{
             __block bool do_start = false;
@@ -775,15 +790,14 @@ bool SOSCCThisDeviceDefinitelyNotActiveInCircle()
     do_with_not_in_circle_bool_queue(true, ^{
         result = sAccountInCircleCache;
     });
-    
+
     return result;
 #endif
 }
 
 void SOSCCSetThisDeviceDefinitelyNotActiveInCircle(SOSCCStatus currentStatus)
 {
-    bool active = !(currentStatus == kSOSCCCircleAbsent || currentStatus == kSOSCCNotInCircle);
-    SOSCCCircleIsOn_SetArtifact(active);
+    SOSCCCircleIsOn_UpdateArtifact(currentStatus);
 #if USE_BETTER
     do_with_not_in_circle_bool_queue(false, ^{
         sAccountInCircleCache = notActive;
@@ -795,7 +809,7 @@ void SOSCCSetThisDeviceDefinitelyNotActiveInCircle(SOSCCStatus currentStatus)
 SOSCCStatus SOSCCThisDeviceIsInCircle_Server(CFErrorRef *error)
 {
     __block SOSCCStatus status;
-    
+
     return do_with_account_if_after_first_unlock(error, ^bool (SOSAccountRef account, CFErrorRef* block_error) {
         EnsureFreshParameters_once(account, NULL);
         status = SOSAccountIsInCircles(account, block_error);
@@ -859,7 +873,7 @@ CFArrayRef SOSCCCopyApplicantPeerInfo_Server(CFErrorRef* error)
         result = SOSAccountCopyApplicants(account, block_error);
         return result != NULL;
     });
-    
+
     return result;
 }
 
@@ -883,52 +897,52 @@ bool SOSCCRejectApplicants_Server(CFArrayRef applicants, CFErrorRef* error)
 CFArrayRef SOSCCCopyPeerPeerInfo_Server(CFErrorRef* error)
 {
     __block CFArrayRef result = NULL;
-    
+
     (void) do_with_account_if_after_first_unlock(error, ^bool (SOSAccountRef account, CFErrorRef* block_error) {
         EnsureFreshParameters_once(account, NULL);
         result = SOSAccountCopyPeers(account, block_error);
         return result != NULL;
     });
-    
+
     return result;
 }
 
 CFArrayRef SOSCCCopyConcurringPeerPeerInfo_Server(CFErrorRef* error)
 {
     __block CFArrayRef result = NULL;
-    
+
     (void) do_with_account_if_after_first_unlock(error, ^bool (SOSAccountRef account, CFErrorRef* block_error) {
         EnsureFreshParameters_once(account, NULL);
         result = SOSAccountCopyConcurringPeers(account, block_error);
         return result != NULL;
     });
-    
+
     return result;
 }
 
 CFStringRef SOSCCCopyIncompatibilityInfo_Server(CFErrorRef* error)
 {
     __block CFStringRef result = NULL;
-    
+
     (void) do_with_account_if_after_first_unlock(error, ^bool (SOSAccountRef account, CFErrorRef* block_error) {
         EnsureFreshParameters_once(account, NULL);
         result = SOSAccountCopyIncompatibilityInfo(account, block_error);
         return result != NULL;
     });
-    
+
     return result;
 }
 
 enum DepartureReason SOSCCGetLastDepartureReason_Server(CFErrorRef* error)
 {
     __block enum DepartureReason result = kSOSDepartureReasonError;
-    
+
     (void) do_with_account_if_after_first_unlock(error, ^bool (SOSAccountRef account, CFErrorRef* block_error) {
         EnsureFreshParameters_once(account, NULL);
         result = SOSAccountGetLastDepartureReason(account, block_error);
         return result != kSOSDepartureReasonError;
     });
-    
+
     return result;
 }
 

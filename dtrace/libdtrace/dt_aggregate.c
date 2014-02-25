@@ -224,7 +224,7 @@ dt_aggregate_llquantizedsum(int64_t *llquanta)
 		int16_t factor  = DTRACE_LLQUANTIZE_FACTOR(arg);
 		int16_t low     = DTRACE_LLQUANTIZE_LOW(arg);
 		int16_t high    = DTRACE_LLQUANTIZE_HIGH(arg);
-		int16_t nsteps  = DTRACE_LLQUANTIZE_NSTEPS(arg);
+		int16_t nsteps  = DTRACE_LLQUANTIZE_NSTEP(arg);
 		int64_t value = 1, next, step;
 		int bin = 0, order;
 		long double total;

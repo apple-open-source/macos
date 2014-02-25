@@ -40,6 +40,7 @@
 #include <vproc.h>
 #include <sys/mman.h>     /* mmap */
 #include <signal.h>
+#include <sys/stat.h>
 
 /*
  * Defines used by the leapseconds stuff
@@ -193,47 +194,17 @@ init_util(void)
 #include <mach/mach_port.h>
 #include <mach/mach_interface.h>
 #include <mach/mach_init.h>
-#include <IOKit/pwr_mgt/IOPMLib.h>
-#include <IOKit/pwr_mgt/IOPM.h>
-
-static io_connect_t getFB(void) {
-	static io_connect_t fb;
-	if (!fb) {
-		fb = IOPMFindPowerManagement(kIOMasterPortDefault);
-	}
-   return fb;
-}
-
-static unsigned long energy_saving(void) {
-	IOReturn err;
-	unsigned long min = 99;
-	io_connect_t fb = getFB();
-
-	if (fb) {
-		err = IOPMGetAggressiveness( fb, kPMMinutesToSleep, &min);
-		if (err == kIOReturnSuccess) {
-			if (min > 0) {
-				return min;
-			} else {
-				err = IOPMGetAggressiveness( fb, kPMMinutesToSpinDown, &min);
-				if (err == kIOReturnSuccess) {
-					return min;
-				}
-			}
-		}
-	}
-	return 0;
-}
 
 int
 save_drift_file(
 	)
 {
 	FILE *fp;
-	int rc = true;
+	int rc = TRUE;
 #if !TARGET_OS_EMBEDDED
 	vproc_transaction_t vt;
 #endif
+    struct stat statbuf;
 	static off_t stats_size = 0;
 	sigset_t sigterm, oset;
 
@@ -243,11 +214,11 @@ save_drift_file(
 #if !TARGET_OS_EMBEDDED
 	vt = vproc_transaction_begin(NULL);
 #endif
-	if (stats_drift_file != 0 && (!drift_exists || !energy_saving())) {
+	if (stat(stats_drift_file, &statbuf) == -1) {
 		if ((fp = fopen(stats_temp_file, "w")) == NULL) {
 			msyslog(LOG_ERR, "can't open %s: %m",
 			    stats_temp_file);
-			rc = false;
+			rc = FALSE;
 			goto done;
 		}
 		stats_size = fprintf(fp, "%.3f\n", drift_comp * 1e6);
@@ -264,7 +235,7 @@ save_drift_file(
 		if ((fp = fopen(stats_drift_file, "w")) == NULL) {
 			msyslog(LOG_ERR, "can't open %s: %m",
 			    stats_drift_file);
-			rc = false;
+			rc = FALSE;
 		}
 
 #endif
@@ -289,12 +260,18 @@ save_drift_file(
 				if (mmap_addr == MAP_FAILED) {
 					msyslog(LOG_ERR, "can't mmap %s: %m", stats_drift_file);
 					mmap_addr = 0;
-					rc = false;
-				}
-				close(fd);
+					rc = FALSE;
+				} else {
+                    off_t n = snprintf(mmap_addr, getpagesize(), "%.3f\n", drift_comp * 1e6);
+                    if (n != stats_size) {
+                        truncate(stats_drift_file, n);
+                        stats_size = n;
+                    }
+                }
+                close(fd);
 			} else {
 				msyslog(LOG_ERR, "can't open %s: %m", stats_drift_file);
-				rc = false;
+				rc = FALSE;
 			}
 		} else {
 			off_t n = snprintf(mmap_addr, getpagesize(), "%.3f\n", drift_comp * 1e6);
@@ -439,7 +416,7 @@ write_stats(void)
 			}
 #endif
 		} else if (drift_comp != 0.0) {
-            save_drift_file(); /* for pacemaker */
+			save_drift_file(); /* for pacemaker */
 			/* XXX: Log a message at INFO level */
 		}
 	}
@@ -1234,32 +1211,4 @@ char * fstostr(
 		strcpy(str, "gmtime() error");
 
 	return str;
-}
-
-#define kMaxUUIDLen 37
-
-/* Did we wake up since last check? Use SL API */
-/* for Leopard could trigger off changes to kern.waketime */
-int awoke(void)
-{
-    static char sleepwakeuuid[kMaxUUIDLen];
-    int rc = 0;
-    io_service_t service = IORegistryEntryFromPath(kIOMasterPortDefault, 
-						   kIOPowerPlane ":/IOPowerConnection/IOPMrootDomain");
-    CFStringRef uuidString = IORegistryEntryCreateCFProperty(
-	    service,
-	    CFSTR(kIOPMSleepWakeUUIDKey),
-	    kCFAllocatorDefault, 0);
-    if (uuidString) {
-	    char newuuid[kMaxUUIDLen];
-	    CFStringGetCString(uuidString, newuuid, sizeof(newuuid), 
-			       kCFStringEncodingUTF8);
-	    rc = strncasecmp(newuuid, sleepwakeuuid, sizeof(newuuid));
-	    if (rc) {
-		    strlcpy(sleepwakeuuid, newuuid, sizeof(sleepwakeuuid));
-	    }
-	    CFRelease(uuidString);
-    }
-    IOObjectRelease(service);
-    return rc;
 }

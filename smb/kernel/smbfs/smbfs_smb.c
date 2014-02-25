@@ -2878,17 +2878,18 @@ smb1fs_smb_setpattr(struct smb_share *share, struct smbnode *np,
  * The calling routine must hold a reference on the share
  */
 int 
-smbfs_set_hidden_bit(struct smb_share *share, struct smbnode *np, const char *name, 
+smbfs_set_hidden_bit(struct smb_share *share, struct smbnode *dnp, const char *name,
 					 size_t len, Boolean hideit, vfs_context_t context)
 {
 	int error;
 	uint32_t attr;
 	
 	/* Look it up and get the dos attributes */
-	error = smbfs_smb_query_info(share, np, name, len, &attr, context);
+	error = smbfs_smb_query_info(share, dnp, name, len, &attr, context);
 	if (error) {
 		return error;
 	}
+    
 	if (hideit && !(attr & SMB_EFA_HIDDEN)) {
 		attr |= SMB_EFA_HIDDEN;
 	} else if (!hideit && (attr & SMB_EFA_HIDDEN)) {
@@ -2896,7 +2897,8 @@ smbfs_set_hidden_bit(struct smb_share *share, struct smbnode *np, const char *na
 	} else {
 		return 0; /* Nothing to do here */
 	}
-	return smbfs_smb_setpattr(share, np, name, len, attr, context);
+    
+	return smbfs_smb_setpattr(share, dnp, name, len, attr, context);
 }
 
 /*

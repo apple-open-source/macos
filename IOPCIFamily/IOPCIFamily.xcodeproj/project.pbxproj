@@ -448,6 +448,7 @@
 					"-Wmost",
 					"-Wno-four-char-constants",
 					"-Wno-unknown-pragmas",
+					"-Wconditional-uninitialized",
 				);
 				WRAPPER_EXTENSION = kext;
 				ZERO_LINK = YES;
@@ -482,6 +483,7 @@
 					"-Wmost",
 					"-Wno-four-char-constants",
 					"-Wno-unknown-pragmas",
+					"-Wconditional-uninitialized",
 				);
 				WRAPPER_EXTENSION = kext;
 				ZERO_LINK = NO;
@@ -514,6 +516,7 @@
 					"-Wmost",
 					"-Wno-four-char-constants",
 					"-Wno-unknown-pragmas",
+					"-Wconditional-uninitialized",
 				);
 				WRAPPER_EXTENSION = kext;
 			};
@@ -538,6 +541,7 @@
 					"-Wmost",
 					"-Wno-four-char-constants",
 					"-Wno-unknown-pragmas",
+					"-Wconditional-uninitialized",
 				);
 				ZERO_LINK = YES;
 			};
@@ -559,6 +563,7 @@
 					"-Wmost",
 					"-Wno-four-char-constants",
 					"-Wno-unknown-pragmas",
+					"-Wconditional-uninitialized",
 				);
 				ZERO_LINK = NO;
 			};
@@ -578,6 +583,7 @@
 					"-Wmost",
 					"-Wno-four-char-constants",
 					"-Wno-unknown-pragmas",
+					"-Wconditional-uninitialized",
 				);
 			};
 			name = Default;
@@ -650,6 +656,7 @@
 					"-Wmost",
 					"-Wno-four-char-constants",
 					"-Wno-unknown-pragmas",
+					"-Wconditional-uninitialized",
 				);
 				WRAPPER_EXTENSION = kext;
 				ZERO_LINK = YES;
@@ -675,6 +682,7 @@
 					"-Wmost",
 					"-Wno-four-char-constants",
 					"-Wno-unknown-pragmas",
+					"-Wconditional-uninitialized",
 				);
 				ZERO_LINK = YES;
 			};
@@ -727,6 +735,7 @@
 					"-Wmost",
 					"-Wno-four-char-constants",
 					"-Wno-unknown-pragmas",
+					"-Wconditional-uninitialized",
 				);
 				WRAPPER_EXTENSION = kext;
 				ZERO_LINK = NO;
@@ -749,6 +758,7 @@
 					"-Wmost",
 					"-Wno-four-char-constants",
 					"-Wno-unknown-pragmas",
+					"-Wconditional-uninitialized",
 				);
 				ZERO_LINK = NO;
 			};

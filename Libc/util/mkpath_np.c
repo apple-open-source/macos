@@ -106,6 +106,14 @@ _mkpath_np(const char *path, mode_t omode, const char ** firstdir)
 		}
 	}
 
+	/* Retry the trivial case after having stripped of trailing /. <rdar://problem/14351794> */
+	if (0 == mkdir(path, omode)) {
+		if (firstdir) {
+			*firstdir = strdup(path);
+		}
+		goto mkpath_exit;
+	}
+
 	while (1) {
 		/* Increase our depth and try making that directory */
 		s = strrchr(apath, '/');

@@ -28,8 +28,6 @@
 <a href="../fr/mod/mod_proxy.html" title="Français">&nbsp;fr&nbsp;</a> |
 <a href="../ja/mod/mod_proxy.html" hreflang="ja" rel="alternate" title="Japanese">&nbsp;ja&nbsp;</a></p>
 </div>
-<div class="outofdate">Cette traduction peut être périmée. Vérifiez la version
-            anglaise pour les changements récents.</div>
 <table class="module"><tr><th><a href="module-dict.html#Description">Description:</a></th><td>Serveur mandataire/passerelle HTTP/1.1</td></tr>
 <tr><th><a href="module-dict.html#Status">Statut:</a></th><td>Extension</td></tr>
 <tr><th><a href="module-dict.html#ModuleIdentifier">Identificateur de Module:</a></th><td>proxy_module</td></tr>
@@ -361,7 +359,7 @@
       tout en masquant sa véritable identité. Ceci représente un danger
       non seulement pour votre réseau, mais aussi pour l'Internet au
       sens large. Dans le cas de la mise en oeuvre d'un mandataire
-      inverse (en définissant la directive <code class="directive"><a href="#proxypass">ProxyPass</a></code> à "off"), le contrôle
+      inverse (en utilisant la directive <code class="directive"><a href="#proxypass">ProxyPass</a></code> avec <code>ProxyRequests Off</code>), le contrôle
       d'accès est moins critique car les clients ne peuvent contacter
       que les serveurs que vous avez spécifiés.</p>
 
@@ -881,7 +879,12 @@ données</td></tr>
     <p>La directive <code class="directive">ProxyIOBufferSize</code> permet
     d'ajuster la taille du tampon interne utilisé comme bloc-note pour
     les transferts de données entre entrée et sortie. La taille doit
-    être inférieure ou égale à <code>8192</code> octets.</p>
+    être au minimum égale à <code>8192</code> octets.</p>
+
+    <p>Lorsqu'on utilise <code class="module"><a href="../mod/mod_proxy_ajp.html">mod_proxy_ajp</a></code>, la valeur
+    minimale est alignée sur la limite de 1024 octets, et les valeurs
+    supérieures à 65536 octets sont ramenées à 65536 octets, comme préconisé
+    par le protocole AJP.</p>
 
     <p>Dans la plupart des cas, il n'y a aucune raison de modifier cette
     valeur.</p>
@@ -1295,6 +1298,15 @@ l'espace d'URLs du serveur local</td></tr>
 	est le même qu'avec les autres erreurs de worker.
 	Disponible à partir de la version 2.2.17 du serveur HTTP Apache.
     </td></tr>
+    <tr><td>failontimeout</td>
+        <td>Off</td>
+        <td>Si ce paramètre est défini à "On", un délai d'attente
+	dépassé en entrée/sortie après envoi d'une requête au serveur
+	d'arrière-plan va mettre le processus en état d'erreur. La
+	sortie de cet état d'erreur se passe de la même façon que pour
+	les autres erreurs. Disponible à partir de la version 2.2.25 du
+	serveur HTTP Apache.
+    </td></tr>
     <tr><td>forcerecovery</td>
         <td>On</td>
         <td>Force la récupération immédiate de tous les membres du
@@ -1348,16 +1360,6 @@ l'espace d'URLs du serveur local</td></tr>
     car la protection limitée contre les attaques à base d'URL que
     fournit le mandataire est alors supprimée.</p>
 
-    <p>Le mot-clé optionnel <var>interpolate</var> (disponible depuis
-    httpd 2.2.9), en combinaison avec la directive
-    <code class="directive">ProxyPassInterpolateEnv</code>, permet à ProxyPass
-    d'interpoler les variables d'environnement à l'aide de la syntaxe
-    <var>${VARNAME}</var>. Notez que de nombreuses variables
-    d'environnement standard dérivées de CGI n'existeront pas lorsque
-    l'interpolation se produit ; vous devrez alors encore avoir avoir
-    recours à <code class="module"><a href="../mod/mod_rewrite.html">mod_rewrite</a></code> pour des règles
-    complexes.</p>
-
     <p>Lorsque la directive ProxyPass est utilisée à l'intérieur d'une
     section <code class="directive"><a href="../mod/core.html#location">&lt;Location&gt;</a></code>, le premier argument est omis et le répertoire
     local est obtenu à partir de la section <code class="directive"><a href="../mod/core.html#location">&lt;Location&gt;</a></code>. Il en est de
@@ -1375,6 +1377,33 @@ l'espace d'URLs du serveur local</td></tr>
     <p>Si vous avez besoin d'un configuration de mandataire inverse plus
     souple, reportez-vous à la documentaion de la directive <code class="directive"><a href="../mod/mod_rewrite.html#rewriterule">RewriteRule</a></code> et son drapeau
     <code>[P]</code>.</p>
+
+    <p>Le mot-clé optionnel <var>interpolate</var> (disponible depuis
+    httpd 2.2.9), en combinaison avec la directive
+    <code class="directive">ProxyPassInterpolateEnv</code>, permet à ProxyPass
+    d'interpoler les variables d'environnement à l'aide de la syntaxe
+    <var>${VARNAME}</var>. Notez que de nombreuses variables
+    d'environnement standard dérivées de CGI n'existeront pas lorsque
+    l'interpolation se produit ; vous devrez alors encore avoir avoir
+    recours à <code class="module"><a href="../mod/mod_rewrite.html">mod_rewrite</a></code> pour des règles
+    complexes. Notez aussi que l'interpolation n'est pas supportée dans
+    la partie protocole d'une URL. La détermination dynamique du
+    protocole peut être effectuée à l'aide de
+    <code class="module"><a href="../mod/mod_rewrite.html">mod_rewrite</a></code> comme dans l'exemple suivant :</p>
+
+    <pre class="prettyprint lang-config">
+RewriteEngine On
+
+RewriteCond %{HTTPS} =off
+RewriteRule . - [E=protocol:http]
+RewriteCond %{HTTPS} =on
+RewriteRule . - [E=protocol:https]
+
+RewriteRule ^/mirror/foo/(.*) %{ENV:protocol}://backend.example.com/$1 [P]
+ProxyPassReverse  /mirror/foo/ http://backend.example.com/
+ProxyPassReverse  /mirror/foo/ https://backend.example.com/
+    </pre>
+
 
 
 </div>
@@ -1549,7 +1578,8 @@ par un serveur mandaté en inverse</td></tr>
     httpd 2.2.9), utilisé en combinaison avec la directive
     <code class="directive">ProxyPassInterpolateEnv</code>, permet
     l'interpolation des variables d'environnement spécifiées en
-    utilisant le format <var>${VARNAME}</var>.
+    utilisant le format <var>${VARNAME}</var> Notez que l'interpolation
+    n'est pas supportée dans la partie protocole d'une URL.
     </p>
 
     <p>Lorsque cette directive est utilisée dans une section <code class="directive"><a href="../mod/core.html#location">&lt;Location&gt;</a></code>, le premier

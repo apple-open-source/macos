@@ -133,7 +133,6 @@ sv{
                 }
             }
             symbols{
-                currencyDecimal{":"}
                 decimal{","}
                 exponential{"×10^"}
                 group{" "}

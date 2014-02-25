@@ -552,7 +552,7 @@ Certificate::inferLabel(bool addLabel, CFStringRef *rtnString)
 	const CSSM_OID &snOid = CSSMOID_X509V1SubjectNameCStruct;
 	CSSM_DATA_PTR snValue = copyFirstFieldValue(snOid);
 
-	getEmailAddresses(sanValues, snValue, emailAddresses);
+	getNames(sanValues, snValue, GNT_RFC822Name, emailAddresses);
 
 	if (snValue && snValue->Data)
 	{
@@ -849,7 +849,7 @@ Certificate::copyFirstEmailAddress()
 	CSSM_DATA_PTR snValue = copyFirstFieldValue(snOid);
 	std::vector<CssmData> emailAddresses;
 
-	getEmailAddresses(sanValues, snValue, emailAddresses);
+	getNames(sanValues, snValue, GNT_RFC822Name, emailAddresses);
 	if (emailAddresses.empty())
 		rtnString = NULL;
 	else
@@ -870,6 +870,44 @@ Certificate::copyFirstEmailAddress()
 }
 
 /*
+ * Return a CFArray containing the DNS hostnames for this certificate, based on the
+ * X509 SubjectAltName and SubjectName.
+ */
+CFArrayRef
+Certificate::copyDNSNames()
+{
+	StLock<Mutex>_(mMutex);
+	CFMutableArrayRef array = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+	std::vector<CssmData> dnsNames;
+
+	// Find the SubjectAltName fields, if any, and extract the GNT_DNSName entries from all of them
+	const CSSM_OID &sanOid = CSSMOID_SubjectAltName;
+	CSSM_DATA_PTR *sanValues = copyFieldValues(sanOid);
+
+	const CSSM_OID &snOid = CSSMOID_X509V1SubjectNameCStruct;
+	CSSM_DATA_PTR snValue = copyFirstFieldValue(snOid);
+
+	getNames(sanValues, snValue, GNT_DNSName, dnsNames);
+
+	for (std::vector<CssmData>::const_iterator it = dnsNames.begin(); it != dnsNames.end(); ++it)
+	{
+		/* Encoding is kCFStringEncodingUTF8 since the string is either
+		   PRINTABLE_STRING, IA5_STRING, T61_STRING or PKIX_UTF8_STRING. */
+		CFStringRef string = CFStringCreateWithBytes(NULL, it->Data, static_cast<CFIndex>(it->Length), kCFStringEncodingUTF8, true);
+		CFArrayAppendValue(array, string);
+		CFRelease(string);
+	}
+
+	// Clean up
+	if (snValue)
+		releaseFieldValue(snOid, snValue);
+	if (sanValues)
+		releaseFieldValues(sanOid, sanValues);
+
+	return array;
+}
+
+/*
  * Return a CFArray containing the email addresses for this certificate, based on the
  * X509 SubjectAltName and SubjectName.
  */
@@ -887,7 +925,7 @@ Certificate::copyEmailAddresses()
 	const CSSM_OID &snOid = CSSMOID_X509V1SubjectNameCStruct;
 	CSSM_DATA_PTR snValue = copyFirstFieldValue(snOid);
 
-	getEmailAddresses(sanValues, snValue, emailAddresses);
+	getNames(sanValues, snValue, GNT_RFC822Name, emailAddresses);
 
 	for (std::vector<CssmData>::const_iterator it = emailAddresses.begin(); it != emailAddresses.end(); ++it)
 	{
@@ -1201,12 +1239,12 @@ Certificate::normalizeEmailAddress(CSSM_DATA &emailAddress)
 }
 
 void
-Certificate::getEmailAddresses(CSSM_DATA_PTR *sanValues, CSSM_DATA_PTR snValue, std::vector<CssmData> &emailAddresses)
+Certificate::getNames(CSSM_DATA_PTR *sanValues, CSSM_DATA_PTR snValue, CE_GeneralNameType generalNameType, std::vector<CssmData> &names)
 {
-	// Get the email addresses for this certificate, based on the
-	// X509 SubjectAltName and SubjectName.
+	// Get the DNS host names or RFC822 email addresses for this certificate (depending on generalNameType),
+	// within the X509 SubjectAltName and SubjectName.
 
-	// Find the SubjectAltName fields, if any, and extract all the GNT_RFC822Name entries from all of them
+	// Find the SubjectAltName fields, if any, and extract the nameType entries from all of them
 	if (sanValues)
 	{
 		for (CSSM_DATA_PTR *sanIx = sanValues; *sanIx; ++sanIx)
@@ -1217,22 +1255,22 @@ Certificate::getEmailAddresses(CSSM_DATA_PTR *sanValues, CSSM_DATA_PTR snValue, 
 				CSSM_X509_EXTENSION *cssmExt = (CSSM_X509_EXTENSION *)sanValue->Data;
 				CE_GeneralNames *parsedValue = (CE_GeneralNames *)cssmExt->value.parsedValue;
 
-				/* Grab all the values that are of type GNT_RFC822Name. */
+				/* Grab all the values that are of the specified name type. */
 				for (uint32 i = 0; i < parsedValue->numNames; ++i)
 				{
-					if (parsedValue->generalName[i].nameType == GNT_RFC822Name)
+					if (parsedValue->generalName[i].nameType == generalNameType)
 					{
 						if (parsedValue->generalName[i].berEncoded) // can't handle this
 							continue;
 
-						emailAddresses.push_back(CssmData::overlay(parsedValue->generalName[i].name));
+						names.push_back(CssmData::overlay(parsedValue->generalName[i].name));
 					}
 				}
 			}
 		}
 	}
 
-	if (emailAddresses.empty() && snValue && snValue->Data)
+	if (names.empty() && snValue && snValue->Data)
 	{
 		const CSSM_X509_NAME &x509Name = *(const CSSM_X509_NAME *)snValue->Data;
 		for (uint32 rdnDex = 0; rdnDex < x509Name.numberOfRDNs; rdnDex++)
@@ -1244,10 +1282,18 @@ Certificate::getEmailAddresses(CSSM_DATA_PTR *sanValues, CSSM_DATA_PTR snValue, 
 				const CSSM_X509_TYPE_VALUE_PAIR *tvpPtr =
 					&rdnPtr->AttributeTypeAndValue[tvpDex];
 
-				/* type/value pair: match caller's specified type? */
-				if (((tvpPtr->type.Length != CSSMOID_EmailAddress.Length) ||
-					memcmp(tvpPtr->type.Data, CSSMOID_EmailAddress.Data, CSSMOID_EmailAddress.Length))) {
-						continue;
+				/* type/value pair: match caller's specified type */
+				if (GNT_RFC822Name == generalNameType) {
+					if (((tvpPtr->type.Length != CSSMOID_EmailAddress.Length) ||
+						memcmp(tvpPtr->type.Data, CSSMOID_EmailAddress.Data, CSSMOID_EmailAddress.Length))) {
+							continue;
+					}
+				}
+				if (GNT_DNSName == generalNameType) {
+					if (((tvpPtr->type.Length != CSSMOID_CommonName.Length) ||
+						memcmp(tvpPtr->type.Data, CSSMOID_CommonName.Data, CSSMOID_CommonName.Length))) {
+							continue;
+					}
 				}
 
 				/* printable? */
@@ -1258,7 +1304,7 @@ Certificate::getEmailAddresses(CSSM_DATA_PTR *sanValues, CSSM_DATA_PTR snValue, 
 					case BER_TAG_T61_STRING:
 					case BER_TAG_PKIX_UTF8_STRING:
 						/* success */
-						emailAddresses.push_back(CssmData::overlay(tvpPtr->value));
+						names.push_back(CssmData::overlay(tvpPtr->value));
 						break;
 					default:
 						break;

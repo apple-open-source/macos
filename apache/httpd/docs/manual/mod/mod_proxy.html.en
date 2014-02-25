@@ -796,7 +796,11 @@ proxied</td></tr>
 </table>
     <p>The <code class="directive">ProxyIOBufferSize</code> directive adjusts the size
     of the internal buffer, which is used as a scratchpad for the data between
-    input and output. The size must be less or equal <code>8192</code>.</p>
+    input and output. The size must be at least <code>8192</code>.</p>
+
+    <p>When the <code class="module"><a href="../mod/mod_proxy_ajp.html">mod_proxy_ajp</a></code> module is used, this value is
+    aligned to a 1024 byte boundary, and values larger than 65536 are set to
+    65536 in accordance with the AJP protocol.</p>
 
     <p>In almost every case there's no reason to change that value.</p>
 
@@ -1157,6 +1161,13 @@ through</td></tr>
         in the list. Worker recovery behaves the same as other worker errors.
         Available with Apache HTTP Server 2.2.17 and later.
     </td></tr>
+    <tr><td>failontimeout</td>
+        <td>Off</td>
+        <td>If set, an IO read timeout after a request is sent to the backend will
+        force the worker into error state. Worker recovery behaves the same as other
+        worker errors.
+        Available with Apache HTTP Server 2.2.25 and later.
+    </td></tr>
     <tr><td>forcerecovery</td>
         <td>On</td>
         <td>Force the immediate recovery of all workers without considering the
@@ -1206,15 +1217,6 @@ through</td></tr>
     removes the normal limited protection against URL-based attacks
     provided by the proxy.</p>
 
-    <p>The optional <var>interpolate</var> keyword (available in
-    httpd 2.2.9 and later), in combination with
-    <code class="directive">ProxyPassInterpolateEnv</code> causes the ProxyPass
-    to interpolate environment variables, using the syntax
-    <var>${VARNAME}</var>.  Note that many of the standard CGI-derived
-    environment variables will not exist when this interpolation happens,
-    so you may still have to resort to <code class="module"><a href="../mod/mod_rewrite.html">mod_rewrite</a></code>
-    for complex rules.</p>
-
     <p>When used inside a <code class="directive"><a href="../mod/core.html#location">&lt;Location&gt;</a></code> section, the first argument is omitted and the local
     directory is obtained from the <code class="directive"><a href="../mod/core.html#location">&lt;Location&gt;</a></code>. The same will occur inside a
     <code class="directive"><a href="../mod/core.html#locationmatch">&lt;LocationMatch&gt;</a></code> section,
@@ -1226,6 +1228,31 @@ through</td></tr>
     <p>If you require a more flexible reverse-proxy configuration, see the
     <code class="directive"><a href="../mod/mod_rewrite.html#rewriterule">RewriteRule</a></code> directive with the
     <code>[P]</code> flag.</p>
+
+    <p>The optional <var>interpolate</var> keyword (available in
+    httpd 2.2.9 and later), in combination with
+    <code class="directive">ProxyPassInterpolateEnv</code> causes the ProxyPass
+    to interpolate environment variables, using the syntax
+    <var>${VARNAME}</var>.  Note that many of the standard CGI-derived
+    environment variables will not exist when this interpolation happens,
+    so you may still have to resort to <code class="module"><a href="../mod/mod_rewrite.html">mod_rewrite</a></code>
+    for complex rules.  Also note that interpolation is not supported
+    within the scheme portion of a URL.  Dynamic determination of the
+    scheme can be accomplished with <code class="module"><a href="../mod/mod_rewrite.html">mod_rewrite</a></code> as in the
+    following example.</p>
+
+    <pre class="prettyprint lang-config">
+RewriteEngine On
+
+RewriteCond %{HTTPS} =off
+RewriteRule . - [E=protocol:http]
+RewriteCond %{HTTPS} =on
+RewriteRule . - [E=protocol:https]
+
+RewriteRule ^/mirror/foo/(.*) %{ENV:protocol}://backend.example.com/$1 [P]
+ProxyPassReverse  /mirror/foo/ http://backend.example.com/
+ProxyPassReverse  /mirror/foo/ https://backend.example.com/
+    </pre>
 
 
 </div>
@@ -1379,7 +1406,8 @@ proxied server</td></tr>
     httpd 2.2.9 and later), used together with
     <code class="directive">ProxyPassInterpolateEnv</code>, enables interpolation
     of environment variables specified using the format <var>${VARNAME}</var>.
-    </p>
+    Note that interpolation is not supported within the scheme portion of a
+    URL.</p>
 
     <p>When used inside a <code class="directive"><a href="../mod/core.html#location">&lt;Location&gt;</a></code> section, the first argument is omitted and the local
     directory is obtained from the <code class="directive"><a href="../mod/core.html#location">&lt;Location&gt;</a></code>. The same occurs inside a <code class="directive"><a href="../mod/core.html#locationmatch">&lt;LocationMatch&gt;</a></code> section, but will probably not work as

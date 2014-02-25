@@ -125,7 +125,7 @@ bool SecPasswordIsPasswordWeak(CFStringRef passcode)
  kSecPasswordMaxLengthKey / CFNumberRef
  kSecPasswordAllowedCharactersKey / CFStringRef
  kSecPasswordRequiredCharactersKey / CFArrayRef of CFCharacterSetRefs
-  
+ 
  *Note: Be sure to release the returned password when done using it.
  */
 CF_RETURNS_RETAINED CFStringRef SecPasswordGenerate(SecPasswordType type, CFErrorRef *error, CFDictionaryRef passwordRequirements)

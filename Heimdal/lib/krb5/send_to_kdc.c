@@ -468,6 +468,8 @@ send_kkdcp(krb5_context context, struct host *host)
 
     debug_host(context, 5, host, "sending request to: %s", url);
 
+    heim_retain(context);
+
     dispatch_async(q, ^{
 	    krb5_error_code ret;
 	    krb5_data retdata;
@@ -492,6 +494,7 @@ send_kkdcp(krb5_context context, struct host *host)
 	    host->fd2 = -1;
 	    heim_release(host->ctx);
  	    heim_release(host);
+	    heim_release(context);
  	});
      return 0;
 #else

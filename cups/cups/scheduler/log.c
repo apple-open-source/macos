@@ -1,5 +1,5 @@
 /*
- * "$Id: log.c 11093 2013-07-03 20:48:42Z msweet $"
+ * "$Id: log.c 11433 2013-11-20 18:57:44Z msweet $"
  *
  *   Log file routines for the CUPS scheduler.
  *
@@ -496,12 +496,13 @@ cupsdLogJob(cupsd_job_t *job,		/* I - Job */
       */
 
       cupsd_joblog_t *temp;		/* Copy of log message */
+      size_t         log_len = strlen(log_line);
+					/* Length of log message */
 
-
-      if ((temp = malloc(sizeof(cupsd_joblog_t) + strlen(log_line))) != NULL)
+      if ((temp = malloc(sizeof(cupsd_joblog_t) + log_len)) != NULL)
       {
         temp->time = time(NULL);
-	strlcpy(temp->message, log_line, sizeof(temp->message));
+	memcpy(temp->message, log_line, log_len + 1);
       }
 
       if (!job->history)
@@ -1103,5 +1104,5 @@ format_log_line(const char *message,	/* I - Printf-style format string */
 
 
 /*
- * End of "$Id: log.c 11093 2013-07-03 20:48:42Z msweet $".
+ * End of "$Id: log.c 11433 2013-11-20 18:57:44Z msweet $".
  */

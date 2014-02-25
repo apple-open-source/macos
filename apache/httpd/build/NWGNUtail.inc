@@ -95,11 +95,11 @@ CPPOPT_DEPENDS	= $(CCOPT_DEPENDS)
 # Generic compiler rules
 #
 
-ifneq ($(MAKECMDGOALS),clean)
+ifneq "$(MAKECMDGOALS)" "clean"
+ifneq "$(findstring clobber_,$(MAKECMDGOALS))" "clobber_"
 $(APBUILD)/NWGNUversion.inc: $(APBUILD)/nw_ver.awk $(SRC)/include/ap_release.h
-#	@echo Generating $@
 	@echo $(DL)GEN  $@$(DL)
-	$(AWK) -f $^ > $@
+	$(AWK) -f $^ $(SRC)/.svn/all-wcprops > $@
 
 -include $(APBUILD)/NWGNUversion.inc
 
@@ -109,6 +109,12 @@ else
 VERSION		= 2,2,0
 VERSION_STR	= 2.2.0
 VERSION_MAJMIN	= 22
+endif
+endif
+endif
+ifeq "$(USE_SVNREV)" "1"
+ifneq "$(strip $(SVN_REVISION))" ""
+CFLAGS	+= -DAP_SERVER_ADD_STRING=\"$(SVN_REVISION)\"
 endif
 endif
 

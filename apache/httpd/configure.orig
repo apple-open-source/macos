@@ -5828,13 +5828,14 @@ case $host in
       ;;
   *-linux-*)
       case `uname -r` in
-        2.[2-9]* )
+        # Unserialized accept() was not recommended until Linux 2.2.
+        [01].* | 2.[01]* )
+            ;;
+        * )
 
   test "x$silent" != "xyes" && echo "  forcing SINGLE_LISTEN_UNSERIALIZED_ACCEPT to \"1\""
   SINGLE_LISTEN_UNSERIALIZED_ACCEPT="1"
 
-            ;;
-        * )
             ;;
       esac
       ;;

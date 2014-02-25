@@ -47,7 +47,8 @@ extern "C" ppnum_t pmap_find_phys(pmap_t pmap, addr64_t va);
 #define kLargeThresh2	(32)
 #define kVPages  		(1<<22)
 #define kBPagesLog2 	(18)
-#define kBPagesSafe		((1<<kBPagesLog2)-(1<<16))
+#define kBPagesSafe		((1<<kBPagesLog2)-(1<<(kBPagesLog2 - 2)))      /* 3/4 */
+#define kBPagesReserve	((1<<kBPagesLog2)-(1<<(kBPagesLog2 - 3)))      /* 7/8 */
 #define kRPages  		(1<<20)
 
 #define kQIPageCount    (2)
@@ -1010,6 +1011,9 @@ AppleVTD::space_create(uint32_t cachelinesize,
 	bf->rsize = rsize;
 	vtd_rballocator_init(bf, rsize, vsize - rsize);
 
+	VTLOG("bsize 0x%x, bsafe 0x%x, breserve 0x%x, rsize 0x%x\n", 
+	        (1<<kBPagesLog2), kBPagesSafe, kBPagesReserve, bf->rsize);
+
 	STAT_ADD(bf, vsize, vsize);
 	OSData * 
 	data = OSData::withBytesNoCopy(&bf->stats, sizeof(bf->stats));
@@ -1050,7 +1054,11 @@ AppleVTD::space_alloc(vtd_space_t * bf, vtd_baddr_t size,
 		if (mapSpecification->alignment > page_size) align = atop_64(mapSpecification->alignment);
 	}
 
-	if (bf->stats.bused >= kBPagesSafe)
+	if (bf->stats.bused >= kBPagesReserve)
+	{
+		largethresh = 1;
+	}
+	else if (bf->stats.bused >= kBPagesSafe)
 	{
 		largethresh = kLargeThresh2;
 	}

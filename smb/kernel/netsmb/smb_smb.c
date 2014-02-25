@@ -1213,8 +1213,8 @@ smb_smb_treeconnect(struct smb_share *share, vfs_context_t context)
 	size_t srvnamelen;
 	char *serverName;
 	
-	/* No IPv4 dot name so use the real server name in the tree connect */
-	if (vcp->ipv4DotName[0] == 0) {
+	/* No IPv4 or IPv6 dot name so use the real server name in the tree connect */
+	if (vcp->ipv4v6DotName[0] == 0) {
 		serverName = vcp->vc_srvname;
 		srvnamelen = strnlen(serverName, SMB_MAX_DNS_SRVNAMELEN+1); 
         if (vcp->vc_flags & SMBV_SMB2) {
@@ -1225,16 +1225,30 @@ smb_smb_treeconnect(struct smb_share *share, vfs_context_t context)
             error = smb1_treeconnect_internal(vcp, share, serverName, 
                                               srvnamelen, context);
         }
-		/* See if we can get the IPv4 presentation format */
-		if (error && (vcp->vc_saddr->sa_family == AF_INET)) {
-			struct sockaddr_in *in = (struct sockaddr_in *)vcp->vc_saddr;
-			(void)inet_ntop(AF_INET, &in->sin_addr.s_addr, vcp->ipv4DotName, SMB_MAXNetBIOSNAMELEN+1);
-			SMBWARNING("treeconnect failed using server name %s with error %d\n", serverName, error);
+        
+		/* 
+         * See if we can get the IPv4 or IPv6 presentation format.
+         * If so, see if we can Tree Connect with that address instead
+         */
+        if (error) {
+            if (vcp->vc_saddr->sa_family == AF_INET) {
+                /* IPv4 */
+                struct sockaddr_in *in = (struct sockaddr_in *)vcp->vc_saddr;
+                (void)inet_ntop(AF_INET, &in->sin_addr.s_addr, vcp->ipv4v6DotName, sizeof(vcp->ipv4v6DotName));
+                SMBWARNING("treeconnect failed using server name %s with error %d\n", serverName, error);
+            }
+            else if (vcp->vc_saddr->sa_family == AF_INET6) {
+                /* IPv6 - returns with no brackets */
+                struct sockaddr_in *in = (struct sockaddr_in *)vcp->vc_saddr;
+                (void)inet_ntop(AF_INET6, &in->sin_addr.s_addr, vcp->ipv4v6DotName, sizeof(vcp->ipv4v6DotName));
+                SMBWARNING("treeconnect failed using server name %s with error %d\n", serverName, error);
+            }
 		}
-	}
-	/* Use the IPv4 dot name in the tree connect */
-	if (vcp->ipv4DotName[0] != 0) {
-		serverName = vcp->ipv4DotName;
+    }
+    
+	/* Use the IPv4 or IPv6 dot name in the tree connect */
+	if (vcp->ipv4v6DotName[0] != 0) {
+		serverName = vcp->ipv4v6DotName;
 		srvnamelen = strnlen(serverName, SMB_MAXNetBIOSNAMELEN+1); 
         if (vcp->vc_flags & SMBV_SMB2) {
             error = smb2_smb_tree_connect(vcp, share, serverName, srvnamelen,
@@ -1245,7 +1259,7 @@ smb_smb_treeconnect(struct smb_share *share, vfs_context_t context)
                                               srvnamelen, context);
         }
 		if (error)
-			vcp->ipv4DotName[0] = 0;	/* We failed don't use it again */		
+			vcp->ipv4v6DotName[0] = 0;	/* We failed don't use it again */
 	}
 	return error;
 }

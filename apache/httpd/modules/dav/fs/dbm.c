@@ -191,7 +191,15 @@ void dav_dbm_close(dav_db *db)
 
 dav_error * dav_dbm_fetch(dav_db *db, apr_datum_t key, apr_datum_t *pvalue)
 {
-    apr_status_t status = apr_dbm_fetch(db->file, key, pvalue);
+    apr_status_t status;
+
+    if (!key.dptr) {
+        /* no key could be created (namespace not known) => no value */
+        memset(pvalue, 0, sizeof(*pvalue));
+        status = APR_SUCCESS;
+    } else {
+        status = apr_dbm_fetch(db->file, key, pvalue);
+    }
 
     return dav_fs_dbm_error(db, NULL, status);
 }
@@ -729,6 +737,10 @@ static dav_error * dav_propdb_get_rollback(dav_db *db,
 static dav_error * dav_propdb_apply_rollback(dav_db *db,
                                              dav_deadprop_rollback *rollback)
 {
+    if (!rollback) {
+        return NULL; /* no rollback, nothing to do */
+    }
+
     if (rollback->value.dptr == NULL) {
         /* don't fail if the thing isn't really there. */
         (void) dav_dbm_delete(db, rollback->key);

@@ -71,6 +71,8 @@ TPClItemInfo::TPClItemInfo(
 			mWeOwnTheData(false),
 			mCacheHand(0),
 			mIssuerName(NULL),
+			mSubjectKeyID(NULL),
+			mAuthorityKeyID(NULL),
 			mItemData(NULL),
 			mSigAlg(CSSM_ALGID_NONE),
 			mNotBefore(NULL),
@@ -87,7 +89,7 @@ TPClItemInfo::TPClItemInfo(
 
 		/*
 		 * Fetch standard fields...
-		 * Issue name assumes same OID for Certs and CRLs!
+		 * Issuer name assumes same OID for Certs and CRLs!
 		 */
 		crtn = fetchField(&CSSMOID_X509V1IssuerName, &mIssuerName);
 		if(crtn) {
@@ -125,6 +127,12 @@ TPClItemInfo::TPClItemInfo(
 		}
 		freeField(&CSSMOID_X509V1SignatureAlgorithmTBS, algField);
 
+		/* Attempt to fetch authority key id and subject key id,
+		 * ignore error if they do not exist.
+		 */
+		fetchField(&CSSMOID_SubjectKeyIdentifier, &mSubjectKeyID);
+		fetchField(&CSSMOID_AuthorityKeyIdentifier, &mAuthorityKeyID);
+
 		fetchNotBeforeAfter();
 		calculateCurrent(verifyTime);
 	}
@@ -150,6 +158,14 @@ void TPClItemInfo::releaseResources()
 	if(mIssuerName) {
 		freeField(&CSSMOID_X509V1IssuerName, mIssuerName);
 		mIssuerName = NULL;
+	}
+	if(mSubjectKeyID) {
+		freeField(&CSSMOID_SubjectKeyIdentifier, mSubjectKeyID);
+		mSubjectKeyID = NULL;
+	}
+	if(mAuthorityKeyID) {
+		freeField(&CSSMOID_AuthorityKeyIdentifier, mAuthorityKeyID);
+		mAuthorityKeyID = NULL;
 	}
 	if(mCacheHand != 0) {
 		mClCalls.abortCache(mClHand, mCacheHand);
@@ -588,6 +604,57 @@ bool TPCertInfo::isIssuerOf(
 		return true;
 	}
 	else {
+		return false;
+	}
+}
+
+/*
+ * Does my subjectKeyID match the authorityKeyID of the specified subject?
+ * Returns true if so (and if both fields are available).
+ */
+bool TPCertInfo::isAuthorityKeyOf(
+	const TPClItemInfo	&subject)
+{
+	const CSSM_DATA *subjectKeyID = this->subjectKeyID();
+	const CSSM_DATA *authorityKeyID = subject.authorityKeyID();
+	if(!subjectKeyID || !authorityKeyID) {
+		tpDebug("isAuthorityKeyOf FALSE (one or both key ids missing)");
+		return false;
+	}
+	CSSM_X509_EXTENSION *ske = (CSSM_X509_EXTENSION *)subjectKeyID->Data;
+	CSSM_X509_EXTENSION *ake = (CSSM_X509_EXTENSION *)authorityKeyID->Data;
+	if( !ske || ske->format != CSSM_X509_DATAFORMAT_PARSED ||
+		!ake || ake->format != CSSM_X509_DATAFORMAT_PARSED ||
+		!ske->value.parsedValue || !ake->value.parsedValue) {
+		tpDebug("isAuthorityKeyOf FALSE (no parsed value present)");
+		return false;
+	}
+
+	const CE_SubjectKeyID *skid = (CE_SubjectKeyID *)ske->value.parsedValue;
+	const CE_AuthorityKeyID *akid = (CE_AuthorityKeyID *)ake->value.parsedValue;
+
+	if(!akid->keyIdentifierPresent) {
+		tpDebug("isAuthorityKeyOf FALSE (no key identifier present)");
+		return false;
+	}
+	if(tpCompareCssmData(skid, &akid->keyIdentifier)) {
+		#ifndef NDEBUG
+		tpDebug("isAuthorityKeyOf TRUE (len:s=%lu/a=%lu, %08lX../%08lX..)",
+			skid->Length,
+			akid->keyIdentifier.Length,
+			(skid->Data) ? *((unsigned long *)skid->Data) : 0L,
+			(akid->keyIdentifier.Data) ? *((unsigned long *)akid->keyIdentifier.Data) : 0L);
+		#endif
+		return true;
+	}
+	else {
+		#ifndef NDEBUG
+		tpDebug("isAuthorityKeyOf FALSE (len:s=%lu/a=%lu, %08lX../%08lX..)",
+			skid->Length,
+			akid->keyIdentifier.Length,
+			(skid->Data) ? *((unsigned long *)skid->Data) : 0L,
+			(akid->keyIdentifier.Data) ? *((unsigned long *)akid->keyIdentifier.Data) : 0L);
+		#endif
 		return false;
 	}
 }
@@ -1331,6 +1398,7 @@ TPCertInfo *TPCertGroup::findIssuerForCertOrCrl(
 {
 	partialIssuerKey = false;
 	TPCertInfo *expiredIssuer = NULL;
+	TPCertInfo *unmatchedKeyIDIssuer = NULL;
 
 	for(unsigned certDex=0; certDex<mNumCerts; certDex++) {
 		TPCertInfo *certInfo = certAtIndex(certDex);
@@ -1363,6 +1431,17 @@ TPCertInfo *TPCertGroup::findIssuerForCertOrCrl(
 							break;
 						}
 					}
+					/* Authority key identifier check: if we can't match subject key id,
+					 * hold onto this cert and keep going.
+					 */
+					if(unmatchedKeyIDIssuer == NULL) {
+						if(!certInfo->isAuthorityKeyOf(subject)) {
+							tpDebug("findIssuerForCertOrCrl: holding issuer without key id match %p",
+								certInfo);
+							unmatchedKeyIDIssuer = certInfo;
+							break;
+						}
+					}
 					/* YES */
 					certInfo->used(true);
 					return certInfo;
@@ -1372,6 +1451,12 @@ TPCertInfo *TPCertGroup::findIssuerForCertOrCrl(
 					break;
 			}
 		} 	/* names match */
+	}
+	if(unmatchedKeyIDIssuer != NULL) {
+		/* OK, we'll use this one (preferred over an expired issuer) */
+		tpDbDebug("findIssuerForCertOrCrl: using issuer without key id match %p", unmatchedKeyIDIssuer);
+		unmatchedKeyIDIssuer->used(true);
+		return unmatchedKeyIDIssuer;
 	}
 	if(expiredIssuer != NULL) {
 		/* OK, we'll use this one */
@@ -1482,6 +1567,9 @@ CSSM_RETURN TPCertGroup::buildCertGroup(
 
 	/* and the general case of an expired or not yet valid cert */
 	TPCertInfo *expiredIssuer = NULL;
+
+	/* and the case of an issuer without a matching subject key id */
+	TPCertInfo *unmatchedKeyIDIssuer = NULL;
 
 	verifiedToRoot = CSSM_FALSE;
 	verifiedToAnchor = CSSM_FALSE;
@@ -1673,7 +1761,7 @@ post_trust_setting:
 		 * Search unused incoming certs to find an issuer.
 		 * Both cert groups are optional.
 		 * We'll add issuer to outCertGroup below.
-		 * If we find  a cert that's expired or not yet valid, we hold on to it
+		 * If we find a cert that's expired or not yet valid, we hold on to it
 		 * and look for a better one. If we don't find it here we drop back to the
 		 * expired one at the end of the loop. If that expired cert is a root
 		 * cert, we'll use the expiredRoot mechanism (see above) to roll back and
@@ -1695,12 +1783,15 @@ post_trust_setting:
 				}
 			}
 		}
+
 		if(issuerCert != NULL) {
+			bool stashedIssuer = false;
+			/* Check whether candidate issuer is expired or not yet valid */
 			if(issuerCert->isExpired() || issuerCert->isNotValidYet()) {
 				if(expiredIssuer == NULL) {
 					tpDebug("buildCertGroup: saving expired cert %p (1)", issuerCert);
 					expiredIssuer = issuerCert;
-					issuerCert = NULL;
+					stashedIssuer = true;
 				}
 				/* else we already have an expired issuer candidate */
 			}
@@ -1712,6 +1803,27 @@ post_trust_setting:
 				}
 				#endif
 				expiredIssuer = NULL;
+			}
+			/* Check whether candidate issuer failed to match authority key id in thisSubject */
+			if(!issuerCert->isAuthorityKeyOf(*thisSubject)) {
+				if(unmatchedKeyIDIssuer == NULL) {
+					tpDebug("buildCertGroup: saving unmatched key id issuer %p (1)", issuerCert);
+					unmatchedKeyIDIssuer = issuerCert;
+					stashedIssuer = true;
+				}
+				/* else we already have an unmatched key id issuer candidate */
+			}
+			else {
+				/* unconditionally done with possible unmatchedKeyIDIssuer */
+				#ifndef	NDEBUG
+				if(unmatchedKeyIDIssuer != NULL) {
+					tpDebug("buildCertGroup: DISCARDING unmatched key id issuer %p (1)", unmatchedKeyIDIssuer);
+				}
+				#endif
+				unmatchedKeyIDIssuer = NULL;
+			}
+			if(stashedIssuer) {
+				issuerCert = NULL; /* keep looking */
 			}
 		}
 
@@ -1732,11 +1844,13 @@ post_trust_setting:
 		}
 
 		if(issuerCert != NULL) {
+			bool stashedIssuer = false;
+			/* Check whether candidate issuer is expired or not yet valid */
 			if(issuerCert->isExpired() || issuerCert->isNotValidYet()) {
 				if(expiredIssuer == NULL) {
 					tpDebug("buildCertGroup: saving expired cert %p (2)", issuerCert);
 					expiredIssuer = issuerCert;
-					issuerCert = NULL;
+					stashedIssuer = true;
 				}
 				/* else we already have an expired issuer candidate */
 			}
@@ -1748,6 +1862,27 @@ post_trust_setting:
 				}
 				#endif
 				expiredIssuer = NULL;
+			}
+			/* Check whether candidate issuer failed to match authority key id in thisSubject */
+			if(!issuerCert->isAuthorityKeyOf(*thisSubject)) {
+				if(unmatchedKeyIDIssuer == NULL) {
+					tpDebug("buildCertGroup: saving unmatched key id issuer %p (2)", issuerCert);
+					unmatchedKeyIDIssuer = issuerCert;
+					stashedIssuer = true;
+				}
+				/* else we already have an unmatched key id issuer candidate */
+			}
+			else {
+				/* unconditionally done with possible unmatchedKeyIdIssuer */
+				#ifndef	NDEBUG
+				if(unmatchedKeyIDIssuer != NULL) {
+					tpDebug("buildCertGroup: DISCARDING unmatched key id issuer %p (2)", unmatchedKeyIDIssuer);
+				}
+				#endif
+				unmatchedKeyIDIssuer = NULL;
+			}
+			if(stashedIssuer) {
+				issuerCert = NULL; /* keep looking */
 			}
 		}
 
@@ -1773,6 +1908,14 @@ post_trust_setting:
 				}
 				#endif
 				expiredIssuer = NULL;
+				/* unconditionally done with possible unmatchedKeyIDIssuer */
+				#ifndef	NDEBUG
+				if(unmatchedKeyIDIssuer != NULL) {
+					tpDebug("buildCertGroup: DISCARDING unmatched key id issuer %p (3)", unmatchedKeyIDIssuer);
+				}
+				#endif
+				unmatchedKeyIDIssuer = NULL;
+
 
 				/*
 				 * Handle Radar 4566041, endless loop of cross-signed certs.
@@ -1820,6 +1963,19 @@ post_trust_setting:
 		 * an anchor that verifies the last good cert.
 		 */
 
+		if((issuerCert == NULL) &&			/* tpDbFindIssuerCert() hasn't found one and
+											 * we don't have a good one */
+		   (unmatchedKeyIDIssuer != NULL)) {		/* but we have an unmatched keyID candidate */
+			/*
+			 * OK, we'll take the unmatched key id issuer.
+			 * Note we don't have to free unmatchedKeyIDIssuer if we found a good one since
+			 * unmatchedKeyIDIssuer can only come from inCertGroup or gatheredCerts (not from
+			 * dbList).
+			 */
+			tpDebug("buildCertGroup: USING unmatched key id issuer %p", unmatchedKeyIDIssuer);
+			issuerCert = unmatchedKeyIDIssuer;
+			unmatchedKeyIDIssuer = NULL;
+		}
 		if((issuerCert == NULL) &&			/* tpDbFindIssuerCert() hasn't found one and
 											 * we don't have a good one */
 		   (expiredIssuer != NULL)) {		/* but we have an expired candidate */

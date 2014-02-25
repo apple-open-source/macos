@@ -43,23 +43,35 @@
 
 struct IOPCIDeviceExpansionData
 {
-    UInt8   pmSleepEnabled;     // T if a client has enabled PCI Power Management
-    UInt8   pmControlStatus;    // if >0 this device supports PCI Power Management
-    UInt16  sleepControlBits;   // bits to set the control/status register to for sleep
+    uint16_t powerCapability;
+    uint8_t  pmSleepEnabled;     // T if a client has enabled PCI Power Management
+    uint8_t  pmControlStatus;    // if >0 this device supports PCI Power Management
+    uint16_t sleepControlBits;   // bits to set the control/status register to for sleep
+    uint16_t pmLastWakeBits;     // bits read on wake
 
-    UInt16  expressConfig;
-    UInt16  expressCapabilities;
-    UInt16  expressASPMDefault;
-    UInt16  msiConfig;
-    UInt8   msiBlockSize;
-    UInt8   msiMode;
-    UInt8   msiEnable;
-    uint8_t configProt;
-    uint8_t pmState;
-    uint8_t pmWait;
-	uint8_t pciPMState;
-    uint8_t pauseFlags;
-    uint8_t needsProbe;
+    uint16_t expressCapability;
+    uint16_t expressCapabilities;
+    uint16_t expressASPMDefault;
+	uint8_t  aspmCaps;
+    uint16_t l1pmCapability;
+    uint32_t  l1pmCaps;
+
+    uint16_t msiCapability;
+    UInt8    msiBlockSize;
+    UInt8    msiMode;
+    UInt8    msiEnable;
+
+    uint16_t latencyToleranceCapability;
+
+    uint8_t  configProt;
+    uint8_t  pmActive;
+    uint8_t  pmeUpdate;
+    uint8_t  pmWait;
+    uint8_t  pmState;
+	uint8_t  pciPMState;
+    uint8_t  pauseFlags;
+    uint8_t  needsProbe;
+    uint8_t  dead;
 
 	IOLock * lock;
     struct IOPCIConfigEntry * configEntry;
@@ -75,21 +87,41 @@ struct IOPCIDeviceExpansionData
 #endif
 };
 
+#define expressV2(device) ((15 & device->reserved->expressCapabilities) > 1)
+
 enum
 {
     kIOPCIConfigShadowXPressCount = 6,
     kIOPCIConfigShadowMSICount    = 6,
-    kIOPCIConfigShadowRegs        = 16,
-    kIOPCIConfigShadowSize        = kIOPCIConfigShadowRegs + kIOPCIConfigShadowXPressCount + kIOPCIConfigShadowMSICount,
+    kIOPCIConfigShadowL1PMCount   = 2,
+    kIOPCIConfigShadowLTRCount    = 1,
+    kIOPCIConfigShadowRegs        = 32,
+    kIOPCIConfigEPShadowRegs      = 16,
+    kIOPCIConfigBridgeShadowRegs  = 32,
+
+    kIOPCIConfigShadowSize        = kIOPCIConfigShadowRegs 
+    								+ kIOPCIConfigShadowXPressCount 
+    								+ kIOPCIConfigShadowMSICount
+    								+ kIOPCIConfigShadowL1PMCount
+    								+ kIOPCIConfigShadowLTRCount,
     kIOPCIConfigShadowXPress      = kIOPCIConfigShadowSize   - kIOPCIConfigShadowXPressCount,
     kIOPCIConfigShadowMSI         = kIOPCIConfigShadowXPress - kIOPCIConfigShadowMSICount,
+    kIOPCIConfigShadowL1PM        = kIOPCIConfigShadowMSI    - kIOPCIConfigShadowL1PMCount,
+    kIOPCIConfigShadowLTR         = kIOPCIConfigShadowL1PM   - kIOPCIConfigShadowLTRCount,
+
+#if 0
     kIOPCIVolatileRegsMask        = ((1 << kIOPCIConfigShadowRegs) - 1)
-                                  & ~(1 << (kIOPCIConfigVendorID >> 2))
+                                   & ~(1 << (kIOPCIConfigVendorID >> 2))
                                   & ~(1 << (kIOPCIConfigRevisionID >> 2))
                                   & ~(1 << (kIOPCIConfigSubSystemVendorID >> 2)),
 
     kIOPCISaveRegsMask          = kIOPCIVolatileRegsMask 
                                 | (1 << (kIOPCIConfigVendorID >> 2))
+
+#else
+    kIOPCISaveRegsMask            = 0xFFFFFFFF
+//                                  & ~(1 << (kIOPCIConfigVendorID >> 2))
+#endif
 };
 
 
@@ -97,13 +129,12 @@ struct IOPCIConfigShadow
 {
     UInt32                   savedConfig[kIOPCIConfigShadowSize];
     UInt32                   flags;
-	uint32_t				 deferredMachineState;
     queue_chain_t            link;
+	queue_head_t             dependents;
+	IOPCIDevice *			 tunnelRoot;
     IOPCIDevice *            device;
     IOPCI2PCIBridge *        bridge;
-	uint8_t					 tunnelDependency;
     OSObject *               tunnelID;
-    OSObject *               tunnelControllerID;
     IOPCIDeviceConfigHandler handler;
     void *                   handlerRef;
 };
@@ -164,6 +195,7 @@ enum
 #define kIOPCIOnlineKey           "IOPCIOnline"
 #define kIOPCIConfiguredKey       "IOPCIConfigured"
 #define kIOPCIResourcedKey        "IOPCIResourced"
+#define kIOPCIPMCSStateKey        "IOPCIPMCSState"
 
 #ifndef kACPIDevicePathKey
 #define kACPIDevicePathKey             "acpi-path"
@@ -176,6 +208,18 @@ enum
 #ifndef kACPIPCILinkChangeKey
 #define kACPIPCILinkChangeKey       "pci-supports-link-change"
 #endif
+
+#define kIOPCIExpressASPMDefaultKey	"pci-aspm-default"
+
+#define kIOPCIExpressMaxLatencyKey	"pci-max-latency"
+
+enum
+{
+	kIOPCIExpressASPML0s = 0x00000001,
+	kIOPCIExpressASPML1  = 0x00000002
+};
+
+#define kIOPCIExpressL1PMControlKey	"pci-l1pm-control"
 
 #define kIOPCIDeviceDiagnosticsClassKey  "IOPCIDeviceDiagnosticsClass"
 
@@ -227,7 +271,11 @@ protected:
     void disableDeviceMSI(IOPCIDevice *device);
 
 public:
-    bool init( UInt32 numVectors );
+    bool init(UInt32 numVectors, UInt32 baseVector);
+
+    bool init(UInt32 numVectors);
+
+	bool reserveVectors(UInt32 vector, UInt32 count);
 
     virtual IOReturn registerInterrupt( IOService *        nub,
                                         int                source,

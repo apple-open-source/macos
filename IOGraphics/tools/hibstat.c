@@ -16,16 +16,18 @@ int main(int argc, char * argv[])
     hibernate_statistics_t stats;
     size_t len = sizeof(stats);
 
+#if 0
     uint32_t graphicsReadyTime    = 1;
     uint32_t wakeNotificationTime = 2;
     uint32_t lockScreenReadyTime  = 3;
     uint32_t hidReadyTime         = 4;
-
     if ((sysctlbyname(kIOSysctlHibernateGraphicsReady, NULL, NULL, &graphicsReadyTime,    sizeof(graphicsReadyTime)) < 0)
      || (sysctlbyname(kIOSysctlHibernateWakeNotify,    NULL, NULL, &wakeNotificationTime, sizeof(wakeNotificationTime)) < 0)
      || (sysctlbyname(kIOSysctlHibernateScreenReady,   NULL, NULL, &lockScreenReadyTime,  sizeof(lockScreenReadyTime)) < 0)
-     || (sysctlbyname(kIOSysctlHibernateHIDReady,      NULL, NULL, &hidReadyTime,         sizeof(hidReadyTime)) < 0)
-     || (sysctlbyname(kIOSysctlHibernateStatistics, &stats, &len, NULL, 0) < 0))
+     || (sysctlbyname(kIOSysctlHibernateHIDReady,      NULL, NULL, &hidReadyTime,         sizeof(hidReadyTime)) < 0))
+#endif
+
+    if (sysctlbyname(kIOSysctlHibernateStatistics, &stats, &len, NULL, 0) < 0)
     {
         printf("ERROR\n");
         exit (1);
@@ -50,6 +52,8 @@ int main(int argc, char * argv[])
     printf("wakeNotificationTime         %d ms\n", stats.wakeNotificationTime);
     printf("lockScreenReadyTime          %d ms\n", stats.lockScreenReadyTime);
     printf("hidReadyTime                 %d ms\n", stats.hidReadyTime);
+
+    printf("wakeCapability               0x%x\n",  stats.wakeCapability);
 
     exit(0);
 }

@@ -1244,6 +1244,10 @@ smb_iod_sendall(struct smbiod *iod)
 	struct smb_rq *rqp, *trqp;
 	struct timespec now, ts, uetimeout;
 	int herror, echo, drop_req_lock;
+	uint64_t oldest_message_id = 0;
+	struct timespec oldest_timesent = {0, 0};
+    uint32_t pending_reply = 0;
+    uint32_t need_wakeup = 0;
 
 	herror = 0;
 	echo = 0;
@@ -1327,6 +1331,31 @@ retry:
                     goto retry;
 				break;
 			case SMBRQ_SENT:
+                if (vcp->vc_flags & SMBV_SMB2) {
+                    /*
+                     * Keep track of oldest pending Message ID as this is used
+                     * in crediting.
+                     */
+                    if (!(rqp->sr_flags & SMBR_ASYNC)) {
+                        /* 
+                         * Ignore async requests as they can take an indefinite
+                         * amount of time.
+                         */
+                        if (pending_reply == 0) {
+                            /* first pending reply found */
+                            pending_reply = 1;
+                            oldest_message_id = rqp->sr_messageid;
+                            oldest_timesent = rqp->sr_timesent;
+                        }
+                        else {
+                            if (timespeccmp(&oldest_timesent, &rqp->sr_timesent, >)) {
+                                oldest_message_id = rqp->sr_messageid;
+                                oldest_timesent = rqp->sr_timesent;
+                            }
+                        }
+                    }
+                }
+        
 				/*
 				 * If this is an async call or a long-running request then it
 				 * can't timeout so we are done.
@@ -1404,8 +1433,10 @@ retry:
 		if (herror)
 			break;
 	}
+    
     if (drop_req_lock)
         SMB_IOD_RQUNLOCK(iod);
+    
 	if (herror == ENOTCONN) {
 		smb_iod_start_reconnect(iod);		
 	}	/* no echo message while we are reconnecting */
@@ -1422,6 +1453,38 @@ retry:
 		    timespeccmp(&ts, &iod->iod_lastrqsent, >))
 			(void)smb_smb_echo(vcp, SMBNOREPLYWAIT, 1, iod->iod_context);
 	}
+
+    if (vcp->vc_flags & SMBV_SMB2) {
+        /* Update oldest pending request Message ID */
+        SMBC_CREDIT_LOCK(vcp);
+        if (pending_reply == 0) {
+            /* No pending reply found */
+            vcp->vc_req_pending = 0;
+            
+            if (vcp->vc_oldest_message_id != 0) {
+                vcp->vc_oldest_message_id = 0;
+                need_wakeup = 1;
+            }
+        }
+        else {
+            /* A pending reply was found */
+            vcp->vc_req_pending = 1;
+            
+            if (oldest_message_id != vcp->vc_oldest_message_id) {
+                vcp->vc_oldest_message_id = oldest_message_id;
+                need_wakeup = 1;
+            }
+        }
+
+        /* Wake up any requests waiting for more credits */
+        if ((need_wakeup == 1) && (vcp->vc_credits_wait)) {
+            OSAddAtomic(-1, &vcp->vc_credits_wait);
+            wakeup(&vcp->vc_credits_wait);
+        }
+
+        SMBC_CREDIT_UNLOCK(vcp);
+    }
+
 	return 0;
 }
 

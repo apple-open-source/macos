@@ -31,6 +31,7 @@
 #include <openssl/rand.h>
 #endif /* OPENSSL */
 
+#include <notify.h>
 /*
  * Clock skew is managed by the "pacemaker" daemon on OS X.
  */
@@ -39,6 +40,7 @@ static int do_adjtime = 0;
 #else
 static int do_adjtime = 1;
 #endif /* __APPLE__ */
+int mode_wakeup;
 
 /*
  * These routines provide support for the event timer.	The timer is
@@ -65,8 +67,9 @@ static  u_long interface_timer;	/* interface update timer */
 static	u_long adjust_timer;	/* second timer */
 static	u_long stats_timer;	/* stats timer */
 static	u_long huffpuff_timer;	/* huff-n'-puff timer */
-u_long dns_timer;		/* update DNS flags on peers */
+u_long  dns_timer;		/* update DNS flags on peers */
 u_long	awake_timer;		/* Force a time sync after wakeup */
+static int awake_token;
 u_long	leapsec;		/* leapseconds countdown */
 l_fp	sys_time;		/* current system time */
 #ifdef OPENSSL
@@ -157,6 +160,29 @@ reinit_timer(void)
 # endif /* VMS */
 }
 
+void
+trigger_timer(void)
+{
+    struct itimerval itimerval;
+    if (nap_time == 1) {
+        return;
+    }
+    /* Adjust nap_time to reflect that we'll wake up in one second */
+    getitimer(ITIMER_REAL, &itimerval);
+    current_time += nap_time - itimerval.it_value.tv_sec;
+    nap_time = 1;
+    itimerval.it_interval.tv_sec = itimerval.it_value.tv_sec = nap_time;
+    itimerval.it_interval.tv_usec = itimerval.it_value.tv_usec = 0;
+    setitimer(ITIMER_REAL, &itimerval, NULL);
+}
+
+static RETSIGTYPE sigwake(int sig) {
+        if (awake_timer == 0) {
+            awake_timer = current_time;
+            trigger_timer();
+        }
+}
+
 /*
  * init_timer - initialize the timer data structures
  */
@@ -239,6 +265,8 @@ init_timer(void)
 	}
 
 #endif /* SYS_WINNT */
+	signal_no_reset(SIGINFO, sigwake);
+	notify_register_signal("com.apple.powermanagement.systempowerstate", SIGINFO, &awake_token);
 }
 
 #if defined(SYS_WINNT)
@@ -306,16 +334,19 @@ timer(void)
     
     if (awake_timer) {
         if (awake_timer <= current_time) {
-            for (n = 0; n < NTP_HASH_SIZE; n++) {
-                for (peer = peer_hash[n]; peer != 0; peer = peer->next) {
-                    peer->burst = NSTAGE;
-                    peer->nextdate = current_time;
-                    peer->throttle = 0;
+            mode_wakeup = TRUE;
+            allow_panic = TRUE;
+            peer = sys_peer;
+            if (peer == NULL) {
+                for (n = 0; n < NTP_HASH_SIZE; n++) {
+                    for (peer = peer_hash[n]; peer != 0; peer = peer->next) {
+                        transmit(peer);
+                    }
                 }
+            } else {
+                transmit(peer);
             }
-            allow_panic = TRUE; /* Allow for large time offsets */
-            init_loopfilter();
-            state = EVNT_NSET;
+	    msyslog(LOG_DEBUG, "awake transmit");
             awake_timer = 0;
         } else {
             delta = awake_timer - current_time;
@@ -529,26 +560,6 @@ timer(void)
     }
 	itimer.it_interval.tv_sec = itimer.it_value.tv_sec = nap_time;
 	setitimer(ITIMER_REAL, &itimer, (struct itimerval *)0);
-}
-
-void
-trigger_timer(void)
-{
-    struct itimerval itimerval;
-    if (nap_time == 1) {
-        return;
-    }
-    /* Adjust nap_time to reflect that we'll wake up in one second */
-    getitimer(ITIMER_REAL, &itimerval);
-    if (debug) {
-	    msyslog(LOG_INFO, "%s: current_time: %ld => %ld, nap_time: %ld => 1", __FUNCTION__,
-		    current_time, current_time+nap_time-itimerval.it_value.tv_sec, nap_time);
-    }
-    current_time += nap_time - itimerval.it_value.tv_sec;
-    nap_time = 1;
-    itimerval.it_interval.tv_sec = itimerval.it_value.tv_sec = nap_time;
-    itimerval.it_interval.tv_usec = itimerval.it_value.tv_usec = 0;
-    setitimer(ITIMER_REAL, &itimerval, NULL);
 }
 
 #ifndef SYS_WINNT

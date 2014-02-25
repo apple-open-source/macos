@@ -1787,17 +1787,63 @@ done:
 
 /*
  * Resolve the name using DNS.
-*/
+ * By the time we get here, we have already tried resolving it as a Bonjour
+ * name, then tried as a NetBios name and its not either of those.
+ */
 static int smb_resolve_dns_name(struct smb_ctx *ctx, CFMutableArrayRef *outAddressArray, 
 								Boolean loopBackAllowed)
 {
 	int error;
+    size_t len;
+    char *temp_name = NULL;
+    char *scope = NULL;
 	
 	error = resolvehost(ctx->serverName, outAddressArray, NULL, ctx->prefs.tcp_port, 
 						loopBackAllowed, ctx->prefs.tryBothPorts);
 	if (error == 0) {
-		ctx->ct_flags |= SMBCF_RESOLVED;
-		strlcpy(ctx->ct_ssn.ioc_srvname, ctx->serverName, sizeof(ctx->ct_ssn.ioc_srvname));
+        ctx->ct_flags |= SMBCF_RESOLVED;
+        
+        /*
+         * Note: getaddrinfo() and inet_pton() both will give errors if its
+         * an IPv6 address enclosed by brackets. I cant find a way to detect
+         * if the address is IPv6 or not if the brackets are present. Thus, the
+         * check for '[' at the start and ']' at the end of the string.
+         */
+
+        /* Check to see if its IPv6 and if it is IPv6 with brackets */
+        len = strnlen(ctx->serverName, 1024);  /* assume hostname < 1024 */
+        if ((len > 3) && (ctx->serverName[0] == '[') && (ctx->serverName[len - 1] == ']')) {
+            /* Seems to be IPv6 with brackets */
+            temp_name = malloc(len);
+            
+            if (temp_name != NULL) {
+                /*
+                 * Copy string and skip beginning '[' (&hostname[1]) and
+                 * ending ']' (len - 1)
+                 */
+                strlcpy(temp_name, &ctx->serverName[1], len - 1);
+                
+                /* 
+                 * Strip off the scope if one is found as our own server does
+                 * not like the %en0 in the Tree Connect
+                 */
+                scope = strrchr(temp_name, '%');
+                if (scope != NULL) {
+                    /* Found a scope, so lop it off */
+                    *scope = NULL;
+                }
+                
+                strlcpy(ctx->ct_ssn.ioc_srvname, temp_name, sizeof(ctx->ct_ssn.ioc_srvname));
+                
+                free(temp_name);
+            }
+            else {
+                error = ENOMEM;
+            }
+        }
+        else {
+            strlcpy(ctx->ct_ssn.ioc_srvname, ctx->serverName, sizeof(ctx->ct_ssn.ioc_srvname));
+        }
 	}
 
 	return error;

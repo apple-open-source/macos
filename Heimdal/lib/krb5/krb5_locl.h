@@ -265,6 +265,7 @@ struct _krb5_get_init_creds_opt_private {
 typedef uint32_t krb5_enctype_set;
 
 typedef struct krb5_context_data {
+    struct heim_base_uniq base;
     krb5_enctype *etypes;
     krb5_enctype *etypes_des;/* deprecated */
     krb5_enctype *as_etypes;

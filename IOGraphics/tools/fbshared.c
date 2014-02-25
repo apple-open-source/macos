@@ -2,6 +2,7 @@
 cc -g -o /tmp/fbshared fbshared.c -framework ApplicationServices -framework IOKit -Wall -arch i386
 */
 #define IOCONNECT_MAPMEMORY_10_6    1
+#define IOFB_ARBITRARY_SIZE_CURSOR
 #define IOFB_ARBITRARY_FRAMES_CURSOR    1
 #include <CoreFoundation/CoreFoundation.h>
 #include <ApplicationServices/ApplicationServices.h>
@@ -35,8 +36,6 @@ int main(int argc, char * argv[])
             index++, (framebuffer = IOIteratorNext(iter));
             IOObjectRelease(framebuffer))
     {
-
-
         kr = IORegistryEntryGetPath(framebuffer, kIOServicePlane, path);
         assert( KERN_SUCCESS == kr );
         printf("\n/* [%d] Using device: %s */\n", index, path);
@@ -83,7 +82,53 @@ int main(int argc, char * argv[])
 		shmem[index]->screenBounds.minx, shmem[index]->screenBounds.miny, 
 		shmem[index]->screenBounds.maxx, shmem[index]->screenBounds.maxy);
 
+	printf("size[0] (%d, %d)\n",
+		shmem[index]->cursorSize[0].width, shmem[index]->cursorSize[0].height);
+
+        if (shmem[index]->hardwareCursorActive && !shmem[index]->cursorShow)
+        do 
+        {
+            struct {
+               uint8_t  identLength;
+               uint8_t  colorMapType;
+               uint8_t  dataType;
+               uint8_t  colorMap[5];
+               uint16_t origin[2];
+               uint16_t width;
+               uint16_t height;
+               uint8_t  bitsPerPixel;
+               uint8_t  imageDesc;
+            } hdr;
+            FILE *    f;
+            char      path[256];
+            uint8_t * bits;
+            uint32_t  w, h, y;
+
+            w = shmem[index]->cursorSize[0].width;
+            h = shmem[index]->cursorSize[0].height;
+
+            bzero(&hdr, sizeof(hdr));
+            hdr.dataType     = 2;
+            hdr.width        = OSSwapHostToLittleInt16(w);
+            hdr.height       = OSSwapHostToLittleInt16(h);
+            hdr.bitsPerPixel = 32;
+            hdr.imageDesc    = (1<<5) | 8;
+    
+            snprintf(path, sizeof(path), "/tmp/curs%d.tga", index);
+            f = fopen(path, "w" /*"r+"*/);
+            if (!f) continue;
+            fwrite(&hdr, sizeof(hdr), 1, f);
+            bits = (uint8_t *)(uintptr_t) &shmem[index]->cursor[0];
+            for (y = 0; y < h; y++)
+            {
+                fwrite(bits, sizeof(uint32_t), w, f);
+                bits += w * sizeof(uint32_t);
+            }
+            fclose(f);
+        }
+        while (false);
     }
+
     maxIndex = index;
     while (true)
     {

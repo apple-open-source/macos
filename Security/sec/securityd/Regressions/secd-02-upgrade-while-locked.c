@@ -32,7 +32,7 @@
 
 #include "SecdTestKeychainUtilities.h"
 
-#include "b_keychain_2_db.h"
+#include "brighton_keychain_2_db.h"
 
 static OSStatus query_one(void)
 {
@@ -110,7 +110,7 @@ int secd_02_upgrade_while_locked(int argc, char *const *argv)
         CFStringRef keychain_path_cf = __SecKeychainCopyPath();
         
         CFStringPerformWithCString(keychain_path_cf, ^(const char *keychain_path) {
-            writeFile(keychain_path, b_keychain_2_db, b_keychain_2_db_len);            
+            writeFile(keychain_path, brighton_keychain_2_db, brighton_keychain_2_db_len);            
         
             /* custom notification */
             SecItemServerSetKeychainChangedNotification("com.apple.secdtests.keychainchanged");

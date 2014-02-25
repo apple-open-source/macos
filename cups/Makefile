@@ -14,7 +14,7 @@ GnuAfterInstall	= install-plist
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/GNUSource.make
 
 # Specify the configure flags to use...
-Configure_Flags = --with-cups-build="cups-372" \
+Configure_Flags = --with-cups-build="cups-372.2" \
 		  --with-archflags="$(RC_CFLAGS)" \
 		  --with-ldarchflags="`$(SRCROOT)/getldarchflags.sh $(RC_CFLAGS)` $(PPC_FLAGS)" \
 		  --with-adminkey="system.print.admin" \

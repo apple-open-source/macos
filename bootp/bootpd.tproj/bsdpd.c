@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2006 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -840,6 +840,36 @@ image_server_ip(NBImageEntryRef image_entry, struct in_addr server_ip)
 }
 
 static boolean_t
+escape_password(const char * password, int password_length, 
+		char * escaped_password, int escaped_password_length)
+{
+    boolean_t	escaped = FALSE;
+    CFStringRef	pass_str;
+    CFStringRef	str;
+
+#define PUNCTUATION  CFSTR(CHARSET_SYMBOLS)
+    pass_str = CFStringCreateWithCString(NULL, password, kCFStringEncodingUTF8);
+    str = CFURLCreateStringByAddingPercentEscapes(NULL,
+						  pass_str, 
+						  NULL,
+						  PUNCTUATION,
+						  kCFStringEncodingUTF8);
+    CFRelease(pass_str);
+    if (CFStringGetCString(str,
+			   escaped_password,
+			   escaped_password_length,
+			   kCFStringEncodingUTF8)) {
+	escaped = TRUE;
+    }
+    else {
+	my_log(LOG_NOTICE, "failed to URL escape password");
+    }
+    CFRelease(str);
+    return (escaped);
+
+}
+
+static boolean_t
 X_netboot(NBImageEntryRef image_entry, struct in_addr server_ip,
 	  const char * hostname, int host_number, uid_t uid,
 	  const char * afp_user, const char * password,
@@ -892,6 +922,8 @@ X_netboot(NBImageEntryRef image_entry, struct in_addr server_ip,
 	return (FALSE);
     }
     if (image_entry->diskless) {
+	char 		escaped_password[3 * AFP_PASSWORD_LEN + 1];
+	const char *	passwd;
 	char 		shadow_mount_path[256];
 	char 		shadow_path[256];
 	NBSPEntry *	vol;
@@ -902,9 +934,16 @@ X_netboot(NBImageEntryRef image_entry, struct in_addr server_ip,
 	if (vol == NULL) {
 	    return (FALSE);
 	}
-	snprintf(shadow_mount_path, sizeof(shadow_mount_path), 
+	if (escape_password(password, strlen(password),
+			    escaped_password, sizeof(escaped_password))) {
+	    passwd = escaped_password;
+	}
+	else {
+	    passwd = password;
+	}
+	snprintf(shadow_mount_path, sizeof(shadow_mount_path),
 		 "afp://%s:%s@%s/%s",
-		 afp_user, password, inet_ntoa(server_ip), vol->name);
+		 afp_user, passwd, inet_ntoa(server_ip), vol->name);
 	if (dhcpoa_vendor_add(options, bsdp_options, 
 			      bsdptag_shadow_mount_path_e,
 			      strlen(shadow_mount_path), shadow_mount_path)

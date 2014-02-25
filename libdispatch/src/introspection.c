@@ -85,7 +85,7 @@ _dispatch_introspection_init(void)
 const struct dispatch_introspection_versions_s
 dispatch_introspection_versions = {
 	.introspection_version = 1,
-	.hooks_version = 1,
+	.hooks_version = 2,
 	.hooks_size = sizeof(dispatch_introspection_hooks_s),
 	.queue_item_version = 1,
 	.queue_item_size = sizeof(dispatch_introspection_queue_item_s),
@@ -390,6 +390,7 @@ dispatch_introspection_hooks_s _dispatch_introspection_hook_callouts_enabled = {
 	.queue_dispose = DISPATCH_INTROSPECTION_NO_HOOK,
 	.queue_item_enqueue = DISPATCH_INTROSPECTION_NO_HOOK,
 	.queue_item_dequeue = DISPATCH_INTROSPECTION_NO_HOOK,
+	.queue_item_complete = DISPATCH_INTROSPECTION_NO_HOOK,
 };
 
 #define DISPATCH_INTROSPECTION_HOOKS_COUNT (( \
@@ -419,6 +420,7 @@ DISPATCH_INTROSPECTION_INTERPOSABLE_HOOK(queue_create);
 DISPATCH_INTROSPECTION_INTERPOSABLE_HOOK(queue_destroy);
 DISPATCH_INTROSPECTION_INTERPOSABLE_HOOK(queue_item_enqueue);
 DISPATCH_INTROSPECTION_INTERPOSABLE_HOOK(queue_item_dequeue);
+DISPATCH_INTROSPECTION_INTERPOSABLE_HOOK(queue_item_complete);
 DISPATCH_INTROSPECTION_INTERPOSABLE_HOOK(queue_callout_begin);
 DISPATCH_INTROSPECTION_INTERPOSABLE_HOOK(queue_callout_end);
 
@@ -564,7 +566,7 @@ _dispatch_introspection_queue_item_dequeue_hook(dispatch_queue_t dq,
 {
 	dispatch_introspection_queue_item_s diqi;
 	diqi = dispatch_introspection_queue_item_get_info(dq, dou._dc);
-	dispatch_introspection_hook_callout_queue_item_enqueue(dq, &diqi);
+	dispatch_introspection_hook_callout_queue_item_dequeue(dq, &diqi);
 }
 
 void
@@ -575,6 +577,30 @@ _dispatch_introspection_queue_item_dequeue(dispatch_queue_t dq,
 			queue_item_dequeue, dq, dou);
 	if (DISPATCH_INTROSPECTION_HOOK_ENABLED(queue_item_dequeue)) {
 		_dispatch_introspection_queue_item_dequeue_hook(dq, dou);
+	}
+}
+
+DISPATCH_NOINLINE
+void
+dispatch_introspection_hook_callout_queue_item_complete(
+		dispatch_continuation_t object)
+{
+	DISPATCH_INTROSPECTION_HOOK_CALLOUT(queue_item_complete, object);
+}
+
+DISPATCH_NOINLINE
+static void
+_dispatch_introspection_queue_item_complete_hook(dispatch_object_t dou)
+{
+	dispatch_introspection_hook_callout_queue_item_complete(dou._dc);
+}
+
+void
+_dispatch_introspection_queue_item_complete(dispatch_object_t dou)
+{
+	DISPATCH_INTROSPECTION_INTERPOSABLE_HOOK_CALLOUT(queue_item_complete, dou);
+	if (DISPATCH_INTROSPECTION_HOOK_ENABLED(queue_item_complete)) {
+		_dispatch_introspection_queue_item_complete_hook(dou);
 	}
 }
 

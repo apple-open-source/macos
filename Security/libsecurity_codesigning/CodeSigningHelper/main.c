@@ -149,7 +149,8 @@ fetchData(xpc_connection_t peer, xpc_object_t event)
 send:
 	if (bundle)
 		CFRelease(bundle);
-        xpc_connection_send_message(peer, reply);
+	xpc_connection_send_message(peer, reply);
+	xpc_release(reply);
 }
 
 

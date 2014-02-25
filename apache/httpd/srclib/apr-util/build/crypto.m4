@@ -23,6 +23,8 @@ dnl APU_CHECK_CRYPTO: look for crypto libraries and headers
 dnl
 AC_DEFUN([APU_CHECK_CRYPTO], [
   apu_have_crypto=0
+  apu_have_openssl=0
+  apu_have_nss=0
 
   old_libs="$LIBS"
   old_cppflags="$CPPFLAGS"
@@ -30,10 +32,39 @@ AC_DEFUN([APU_CHECK_CRYPTO], [
 
   AC_ARG_WITH([crypto], [APR_HELP_STRING([--with-crypto], [enable crypto support])],
   [
+    cryptolibs="openssl nss"
+
     if test "$withval" = "yes"; then
+
+      crypto_library_enabled=0
+      for cryptolib in $cryptolibs; do
+        eval v=\$with_$cryptolib
+        if test "$v" != "" -a "$v" != "no"; then
+          crypto_library_enabled=1
+        fi
+      done
+
+      if test "$crypto_library_enabled" = "0"; then
+        for cryptolib in $cryptolibs; do
+          eval v=\$with_$cryptolib
+          if test "$v" != "no"; then
+            eval with_$cryptolib=yes
+            crypto_library_enabled=1
+          fi
+        done
+	if test "$crypto_library_enabled" = "1"; then
+          AC_MSG_NOTICE([Crypto was requested but no crypto library was found; autodetecting possible libraries])
+        else
+          AC_ERROR([Crypto was requested but all possible crypto libraries were disabled.])
+	fi
+      fi
+
       APU_CHECK_CRYPTO_OPENSSL
       APU_CHECK_CRYPTO_NSS
       dnl add checks for other varieties of ssl here
+      if test "$apu_have_crypto" = "0"; then
+        AC_ERROR([Crypto was requested but no crypto library could be enabled; specify the location of a crypto library using --with-openssl, --with-nss, etc.])
+      fi
     fi
   ], [
       apu_have_crypto=0
@@ -45,7 +76,6 @@ AC_DEFUN([APU_CHECK_CRYPTO], [
 dnl
 
 AC_DEFUN([APU_CHECK_CRYPTO_OPENSSL], [
-  apu_have_openssl=0
   openssl_have_headers=0
   openssl_have_libs=0
 
@@ -104,7 +134,7 @@ AC_DEFUN([APU_CHECK_CRYPTO_OPENSSL], [
   dnl Since we have already done the AC_CHECK_LIB tests, if we have it, 
   dnl we know the library is there.
   if test "$apu_have_openssl" = "1"; then
-    LDADD_crypto_openssl="$openssl_LDFLAGS -lssl -lcrypto"
+    APR_ADDTO(LDADD_crypto_openssl, [$openssl_LDFLAGS -lssl -lcrypto])
     apu_have_crypto=1
 
     AC_MSG_CHECKING([for const input buffers in OpenSSL])
@@ -134,8 +164,6 @@ AC_DEFUN([APU_CHECK_CRYPTO_OPENSSL], [
 ])
 
 AC_DEFUN([APU_CHECK_CRYPTO_NSS], [
-  apu_have_nss=0
-  nss_have_headers=0
   nss_have_libs=0
 
   old_libs="$LIBS"
@@ -145,7 +173,6 @@ AC_DEFUN([APU_CHECK_CRYPTO_NSS], [
   AC_ARG_WITH([nss], 
   [APR_HELP_STRING([--with-nss=DIR], [specify location of NSS])],
   [
-
     if test "$withval" = "yes"; then
       AC_PATH_TOOL([PKG_CONFIG], [pkg-config])
       if test -n "$PKG_CONFIG"; then
@@ -154,9 +181,15 @@ AC_DEFUN([APU_CHECK_CRYPTO_NSS], [
         APR_ADDTO(CPPFLAGS, [$nss_CPPFLAGS])
         APR_ADDTO(LDFLAGS, [$nss_LDFLAGS])
       fi
-      AC_CHECK_HEADERS(prerror.h nss/nss.h nss.h nss/pk11pub.h pk11pub.h, [nss_have_headers=1])
+      nss_have_prerrorh=0
+      nss_have_nssh=0
+      nss_have_pk11pubh=0
+      AC_CHECK_HEADERS(prerror.h, [nss_have_prerrorh=1])
+      AC_CHECK_HEADERS(nss/nss.h nss.h, [nss_have_nssh=1])
+      AC_CHECK_HEADERS(nss/pk11pub.h pk11pub.h, [nss_have_pk11pubh=1])
+      nss_have_headers=${nss_have_prerrorh}${nss_have_nssh}${nss_have_pk11pubh}
       AC_CHECK_LIB(nspr4, PR_Initialize, AC_CHECK_LIB(nss3, PK11_CreatePBEV2AlgorithmID, [nss_have_libs=1],,-lnspr4))
-      if test "$nss_have_headers" != "0" && test "$nss_have_libs" != "0"; then
+      if test "$nss_have_headers" = "111" && test "$nss_have_libs" != "0"; then
         apu_have_nss=1
       fi
     elif test "$withval" = "no"; then
@@ -170,9 +203,15 @@ AC_DEFUN([APU_CHECK_CRYPTO_NSS], [
       APR_ADDTO(LDFLAGS, [$nss_LDFLAGS])
 
       AC_MSG_NOTICE(checking for nss in $withval)
-      AC_CHECK_HEADERS(prerror.h nss/nss.h nss.h nss/pk11pub.h pk11pub.h, [nss_have_headers=1])
+      nss_have_prerrorh=0
+      nss_have_nssh=0
+      nss_have_pk11pubh=0
+      AC_CHECK_HEADERS(prerror.h, [nss_have_prerrorh=1])
+      AC_CHECK_HEADERS(nss/nss.h nss.h, [nss_have_nssh=1])
+      AC_CHECK_HEADERS(nss/pk11pub.h pk11pub.h, [nss_have_pk11pubh=1])
+      nss_have_headers=${nss_have_prerrorh}${nss_have_nssh}${nss_have_pk11pubh}
       AC_CHECK_LIB(nspr4, PR_Initialize, AC_CHECK_LIB(nss3, PK11_CreatePBEV2AlgorithmID, [nss_have_libs=1],,-lnspr4))
-      if test "$nss_have_headers" != "0" && test "$nss_have_libs" != "0"; then
+      if test "$nss_have_headers" = "111" && test "$nss_have_libs" != "0"; then
         apu_have_nss=1
       fi
 
@@ -189,7 +228,7 @@ AC_DEFUN([APU_CHECK_CRYPTO_NSS], [
   dnl Since we have already done the AC_CHECK_LIB tests, if we have it, 
   dnl we know the library is there.
   if test "$apu_have_nss" = "1"; then
-    LDADD_crypto_nss="$nss_LDFLAGS -lnspr4 -lnss3"
+    APR_ADDTO(LDADD_crypto_nss, [$nss_LDFLAGS -lnspr4 -lnss3])
     apu_have_crypto=1
   fi
   AC_SUBST(LDADD_crypto_nss)

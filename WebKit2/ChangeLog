@@ -1,3 +1,94 @@
+2013-12-23  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge 161003: <rdar://problem/15719584>
+
+    2013-12-23  Lucas Forschler  <lforschler@apple.com>
+
+            <rdar://problem/15682948> Update copyright strings
+
+            Reviewed by Dan Bernstein
+
+            * DatabaseProcess/EntryPoint/mac/LegacyProcess/Info.plist:
+            * DatabaseProcess/EntryPoint/mac/XPCService/DatabaseService.Development/Info.plist:
+            * DatabaseProcess/EntryPoint/mac/XPCService/DatabaseService/Info.plist:
+            * Info.plist:
+            * NetworkProcess/EntryPoint/mac/LegacyProcess/Info.plist:
+            * NetworkProcess/EntryPoint/mac/XPCService/NetworkService.Development/Info.plist:
+            * NetworkProcess/EntryPoint/mac/XPCService/NetworkService/Info-OSX.plist:
+            * NetworkProcess/EntryPoint/mac/XPCService/NetworkService/Info-iOS.plist:
+            * PluginProcess/EntryPoint/mac/LegacyProcess/Info.plist:
+            * PluginProcess/EntryPoint/mac/XPCService/PluginService.32-64.Info.plist:
+            * PluginProcess/EntryPoint/mac/XPCService/PluginService.Development/Info.plist:
+            * WebProcess/EntryPoint/mac/LegacyProcess/Info.plist:
+            * WebProcess/EntryPoint/mac/XPCService/WebContentService.Development/Info.plist:
+            * WebProcess/EntryPoint/mac/XPCService/WebContentService/Info-iOS.plist:
+            * WebProcess/EntryPoint/mac/XPCService/WebContentService/Info.plist:
+
+2013-12-11  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r160197
+
+    2013-12-05  Chris Fleizach  <cfleizach@apple.com> 
+
+            AX: Seed: safari extension installation crashes safari under voice over and freezes voice over
+            https://bugs.webkit.org/show_bug.cgi?id=125308
+
+            Reviewed by Anders Carlsson.
+
+            Much like Javascript alerts, we need to allow accessibility clients to continue to interact with the WebProcess thread
+            when using dispatchDecidePolicyResponses.
+
+            * Platform/CoreIPC/MessageSender.h:
+            (CoreIPC::MessageSender::sendSync):
+            * WebProcess/WebCoreSupport/WebFrameLoaderClient.cpp:
+            (WebKit::WebFrameLoaderClient::dispatchDecidePolicyForResponse):
+
+2013-12-11  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r159460
+
+    2013-11-18  David Hyatt  <hyatt@apple.com>
+
+            Add a quirk to not respect center text-align when positioning
+
+            <rdar://problem/15427571>
+            https://bugs.webkit.org/show_bug.cgi?id=124522
+
+            Reviewed by Simon Fraser.
+
+            Added fast/block/legacy-text-align-position-quirk.html
+
+            * Shared/WebPreferencesStore.h:
+            * UIProcess/API/C/WKPreferences.cpp:
+            (WKPreferencesUseLegacyTextAlignPositionedElementBehavior):
+            (WKPreferencesSetUseLegacyTextAlignPositionedElementBehavior):
+            * UIProcess/API/C/WKPreferencesPrivate.h:
+            * WebProcess/WebPage/WebPage.cpp:
+            (WebKit::WebPage::updatePreferences):
+
+2013-12-11  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r159173
+
+    2013-11-12  Anders Carlsson  <andersca@apple.com>
+
+            fast/canvas/webgl/draw-arrays-out-of-bounds.html is flaky on Mavericks WK2 testers, fails about 20% of the time
+            https://bugs.webkit.org/show_bug.cgi?id=124223
+            <rdar://problem/15333977>
+
+            Reviewed by Tim Horton.
+
+            It's wrong to use DataReferences in sync IPC replies; the underlying MessageDecoder will be freed after the call to
+            sendSync returns and the DataReference will point to freed memory. Use a Vector<char> instead.
+
+            * NetworkProcess/NetworkConnectionToWebProcess.messages.in:
+            * NetworkProcess/SynchronousNetworkLoaderClient.cpp:
+            (WebKit::SynchronousNetworkLoaderClient::didReceiveBuffer):
+            (WebKit::SynchronousNetworkLoaderClient::sendDelayedReply):
+            * NetworkProcess/SynchronousNetworkLoaderClient.h:
+            * WebProcess/WebCoreSupport/WebPlatformStrategies.cpp:
+            (WebKit::WebPlatformStrategies::loadResourceSynchronously):
+
 2013-11-13  Lucas Forschler  <lforschler@apple.com>
 
         Merge r159248

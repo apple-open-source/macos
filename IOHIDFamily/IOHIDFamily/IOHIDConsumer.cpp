@@ -2,7 +2,7 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * Copyright (c) 1999-2013 Apple Computer, Inc.  All Rights Reserved.
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -84,16 +84,23 @@ IOHIDConsumer::init(OSDictionary *properties)
 //====================================================================================================
 bool IOHIDConsumer::start(IOService * provider)
 {
-    _provider = OSDynamicCast ( IOHIDEventService, provider);
-    
-    if ( !_provider )
-        return false;
-
     setProperty(kIOHIDVirtualHIDevice, kOSBooleanTrue);
                 
     return super::start(provider);
 }
 
+//====================================================================================================
+// stop
+//====================================================================================================
+void IOHIDConsumer::stop(IOService * provider)
+{
+    OSSafeReleaseNULL(_keyboardNub);
+    super::stop(provider);
+}
+
+//====================================================================================================
+// dispatchConsumerEvent
+//====================================================================================================
 void IOHIDConsumer::dispatchConsumerEvent(
                                 IOHIDKeyboard *             sendingkeyboardNub,
                                 AbsoluteTime                timeStamp,
@@ -200,9 +207,11 @@ void IOHIDConsumer::dispatchConsumerEvent(
 	}
     
     //Copy the device flags (modifier flags) from the ADB keyboard driver
+    OSSafeReleaseNULL(_keyboardNub);
     if ( NULL != (_keyboardNub = sendingkeyboardNub) )
     {
         UInt32  currentFlags;
+        _keyboardNub->retain();
         
         currentFlags        = deviceFlags() & ~_cachedEventFlags;
         _cachedEventFlags   = _keyboardNub->deviceFlags();

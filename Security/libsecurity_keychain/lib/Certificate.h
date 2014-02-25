@@ -79,6 +79,7 @@ public:
 	CFStringRef distinguishedName(const CSSM_OID *sourceOid, const CSSM_OID *componentOid);
 	CFStringRef copyFirstEmailAddress();
 	CFArrayRef copyEmailAddresses();
+	CFArrayRef copyDNSNames();
     const CSSM_X509_NAME_PTR subjectName();
     const CSSM_X509_NAME_PTR issuerName();
 	const CSSM_X509_ALGORITHM_IDENTIFIER_PTR algorithmID();
@@ -99,11 +100,11 @@ public:
 	static SecPointer<Certificate> findByEmail(const StorageManager::KeychainList &keychains, const char *emailAddress);
 
 	static void normalizeEmailAddress(CSSM_DATA &emailAddress);
-	static void getEmailAddresses(CSSM_DATA_PTR *sanValues, CSSM_DATA_PTR snValue, std::vector<CssmData> &emailAddresses);
+	static void getNames(CSSM_DATA_PTR *sanValues, CSSM_DATA_PTR snValue, CE_GeneralNameType generalNameType, std::vector<CssmData> &names);
 
 	bool operator < (Certificate &other);
 	bool operator == (Certificate &other);
-	
+
 	virtual CFHashCode hash();
 
 public:

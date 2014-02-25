@@ -35,7 +35,7 @@ __strncat_chk (char *restrict dest, const char *restrict append,
   if (__builtin_expect (dstlen < len1 + len2 + 1, 0))
     __chk_fail_overflow ();
 
-  if (__builtin_expect (__chk_assert_no_overlap, 1))
+  if (__builtin_expect (__chk_assert_no_overlap != 0, 1))
     __chk_overlap(dest, len1 + len2 + 1, append, len2 + 1);
 
   /* memmove() all but the NUL, since it might not actually be NUL */

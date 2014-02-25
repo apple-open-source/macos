@@ -2022,6 +2022,15 @@ clock_filter(
 	double	dtemp, etemp;
 	char	tbuf[80];
 
+	if (mode_wakeup) {
+		if (fabs(sample_offset) > clock_max) {
+			step_systime(sample_offset);
+			msyslog(LOG_NOTICE, "ntpd: wake time set %+.6f s",
+				sample_offset);
+			clear_all();
+		}
+		mode_wakeup = FALSE;
+	}
 	/*
 	 * A sample consists of the offset, delay, dispersion and epoch
 	 * of arrival. The offset and delay are determined by the on-

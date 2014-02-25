@@ -12,7 +12,7 @@
 #include <IOKit/kext/OSKext.h>
 #include <mach/mach_error.h>
 
-//  <rdar://problem/12435992> Message tracing for kext loads
+//  <rdar://problem/12435992>
 #include <asl.h>
 #include <Security/SecCode.h>
 #include <Security/SecCodeSigner.h>

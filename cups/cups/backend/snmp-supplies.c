@@ -1,9 +1,9 @@
 /*
- * "$Id: snmp-supplies.c 4057 2012-12-07 21:34:43Z msweet $"
+ * "$Id: snmp-supplies.c 11433 2013-11-20 18:57:44Z msweet $"
  *
  *   SNMP supplies functions for CUPS.
  *
- *   Copyright 2008-2012 by Apple Inc.
+ *   Copyright 2008-2013 by Apple Inc.
  *
  *   These coded instructions, statements, and computer programs are the
  *   property of Apple Inc. and are protected by Federal copyright
@@ -62,6 +62,7 @@ typedef struct				/**** Printer supply data ****/
   char	name[CUPS_SNMP_MAX_STRING],	/* Name of supply */
 	color[8];			/* Color: "#RRGGBB" or "none" */
   int	colorant,			/* Colorant index */
+	sclass,				/* Supply class */
 	type,				/* Supply type */
 	max_capacity,			/* Maximum capacity */
 	level;				/* Current level value */
@@ -147,6 +148,13 @@ static const int	prtMarkerSuppliesMaxCapacity[] =
 			prtMarkerSuppliesMaxCapacityOffset =
 			(sizeof(prtMarkerSuppliesMaxCapacity) /
 			 sizeof(prtMarkerSuppliesMaxCapacity[0]));
+			 		/* Offset to supply index */
+static const int	prtMarkerSuppliesClass[] =
+			{ CUPS_OID_prtMarkerSuppliesClass, -1 },
+					/* Class OID */
+			prtMarkerSuppliesClassOffset =
+			(sizeof(prtMarkerSuppliesClass) /
+			 sizeof(prtMarkerSuppliesClass[0]));
 			 		/* Offset to supply index */
 static const int	prtMarkerSuppliesType[] =
 			{ CUPS_OID_prtMarkerSuppliesType, -1 },
@@ -256,6 +264,9 @@ backendSNMPSupplies(
         percent = supplies[i].level;
       else
         percent = 50;
+
+      if (supplies[i].sclass == CUPS_TC_receptacleThatIsFilled)
+        percent = 100 - percent;
 
       if (percent <= 5)
       {
@@ -561,14 +572,14 @@ backend_init_supplies(
    /*
     * Yes, read the cache file:
     *
-    *     2 num_supplies charset
+    *     3 num_supplies charset
     *     device description
     *     supply structures...
     */
 
     if (cupsFileGets(cachefile, value, sizeof(value)))
     {
-      if (sscanf(value, "2 %d%d", &num_supplies, &charset) == 2 &&
+      if (sscanf(value, "3 %d%d", &num_supplies, &charset) == 2 &&
           num_supplies <= CUPS_MAX_SUPPLIES &&
           cupsFileGets(cachefile, value, sizeof(value)))
       {
@@ -664,7 +675,7 @@ backend_init_supplies(
 
   if ((cachefile = cupsFileOpen(cachefilename, "w")) != NULL)
   {
-    cupsFilePrintf(cachefile, "2 %d %d\n", num_supplies, charset);
+    cupsFilePrintf(cachefile, "3 %d %d\n", num_supplies, charset);
     cupsFilePrintf(cachefile, "%s\n", description);
 
     if (num_supplies > 0)
@@ -969,6 +980,25 @@ backend_walk_cb(cups_snmp_t *packet,	/* I - SNMP packet */
         packet->object_value.integer > 0)
       supplies[i - 1].max_capacity = packet->object_value.integer;
   }
+  else if (_cupsSNMPIsOIDPrefixed(packet, prtMarkerSuppliesClass))
+  {
+   /*
+    * Get marker class...
+    */
+
+    i = packet->object_name[prtMarkerSuppliesClassOffset];
+    if (i < 1 || i > CUPS_MAX_SUPPLIES ||
+        packet->object_type != CUPS_ASN1_INTEGER)
+      return;
+
+    fprintf(stderr, "DEBUG2: prtMarkerSuppliesClass.1.%d = %d\n", i,
+            packet->object_value.integer);
+
+    if (i > num_supplies)
+      num_supplies = i;
+
+    supplies[i - 1].sclass = packet->object_value.integer;
+  }
   else if (_cupsSNMPIsOIDPrefixed(packet, prtMarkerSuppliesType))
   {
    /*
@@ -1073,5 +1103,5 @@ utf16_to_utf8(
 
 
 /*
- * End of "$Id: snmp-supplies.c 4057 2012-12-07 21:34:43Z msweet $".
+ * End of "$Id: snmp-supplies.c 11433 2013-11-20 18:57:44Z msweet $".
  */

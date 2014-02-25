@@ -198,8 +198,6 @@
 		7278F0F611AF5F0B00E31601 /* refclock_wwvb.c in Sources */ = {isa = PBXBuildFile; fileRef = 7278F0B311AF5F0B00E31601 /* refclock_wwvb.c */; };
 		7278F0F711AF5F0B00E31601 /* refclock_zyfer.c in Sources */ = {isa = PBXBuildFile; fileRef = 7278F0B411AF5F0B00E31601 /* refclock_zyfer.c */; };
 		7278F36D11AF65E100E31601 /* libresolv.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 7278F36C11AF65E100E31601 /* libresolv.dylib */; };
-		7278F37511AF666200E31601 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 7278F37411AF666200E31601 /* CoreFoundation.framework */; };
-		7278F37911AF667300E31601 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 7278F37811AF667300E31601 /* IOKit.framework */; };
 		7278F51311AF699100E31601 /* libntp.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 7278F47A11AF691F00E31601 /* libntp.a */; };
 		72A3F14811AF84B300B951F0 /* interfaceiter.c in Sources */ = {isa = PBXBuildFile; fileRef = 72A3F14711AF84B300B951F0 /* interfaceiter.c */; };
 		72A3F15E11AF873B00B951F0 /* netaddr.c in Sources */ = {isa = PBXBuildFile; fileRef = 72A3F15D11AF873B00B951F0 /* netaddr.c */; };
@@ -777,6 +775,7 @@
 		5946B66111BEE8DA00B8FDFD /* ntpd-wrapper */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; path = "ntpd-wrapper"; sourceTree = "<group>"; };
 		59E10E0011C69A5F00E65A8D /* ntp-restrict.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = "ntp-restrict.conf"; path = "Embedded/ntp-restrict.conf"; sourceTree = "<group>"; };
 		63135D3111E6531400F27DB1 /* ntp.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = ntp.conf; path = Embedded/ntp.conf; sourceTree = "<group>"; };
+		63135D3311E6534E00F27DB1 /* org.ntp.ntpd.K66.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = org.ntp.ntpd.K66.plist; path = Embedded/org.ntp.ntpd.K66.plist; sourceTree = "<group>"; };
 		635C26D111C037C500D7E740 /* BSD.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; path = BSD.xcconfig; sourceTree = "<group>"; };
 		7278F05711AF5E9F00E31601 /* ntpd */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = ntpd; sourceTree = BUILT_PRODUCTS_DIR; };
 		7278F06111AF5F0B00E31601 /* cmd_args.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = cmd_args.c; sourceTree = "<group>"; };
@@ -1004,8 +1003,6 @@
 				72C36A9611AF6F380092FF93 /* libopts.a in Frameworks */,
 				7278F51311AF699100E31601 /* libntp.a in Frameworks */,
 				7278F36D11AF65E100E31601 /* libresolv.dylib in Frameworks */,
-				7278F37511AF666200E31601 /* CoreFoundation.framework in Frameworks */,
-				7278F37911AF667300E31601 /* IOKit.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1086,6 +1083,7 @@
 		08FB7795FE84155DC02AAC07 /* Source */ = {
 			isa = PBXGroup;
 			children = (
+				63135D3311E6534E00F27DB1 /* org.ntp.ntpd.K66.plist */,
 				63135D3111E6531400F27DB1 /* ntp.conf */,
 				59E10E0011C69A5F00E65A8D /* ntp-restrict.conf */,
 				635C26D111C037C500D7E740 /* BSD.xcconfig */,

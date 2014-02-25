@@ -624,7 +624,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOFireWireIP;
-				MODULE_VERSION = 2.2.5;
+				MODULE_VERSION = 2.2.6;
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = IOFireWireIP;
@@ -658,7 +658,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOFireWireIP;
-				MODULE_VERSION = 2.2.5;
+				MODULE_VERSION = 2.2.6;
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRIVATE_HEADERS_FOLDER_PATH = "$(KEXT_FRAMEWORK)/Versions/A/PrivateHeaders/IOKit/$(KEXT_FAMILY_NAME)";
@@ -695,7 +695,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOFireWireIP;
-				MODULE_VERSION = 2.2.5;
+				MODULE_VERSION = 2.2.6;
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = IOFireWireIP;
@@ -726,7 +726,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOFireWireIP;
-				MODULE_VERSION = 2.2.5;
+				MODULE_VERSION = 2.2.6;
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = IOFireWireIP;
@@ -762,7 +762,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOFireWireIPPrivate;
-				MODULE_VERSION = 2.2.5;
+				MODULE_VERSION = 2.2.6;
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = IOFireWireIPPrivate;
@@ -796,7 +796,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOFireWireIPPrivate;
-				MODULE_VERSION = 2.2.5;
+				MODULE_VERSION = 2.2.6;
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = IOFireWireIPPrivate;
@@ -831,7 +831,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOFireWireIPPrivate;
-				MODULE_VERSION = 2.2.5;
+				MODULE_VERSION = 2.2.6;
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = IOFireWireIPPrivate;
@@ -862,7 +862,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOFireWireIPPrivate;
-				MODULE_VERSION = 2.2.5;
+				MODULE_VERSION = 2.2.6;
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = IOFireWireIPPrivate;

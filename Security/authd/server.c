@@ -163,6 +163,12 @@ _setupDarkWake(void *ctx)
         return;
     
     IOPMConnectionSetDispatchQueue(gIOPMconn, power_queue);
+
+    IOPMScheduleUserActiveChangedNotification(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^(bool active) {
+        if (active) {
+            gInDarkWake = false;
+        }
+    });
 }
 
 bool server_in_dark_wake()

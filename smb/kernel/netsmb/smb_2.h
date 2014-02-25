@@ -121,6 +121,11 @@ enum {
  *      uint32_t ModelStringLen = variable;
  *      char *   ModelString;
  *      char     PadBytes = variable to end on 8 byte boundary;
+ *
+ * kAAPL_SUPPORTS_NFS_ACE - Uses to set Posix permission when ACLs are off
+ *      on the server. The server must allow the client to get the current
+ *      ACL and then the client will return it with the desired Posix 
+ *      permissions in the NFS ACE in the ACL.
  */
 
 /* Define Server Query request/response bitmap */
@@ -134,7 +139,8 @@ enum {
 enum {
     kAAPL_SUPPORTS_READ_DIR_ATTR = 0x01,
     kAAPL_SUPPORTS_OSX_COPYFILE = 0x02,
-    kAAPL_UNIX_BASED = 0x04
+    kAAPL_UNIX_BASED = 0x04,
+    kAAPL_SUPPORTS_NFS_ACE = 0x08
 };
 
 /* Define Volume Capabilities bitmap */

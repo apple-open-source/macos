@@ -439,6 +439,13 @@ _evaluate_mechanisms(engine_t engine, CFArrayRef mechanisms)
                     break;
                 }
             }
+
+            // Empty token name means that token doesn't exist (e.g. SC was removed).
+            // Remove empty token name from hints for UI drawing logic.
+            const char * token_name = auth_items_get_string(hints, AGENT_HINT_TOKEN_NAME);
+            if (token_name && strlen(token_name) == 0) {
+                auth_items_remove(hints, AGENT_HINT_TOKEN_NAME);
+            }
             
             if (interrupted) {
                 LOGV("engine[%i]: mechanisms interrupted", connection_get_pid(engine->conn));

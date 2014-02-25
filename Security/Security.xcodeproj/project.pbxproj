@@ -3630,7 +3630,6 @@
 				182BB564146F4DCA000BF1F3 /* Sources */,
 				182BB565146F4DCA000BF1F3 /* Frameworks */,
 				182BB566146F4DCA000BF1F3 /* Resources */,
-				182BB583146FDD3C000BF1F3 /* ShellScript */,
 			);
 			buildRules = (
 			);
@@ -4584,20 +4583,6 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
-		182BB583146FDD3C000BF1F3 /* ShellScript */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputPaths = (
-			);
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "ditto -v ${TARGET_BUILD_DIR}/${FULL_PRODUCT_NAME} ${BUILT_PRODUCTS_DIR}/Security.framework/PlugIns/${FULL_PRODUCT_NAME}\nexit 0";
-			showEnvVarsInLog = 0;
-		};
 		18500F9114707E10006F9AB4 /* Run Script Copy XPC Service */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
@@ -4610,7 +4595,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "DST=${BUILT_PRODUCTS_DIR}/${CONTENTS_FOLDER_PATH}/XPCServices\n\nXPC_SERVICE=XPCKeychainSandboxCheck.xpc\nditto -v ${BUILT_PRODUCTS_DIR}/${XPC_SERVICE} ${DST}/${XPC_SERVICE}\nif [ $0 -ne 0]; then\n    exit $0;\nfi\nXPC_SERVICE=XPCTimeStampingService.xpc\nditto -v ${BUILT_PRODUCTS_DIR}/${XPC_SERVICE} ${DST}/${XPC_SERVICE}\n\nif [ $0 -ne 0]; then\n    exit $0;\nfi\n\nif [ ! -h ${BUILT_PRODUCTS_DIR}/${FULL_PRODUCT_NAME}/XPCServices ]; then\n    ln -s Versions/Current/XPCServices ${BUILT_PRODUCTS_DIR}/${FULL_PRODUCT_NAME}/XPCServices\nfi\n\nexit 0";
+			shellScript = "DST=${BUILT_PRODUCTS_DIR}/${CONTENTS_FOLDER_PATH}/XPCServices\n\nXPC_SERVICE=XPCKeychainSandboxCheck.xpc\nditto -v ${BUILT_PRODUCTS_DIR}/${XPC_SERVICE} ${DST}/${XPC_SERVICE}\nif [ $0 -ne 0]; then\n    exit $0;\nfi\nXPC_SERVICE=XPCTimeStampingService.xpc\nditto -v ${BUILT_PRODUCTS_DIR}/${XPC_SERVICE} ${DST}/${XPC_SERVICE}\n\nif [ $0 -ne 0]; then\n    exit $0;\nfi\n\nif [ ! -h ${BUILT_PRODUCTS_DIR}/${FULL_PRODUCT_NAME}/XPCServices ]; then\n    ln -s Versions/Current/XPCServices ${BUILT_PRODUCTS_DIR}/${FULL_PRODUCT_NAME}/XPCServices\nfi\n\nif [ ! -h ${BUILT_PRODUCTS_DIR}/${FULL_PRODUCT_NAME}/PlugIns ]; then\n    ln -s Versions/Current/PlugIns ${BUILT_PRODUCTS_DIR}/${FULL_PRODUCT_NAME}/PlugIns\nfi\n\n\nexit 0";
 			showEnvVarsInLog = 0;
 		};
 		18500F961470828E006F9AB4 /* Run Script Generate Strings */ = {
@@ -5525,7 +5510,7 @@
 				EXPORTED_SYMBOLS_FILE = lib/plugins/csparser.exp;
 				INFOPLIST_FILE = "lib/plugins/csparser-Info.plist";
 				INSTALLHDRS_SCRIPT_PHASE = NO;
-				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks/Security.framework/PlugIns";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks/Security.framework/Versions/${FRAMEWORK_VERSION}/PlugIns";
 				WRAPPER_EXTENSION = bundle;
 			};
 			name = Debug;
@@ -5537,7 +5522,7 @@
 				EXPORTED_SYMBOLS_FILE = lib/plugins/csparser.exp;
 				INFOPLIST_FILE = "lib/plugins/csparser-Info.plist";
 				INSTALLHDRS_SCRIPT_PHASE = NO;
-				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks/Security.framework/PlugIns";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks/Security.framework/Versions/${FRAMEWORK_VERSION}/PlugIns";
 				WRAPPER_EXTENSION = bundle;
 			};
 			name = Release;

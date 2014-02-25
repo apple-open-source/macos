@@ -4438,9 +4438,14 @@ __private_extern__ void configAssertionType(kerAssertionType idx, bool initialCo
 
          }
 #else
-         altIdx = kPushServiceTaskIndex;
-         idxRef = CFNumberCreate(0, kCFNumberIntType, &altIdx);
+        if ( isA_SleepSrvcWake() && _SS_allowed() ) {
+             altIdx = kPushServiceTaskIndex;
+        }
+        else {
+             altIdx = kBackgroundTaskIndex;
+        }
 
+        idxRef = CFNumberCreate(0, kCFNumberIntType, &altIdx);
 #endif
          CFDictionarySetValue(gUserAssertionTypesDict, kIOPMAssertInteractivePushServiceTask, idxRef);
          gAssertionTypes[idx].kassert = idx;
@@ -4477,7 +4482,7 @@ __private_extern__ void configAssertionType(kerAssertionType idx, bool initialCo
    if (initialConfig) {
       gAssertionTypes[idx].linkedTypes = newLinks;
    }
-   else if (oldHandler != gAssertionTypes[idx].handler) {
+   else if ((oldHandler != gAssertionTypes[idx].handler)  || (oldLinks != newLinks)){
       // Temporarily disable the assertion type and call the old handler.
       flags = gAssertionTypes[idx].flags;
       gAssertionTypes[idx].flags |= kAssertionTypeDisabled;

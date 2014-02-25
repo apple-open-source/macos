@@ -254,6 +254,28 @@ __private_extern__ io_registry_entry_t getRootDomain(void)
     return gRoot;
 }
 
+#define kIOPMSystemDefaultOverrideKey    "SystemPowerProfileOverrideDict"
+
+__private_extern__ bool platformPluginLoaded(void)
+{
+    static bool         gPlatformPluginLoaded = false;
+    io_registry_entry_t rootDomain;
+    CFTypeRef           prop;
+
+    if (gPlatformPluginLoaded) return (true);
+
+    rootDomain = getRootDomain();
+    if (MACH_PORT_NULL == rootDomain) return (false);
+    prop = IORegistryEntryCreateCFProperty(rootDomain, CFSTR(kIOPMSystemDefaultOverrideKey), 
+                                           kCFAllocatorDefault, kNilOptions);
+    if (prop)
+    {
+        gPlatformPluginLoaded = true;
+        CFRelease(prop);
+    }
+    return (gPlatformPluginLoaded);
+}
+
 __private_extern__ IOReturn
 _setRootDomainProperty(
     CFStringRef                 key,
@@ -3178,6 +3200,7 @@ static int ProcessHibernateSettings(CFDictionaryRef dict, bool standby, bool isD
     SInt32   apo_enabled = 0;
     CFNumberRef apo_enabled_cf = NULL;
 
+    if (!platformPluginLoaded()) return (0);
 
     if ( !IOPMFeatureIsAvailable( CFSTR(kIOHibernateFeatureKey), NULL ) )
     {
