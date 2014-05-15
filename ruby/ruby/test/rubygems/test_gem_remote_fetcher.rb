@@ -69,12 +69,6 @@ gems:
 
   PROXY_DATA = SERVER_DATA.gsub(/0.4.11/, '0.4.2')
 
-  # don't let 1.8 and 1.9 autotest collide
-  RUBY_VERSION =~ /(\d+)\.(\d+)\.(\d+)/
-  # don't let parallel runners collide
-  PROXY_PORT = process_based_port + 100 + $1.to_i * 100 + $2.to_i * 10 + $3.to_i
-  SERVER_PORT = process_based_port + 200 + $1.to_i * 100 + $2.to_i * 10 + $3.to_i
-
   DIR = File.expand_path(File.dirname(__FILE__))
 
   def setup
@@ -87,8 +81,8 @@ gems:
     self.class.enable_yaml = true
     self.class.enable_zip = false
 
-    base_server_uri = "http://localhost:#{SERVER_PORT}"
-    @proxy_uri = "http://localhost:#{PROXY_PORT}"
+    base_server_uri = "http://localhost:#{self.class.normal_server_port}"
+    @proxy_uri = "http://localhost:#{self.class.proxy_server_port}"
 
     @server_uri = base_server_uri + "/yaml"
     @server_z_uri = base_server_uri + "/yaml.Z"
@@ -141,6 +135,14 @@ gems:
 
     assert_kind_of Gem::RemoteFetcher, fetcher
     assert_equal proxy_uri, fetcher.instance_variable_get(:@proxy_uri)
+  end
+
+  def test_escape_auth_info
+    assert_equal 'a%40b%5Cc', @fetcher.escape_auth_info('a@b\c')
+  end
+
+  def test_unescape_auth_info
+    assert_equal 'a@b\c', @fetcher.unescape_auth_info('a%40b%5Cc')
   end
 
   def test_fetch_size_bad_uri
@@ -438,7 +440,7 @@ gems:
       uri.user, uri.password = 'domain%5Cuser', 'bar'
       fetcher = Gem::RemoteFetcher.new uri.to_s
       proxy = fetcher.instance_variable_get("@proxy_uri")
-      assert_equal 'domain\user', fetcher.unescape(proxy.user)
+      assert_equal 'domain\user', fetcher.unescape_auth_info(proxy.user)
       assert_equal 'bar', proxy.password
       assert_data_from_proxy fetcher.fetch_path(@server_uri)
     end
@@ -449,7 +451,7 @@ gems:
       fetcher = Gem::RemoteFetcher.new uri.to_s
       proxy = fetcher.instance_variable_get("@proxy_uri")
       assert_equal 'user', proxy.user
-      assert_equal 'my pass', fetcher.unescape(proxy.password)
+      assert_equal 'my pass', fetcher.unescape_auth_info(proxy.password)
       assert_data_from_proxy fetcher.fetch_path(@server_uri)
     end
   end
@@ -472,8 +474,19 @@ gems:
       ENV['http_proxy_pass'] = 'my bar'
       fetcher = Gem::RemoteFetcher.new nil
       proxy = fetcher.instance_variable_get("@proxy_uri")
-      assert_equal 'foo\user', fetcher.unescape(proxy.user)
-      assert_equal 'my bar', fetcher.unescape(proxy.password)
+      assert_equal 'foo\user', fetcher.unescape_auth_info(proxy.user)
+      assert_equal 'my bar', fetcher.unescape_auth_info(proxy.password)
+      assert_data_from_proxy fetcher.fetch_path(@server_uri)
+    end
+
+    use_ui @ui do
+      ENV['http_proxy'] = @proxy_uri
+      ENV['http_proxy_user'] = 'foo@user'
+      ENV['http_proxy_pass'] = 'my@bar'
+      fetcher = Gem::RemoteFetcher.new nil
+      proxy = fetcher.instance_variable_get("@proxy_uri")
+      assert_equal 'foo@user', fetcher.unescape_auth_info(proxy.user)
+      assert_equal 'my@bar', fetcher.unescape_auth_info(proxy.password)
       assert_data_from_proxy fetcher.fetch_path(@server_uri)
     end
   end
@@ -906,10 +919,18 @@ gems:
     attr_accessor :enable_zip, :enable_yaml
 
     def start_servers
-      @normal_server ||= start_server(SERVER_PORT, SERVER_DATA)
-      @proxy_server  ||= start_server(PROXY_PORT, PROXY_DATA)
+      @normal_server ||= start_server(SERVER_DATA)
+      @proxy_server  ||= start_server(PROXY_DATA)
       @enable_yaml = true
       @enable_zip = false
+    end
+
+    def normal_server_port
+      @normal_server[:server].config[:Port]
+    end
+
+    def proxy_server_port
+      @proxy_server[:server].config[:Port]
     end
 
     DIR = File.expand_path(File.dirname(__FILE__))
@@ -957,45 +978,45 @@ gems:
 
     private
 
-    def start_server(port, data)
-      Thread.new do
+    def start_server(data)
+      null_logger = NilLog.new
+      s = WEBrick::HTTPServer.new(
+        :Port            => 0,
+        :DocumentRoot    => nil,
+        :Logger          => null_logger,
+        :AccessLog       => null_logger
+        )
+      s.mount_proc("/kill") { |req, res| s.shutdown }
+      s.mount_proc("/yaml") { |req, res|
+        if @enable_yaml
+          res.body = data
+          res['Content-Type'] = 'text/plain'
+          res['content-length'] = data.size
+        else
+          res.status = "404"
+          res.body = "<h1>NOT FOUND</h1>"
+          res['Content-Type'] = 'text/html'
+        end
+      }
+      s.mount_proc("/yaml.Z") { |req, res|
+        if @enable_zip
+          res.body = Zlib::Deflate.deflate(data)
+          res['Content-Type'] = 'text/plain'
+        else
+          res.status = "404"
+          res.body = "<h1>NOT FOUND</h1>"
+          res['Content-Type'] = 'text/html'
+        end
+      }
+      th = Thread.new do
         begin
-          null_logger = NilLog.new
-          s = WEBrick::HTTPServer.new(
-            :Port            => port,
-            :DocumentRoot    => nil,
-            :Logger          => null_logger,
-            :AccessLog       => null_logger
-            )
-          s.mount_proc("/kill") { |req, res| s.shutdown }
-          s.mount_proc("/yaml") { |req, res|
-            if @enable_yaml
-              res.body = data
-              res['Content-Type'] = 'text/plain'
-              res['content-length'] = data.size
-            else
-              res.status = "404"
-              res.body = "<h1>NOT FOUND</h1>"
-              res['Content-Type'] = 'text/html'
-            end
-          }
-          s.mount_proc("/yaml.Z") { |req, res|
-            if @enable_zip
-              res.body = Zlib::Deflate.deflate(data)
-              res['Content-Type'] = 'text/plain'
-            else
-              res.status = "404"
-              res.body = "<h1>NOT FOUND</h1>"
-              res['Content-Type'] = 'text/html'
-            end
-          }
           s.start
         rescue Exception => ex
-          abort ex.message
-          puts "ERROR during server thread: #{ex.message}"
+          abort "ERROR during server thread: #{ex.message}"
         end
       end
-      sleep 0.2                 # Give the servers time to startup
+      th[:server] = s
+      th
     end
 
     def cert(filename)

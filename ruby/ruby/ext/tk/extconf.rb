@@ -8,9 +8,18 @@ TkLib_Config = {}
 TkLib_Config['search_versions'] =
   # %w[8.9 8.8 8.7 8.6 8.5 8.4 8.3 8.2 8.1 8.0 7.6 4.2]
   # %w[8.7 8.6 8.5 8.4 8.3 8.2 8.1 8.0]
-  %w[8.7 8.6 8.5 8.4 8.0] # to shorten search steps
+  # %w[8.7 8.6 8.5 8.4 8.0] # to shorten search steps
+  %w[8.5 8.4] # At present, Tcl/Tk8.6 is not supported.
+
+TkLib_Config['unsupported_versions'] =
+  %w[8.8 8.7 8.6] # At present, Tcl/Tk8.6 is not supported.
 
 TkLib_Config['major_nums'] = '87'
+
+
+##############################################################
+
+TkLib_Config['enable-shared'] = enable_config("shared")
 
 
 ##############################################################
@@ -315,7 +324,7 @@ def find_macosx_framework
   paths.map{|dir| dir.strip.chomp('/')}.each{|dir|
     next unless File.exist?(File.join(dir, "Tcl.framework", "Headers"))
     next unless File.directory?(tcldir = File.join(dir, "Tcl.framework"))
-    next unless File.exist?(File.join(dir, "Tk.framework"), "Headers")
+    next unless File.exist?(File.join(dir, "Tk.framework", "Headers"))
     next unless File.directory?(tkdir  = File.join(dir, "Tk.framework"))
     TkLib_Config["tcltk-framework"] = dir
     return [tcldir, tkdir]
@@ -542,13 +551,13 @@ end
 
 def get_ext_list()
   exts = [CONFIG['DLEXT']]
-  exts.concat %w(dll lib) if is_win32?
+  exts.concat %w(dll) if is_win32?
   exts.concat %w(bundle dylib) if is_macosx?
 
-  if enable_config("shared") == false
-    [CONFIG['LIBEXT'], "a"].concat exts
-  else
-    exts.concat [CONFIG['LIBEXT'], "a"]
+  if TkLib_Config["tcltk-stubs"] || TkLib_Config['enable-shared'] == false
+    exts.unshift "lib" if is_win32?
+    exts.unshift "a"
+    exts.unshift CONFIG['LIBEXT']
   end
 
   if is_win32?
@@ -736,6 +745,7 @@ def search_tclConfig(*paths) # libdir list or [tcl-libdir|file, tk-libdir|file]
   end
 
   conf = nil
+  progress_flag = false
 
   config_dir.uniq!
   config_dir.map{|dir|
@@ -746,7 +756,7 @@ def search_tclConfig(*paths) # libdir list or [tcl-libdir|file, tk-libdir|file]
       dir.strip.chomp('/')
     end
   }.each{|dir|
-    print(".") # progress
+    print("."); progress_flag = true # progress
     # print("check #{dir} ==>");
     if dir.kind_of? Array
       tcldir, tkdir = dir
@@ -785,10 +795,36 @@ def search_tclConfig(*paths) # libdir list or [tcl-libdir|file, tk-libdir|file]
 
       # parse tclConfig.sh/tkConfig.sh
       tclconf = (tclpath)? parse_tclConfig(tclpath): nil
-      next if tclconf && tclver && ((tclver_major && tclver_major != tclconf['TCL_MAJOR_VERSION']) || (tclver_minor && tclver_minor != tclconf['TCL_MINOR_VERSION']))
+      if tclconf
+        if tclver && ((tclver_major && tclver_major != tclconf['TCL_MAJOR_VERSION']) || (tclver_minor && tclver_minor != tclconf['TCL_MINOR_VERSION']))
+          print("\n") if progress_flag
+          puts "Ignore \"#{tclpath}\" (unmatch with configured version)."
+          progress_flag = false
+          next
+        end
+        if TkLib_Config['unsupported_versions'].find{|ver| ver == "#{tclconf['TCL_MAJOR_VERSION']}.#{tclconf['TCL_MINOR_VERSION']}"}
+          print("\n") if progress_flag
+          puts "Ignore \"#{tclpath}\" (unsupported version of Tcl/Tk)."
+          progress_flag = false
+          next
+        end
+      end
 
       tkconf = (tkpath)? parse_tclConfig(tkpath): nil
-      next if tkconf && tkver && ((tkver_major && tkver_major != tkconf['TK_MAJOR_VERSION']) || (tkver_minor && tkver_minor != tkconf['TK_MINOR_VERSION']))
+      if tkconf
+        if tkver && ((tkver_major && tkver_major != tkconf['TK_MAJOR_VERSION']) || (tkver_minor && tkver_minor != tkconf['TK_MINOR_VERSION']))
+          print("\n") if progress_flag
+          puts "Ignore \"#{tkpath}\" (unmatch with configured version)."
+          progress_flag = false
+          next
+        end
+        if TkLib_Config['unsupported_versions'].find{|ver| ver == "#{tkconf['TK_MAJOR_VERSION']}.#{tkconf['TK_MINOR_VERSION']}"}
+          print("\n") if progress_flag
+          puts "Ignore \"#{tkpath}\" (unsupported version of Tcl/Tk)."
+          progress_flag = false
+          next
+        end
+      end
 
       # nativethread check
       if !TkLib_Config["ruby_with_thread"]
@@ -1291,6 +1327,10 @@ end
 def find_tcltk_library(tcllib, tklib, stubs, tclversion, tkversion,
                        tcl_opt_paths, tk_opt_paths)
   st,path,lib,libs,*inc = find_tcl(tcllib, stubs, tclversion, *tcl_opt_paths)
+  if !st && TkLib_Config['enable-shared'] == nil
+    TkLib_Config['enable-shared'] = false
+    st,path,lib,libs,*inc = find_tcl(tcllib, stubs, tclversion, *tcl_opt_paths)
+  end
   unless st
     puts("Warning:: cannot find Tcl library. tcltklib will not be compiled (tcltklib is disabled on your Ruby. That is, Ruby/Tk will not work). Please check configure options.")
     return false
@@ -1303,6 +1343,10 @@ def find_tcltk_library(tcllib, tklib, stubs, tclversion, tkversion,
   end
 
   st,path,lib,libs,*inc = find_tk(tklib, stubs, tkversion, *tk_opt_paths)
+  if !st && TkLib_Config['enable-shared'] == nil
+    TkLib_Config['enable-shared'] = false
+    st,path,lib,libs,*inc = find_tk(tklib, stubs, tkversion, *tk_opt_paths)
+  end
   unless st
     puts("Warning:: cannot find Tk library. tcltklib will not be compiled (tcltklib is disabled on your Ruby. That is, Ruby/Tk will not work). Please check configure options.")
     return false
@@ -2020,7 +2064,6 @@ if TkLib_Config["tcltk-framework"]
     end
   end
   $LDFLAGS << ' ' << libs
-  $libs << ' -ltk -ltcl'
   setup_for_macosx_framework(tclver, tkver) if tcl_cfg_dir && tk_cfg_dir
 end
 
@@ -2056,4 +2099,6 @@ if (TkLib_Config["tcltk-framework"] ||
   puts "\nFind Tcl/Tk libraries. Make tcltklib.so which is required by Ruby/Tk."
 else
   puts "\nCan't find proper Tcl/Tk libraries. So, can't make tcltklib.so which is required by Ruby/Tk."
+  puts "If you have Tcl/Tk libraries on your environment, you may be able to use them with configure options (see ext/tk/README.tcltklib)."
+  puts "At present, Tcl/Tk8.6 is not supported. Although you can try to use Tcl/Tk8.6 with configure options, it will not work correctly. I recommend you to use Tcl/Tk8.5 or 8.4."
 end

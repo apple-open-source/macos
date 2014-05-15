@@ -37,6 +37,7 @@ extern const OSSymbol * gIODisplayContrastKey;
 extern const OSSymbol * gIODisplayBrightnessKey;
 extern const OSSymbol * gIODisplayLinearBrightnessKey;
 extern const OSSymbol * gIODisplayUsableLinearBrightnessKey;
+extern const OSSymbol * gIODisplayBrightnessFadeKey;
 extern const OSSymbol * gIODisplayHorizontalPositionKey;
 extern const OSSymbol * gIODisplayHorizontalSizeKey;
 extern const OSSymbol * gIODisplayVerticalPositionKey;
@@ -52,6 +53,7 @@ extern const OSSymbol * gIODisplaySelectedColorModeKey;
 extern const OSSymbol * gIODisplayRedGammaScaleKey;
 extern const OSSymbol * gIODisplayGreenGammaScaleKey;
 extern const OSSymbol * gIODisplayBlueGammaScaleKey;
+extern const OSSymbol * gIODisplayGammaScaleKey;
 
 extern const OSSymbol * gIODisplayParametersTheatreModeKey;
 extern const OSSymbol * gIODisplayParametersTheatreModeWindowKey;

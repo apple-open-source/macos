@@ -63,7 +63,6 @@ class Gem::DependencyInstaller
       # HACK shouldn't change the global settings, needed for -i behavior
       # maybe move to the install command?  See also github #442
       Gem::Specification.dirs = @install_dir
-      Gem.ensure_gem_subdirectories @install_dir
     end
 
     options = DEFAULT_OPTIONS.merge options
@@ -279,6 +278,14 @@ class Gem::DependencyInstaller
       if gem_name =~ /\.gem$/ and File.file? gem_name then
         src = Gem::Source::SpecificFile.new(gem_name)
         set.add src.spec, src
+      elsif gem_name =~ /\.gem$/ then
+        Dir[gem_name].each do |name|
+          begin
+            src = Gem::Source::SpecificFile.new name
+            set.add src.spec, src
+          rescue Gem::Package::FormatError
+          end
+        end
       else
         local = Gem::Source::Local.new
 

@@ -155,6 +155,7 @@ extern const CFStringRef kSecCodeSignerRequireTimestamp;
 extern const CFStringRef kSecCodeSignerTimestampServer;
 extern const CFStringRef kSecCodeSignerTimestampOmitCertificates;
 extern const CFStringRef kSecCodeSignerPreserveMetadata;
+extern const CFStringRef kSecCodeSignerTeamIdentifier;
 
 enum {
     kSecCodeSignerPreserveIdentifier = 1 << 0,		// preserve signing identifier
@@ -162,6 +163,7 @@ enum {
     kSecCodeSignerPreserveEntitlements = 1 << 2,	// preserve entitlements
     kSecCodeSignerPreserveResourceRules = 1 << 3,	// preserve resource rules (and thus resources)
     kSecCodeSignerPreserveFlags = 1 << 4,			// preserve signing flags
+    kSecCodeSignerPreserveTeamIdentifier = 1 << 5,  // preserve team identifier flags
 };
 
 

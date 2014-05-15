@@ -2517,7 +2517,7 @@ esac
 ac_config_headers="$ac_config_headers config.h"
 
 
-CUPS_VERSION="1.7.1"
+CUPS_VERSION="1.7.2"
 CUPS_REVISION=""
 #if test -z "$CUPS_REVISION" -a -d .svn; then
 #	CUPS_REVISION="-r`svnversion . | awk -F: '{print $NF}' | sed -e '1,$s/[[a-zA-Z]]*//g'`"
@@ -5500,12 +5500,6 @@ fi
 fi
 LIBS="$SAVELIBS"
 
-if test -d /etc/dbus-1; then
-	DBUSDIR="/etc/dbus-1"
-else
-	DBUSDIR=""
-fi
-
 # Check whether --enable-dbus was given.
 if test "${enable_dbus+set}" = set; then :
   enableval=$enable_dbus;
@@ -5518,6 +5512,7 @@ if test "${with_dbusdir+set}" = set; then :
 fi
 
 
+DBUSDIR=""
 DBUS_NOTIFIER=""
 DBUS_NOTIFIERLIBS=""
 
@@ -5541,7 +5536,16 @@ if test "x$ac_cv_func_dbus_message_iter_init_append" = xyes; then :
 
 fi
 
+		ac_fn_c_check_func "$LINENO" "dbus_threads_init" "ac_cv_func_dbus_threads_init"
+if test "x$ac_cv_func_dbus_threads_init" = xyes; then :
+  $as_echo "#define HAVE_DBUS_THREADS_INIT 1" >>confdefs.h
+
+fi
+
 		LIBS="$SAVELIBS"
+		if test -d /etc/dbus-1; then
+			DBUSDIR="/etc/dbus-1"
+		fi
 	else
 		{ $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
 $as_echo "no" >&6; }
@@ -6949,7 +6953,7 @@ rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
 			# The -z relro option is provided by the Linux linker command to
 			# make relocatable data read-only.
 			if test x$enable_relro = xyes; then
-				RELROFLAGS="-Wl,-z,relro"
+				RELROFLAGS="-Wl,-z,relro,-z,now"
 			fi
 			;;
 	esac

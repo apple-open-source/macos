@@ -1,5 +1,5 @@
 /*
- * $Id: ossl_ssl.c 40387 2013-04-19 17:16:37Z nagachika $
+ * $Id: ossl_ssl.c 44768 2014-01-30 15:51:02Z nagachika $
  * 'OpenSSL for Ruby' project
  * Copyright (C) 2000-2002  GOTOU Yuuzou <gotoyuzo@notwork.org>
  * Copyright (C) 2001-2002  Michal Rokos <m.rokos@sh.cvut.cz>
@@ -2191,7 +2191,9 @@ Init_ossl_ssl()
     ossl_ssl_def_const(OP_NETSCAPE_REUSE_CIPHER_CHANGE_BUG);
     ossl_ssl_def_const(OP_SSLREF2_REUSE_CERT_TYPE_BUG);
     ossl_ssl_def_const(OP_MICROSOFT_BIG_SSLV3_BUFFER);
+#if defined(SSL_OP_MSIE_SSLV2_RSA_PADDING)
     ossl_ssl_def_const(OP_MSIE_SSLV2_RSA_PADDING);
+#endif
     ossl_ssl_def_const(OP_SSLEAY_080_CLIENT_DH_BUG);
     ossl_ssl_def_const(OP_TLS_D5_BUG);
     ossl_ssl_def_const(OP_TLS_BLOCK_PADDING_BUG);

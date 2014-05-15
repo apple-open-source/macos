@@ -309,6 +309,17 @@ class TestModule < Test::Unit::TestCase
     assert_equal([:MIXIN, :USER], User.constants.sort)
   end
 
+  def test_self_initialize_copy
+    bug9535 = '[ruby-dev:47989] [Bug #9535]'
+    m = Module.new do
+      def foo
+        :ok
+      end
+      initialize_copy(self)
+    end
+    assert_equal(:ok, Object.new.extend(m).foo, bug9535)
+  end
+
   def test_dup
     bug6454 = '[ruby-core:45132]'
 
@@ -663,6 +674,8 @@ class TestModule < Test::Unit::TestCase
     c.class_eval('@@foo = :foo')
     assert_equal(:foo, c.class_variable_get(:@@foo))
     assert_raise(NameError) { c.class_variable_get(:@@bar) } # c.f. instance_variable_get
+    assert_raise(NameError) { c.class_variable_get(:'@@') }
+    assert_raise(NameError) { c.class_variable_get('@@') }
     assert_raise(NameError) { c.class_variable_get(:foo) }
   end
 
@@ -670,6 +683,8 @@ class TestModule < Test::Unit::TestCase
     c = Class.new
     c.class_variable_set(:@@foo, :foo)
     assert_equal(:foo, c.class_eval('@@foo'))
+    assert_raise(NameError) { c.class_variable_set(:'@@', 1) }
+    assert_raise(NameError) { c.class_variable_set('@@', 1) }
     assert_raise(NameError) { c.class_variable_set(:foo, 1) }
   end
 
@@ -678,6 +693,8 @@ class TestModule < Test::Unit::TestCase
     c.class_eval('@@foo = :foo')
     assert_equal(true, c.class_variable_defined?(:@@foo))
     assert_equal(false, c.class_variable_defined?(:@@bar))
+    assert_raise(NameError) { c.class_variable_defined?(:'@@') }
+    assert_raise(NameError) { c.class_variable_defined?('@@') }
     assert_raise(NameError) { c.class_variable_defined?(:foo) }
   end
 
@@ -769,6 +786,19 @@ class TestModule < Test::Unit::TestCase
     assert_equal([:Foo], m.constants(true))
     assert_equal([:Foo], m.constants(false))
     m.instance_eval { remove_const(:Foo) }
+  end
+
+  class Bug9413
+    class << self
+      Foo = :foo
+    end
+  end
+
+  def test_singleton_constants
+    bug9413 = '[ruby-core:59763] [Bug #9413]'
+    c = Bug9413.singleton_class
+    assert_include(c.constants(true), :Foo, bug9413)
+    assert_include(c.constants(false), :Foo, bug9413)
   end
 
   def test_frozen_class
@@ -1525,6 +1555,21 @@ class TestModule < Test::Unit::TestCase
     assert_nothing_raised(NoMethodError) {a.send :foo}
   end
 
+  def test_prepend_visibility_inherited
+    bug8238 = '[ruby-core:54105] [Bug #8238]'
+    assert_separately [], <<-"end;", timeout: 3
+      class A
+        def foo() A; end
+        private :foo
+      end
+      class B < A
+        public :foo
+        prepend Module.new
+      end
+      assert_equal(A, B.new.foo, "#{bug8238}")
+    end;
+  end
+
   def test_prepend_included_modules
     bug8025 = '[ruby-core:53158] [Bug #8025]'
     mixin = labeled_module("mixin")
@@ -1538,6 +1583,57 @@ class TestModule < Test::Unit::TestCase
     assert_not_include(im, c1, bug8025)
     assert_not_include(im, c2, bug8025)
     assert_include(im, mixin, bug8025)
+  end
+
+  def test_prepend_super_in_alias
+    bug7842 = '[Bug #7842]'
+
+    p = labeled_module("P") do
+      def m; "P"+super; end
+    end
+    a = labeled_class("A") do
+      def m; "A"; end
+    end
+    b = labeled_class("B", a) do
+      def m; "B"+super; end
+      alias m2 m
+      prepend p
+      alias m3 m
+    end
+    assert_equal("BA", b.new.m2, bug7842)
+    assert_equal("PBA", b.new.m3, bug7842)
+  end
+
+  def test_include_super_in_alias
+    bug9236 = '[Bug #9236]'
+
+    fun = labeled_module("Fun") do
+      def hello
+        orig_hello
+      end
+    end
+
+    m1 = labeled_module("M1") do
+      def hello
+        'hello!'
+      end
+    end
+
+    m2 = labeled_module("M2") do
+      def hello
+        super
+      end
+    end
+
+    foo = labeled_class("Foo") do
+      include m1
+      include m2
+
+      alias orig_hello hello
+      include fun
+    end
+
+    assert_equal('hello!', foo.new.hello, bug9236)
   end
 
   def test_class_variables

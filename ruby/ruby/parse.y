@@ -132,6 +132,7 @@ struct local_vars {
     struct vtable *vars;
     struct vtable *used;
     struct local_vars *prev;
+    stack_type cmdargs;
 };
 
 #define DVARS_INHERIT ((void*)1)
@@ -306,8 +307,6 @@ struct parser_params {
 static int parser_yyerror(struct parser_params*, const char*);
 #define yyerror(msg) parser_yyerror(parser, (msg))
 
-#define YYLEX_PARAM parser
-
 #define lex_strterm		(parser->parser_lex_strterm)
 #define lex_state		(parser->parser_lex_state)
 #define cond_stack		(parser->parser_cond_stack)
@@ -350,7 +349,11 @@ static int parser_yyerror(struct parser_params*, const char*);
 #define ruby_coverage		(parser->coverage)
 #endif
 
+#if YYPURE
 static int yylex(void*, void*);
+#else
+static int yylex(void*);
+#endif
 
 #ifndef RIPPER
 #define yyparse ruby_yyparse
@@ -680,7 +683,8 @@ static void token_info_pop(struct parser_params*, const char *token);
 #endif
 %}
 
-%pure_parser
+%pure-parser
+%lex-param {struct parser_params *parser}
 %parse-param {struct parser_params *parser}
 
 %union {
@@ -3459,13 +3463,17 @@ lambda		:   {
 			lpar_beg = ++paren_nest;
 		    }
 		  f_larglist
+		    {
+			$<num>$ = ruby_sourceline;
+		    }
 		  lambda_body
 		    {
 			lpar_beg = $<num>2;
 		    /*%%%*/
-			$$ = NEW_LAMBDA($3, $4);
+			$$ = NEW_LAMBDA($3, $5);
+			nd_set_line($$, $<num>4);
 		    /*%
-			$$ = dispatch2(lambda, $3, $4);
+			$$ = dispatch2(lambda, $3, $5);
 		    %*/
 			dyna_pop($<vars>1);
 		    }
@@ -8670,9 +8678,41 @@ block_dup_check_gen(struct parser_params *parser, NODE *node1, NODE *node2)
     }
 }
 
+static const char id_type_names[][9] = {
+    "LOCAL",
+    "INSTANCE",
+    "",				/* INSTANCE2 */
+    "GLOBAL",
+    "ATTRSET",
+    "CONST",
+    "CLASS",
+    "JUNK",
+};
+
 ID
 rb_id_attrset(ID id)
 {
+    if (!is_notop_id(id)) {
+	switch (id) {
+	  case tAREF: case tASET:
+	    return tASET;	/* only exception */
+	}
+	rb_name_error(id, "cannot make operator ID :%s attrset", rb_id2name(id));
+    }
+    else {
+	int scope = (int)(id & ID_SCOPE_MASK);
+	switch (scope) {
+	  case ID_LOCAL: case ID_INSTANCE: case ID_GLOBAL:
+	  case ID_CONST: case ID_CLASS: case ID_JUNK:
+	    break;
+	  case ID_ATTRSET:
+	    return id;
+	  default:
+	    rb_name_error(id, "cannot make %s ID %+"PRIsVALUE" attrset",
+			  id_type_names[scope], ID2SYM(id));
+
+	}
+    }
     id &= ~ID_SCOPE_MASK;
     id |= ID_ATTRSET;
     return id;
@@ -9485,6 +9525,8 @@ local_push_gen(struct parser_params *parser, int inherit_dvars)
     local->used = !(inherit_dvars &&
 		    (ifndef_ripper(compile_for_eval || e_option_supplied(parser))+0)) &&
 	RTEST(ruby_verbose) ? vtable_alloc(0) : 0;
+    local->cmdargs = cmdarg_stack;
+    cmdarg_stack = 0;
     lvtbl = local;
 }
 
@@ -9498,6 +9540,7 @@ local_pop_gen(struct parser_params *parser)
     }
     vtable_free(lvtbl->args);
     vtable_free(lvtbl->vars);
+    cmdarg_stack = lvtbl->cmdargs;
     xfree(lvtbl);
     lvtbl = local;
 }
@@ -9908,8 +9951,6 @@ static const struct {
 } op_tbl[] = {
     {tDOT2,	".."},
     {tDOT3,	"..."},
-    {'+',	"+(binary)"},
-    {'-',	"-(binary)"},
     {tPOW,	"**"},
     {tDSTAR,	"**"},
     {tUPLUS,	"+@"},
@@ -10053,8 +10094,11 @@ rb_enc_symname_p(const char *name, rb_encoding *enc)
     return rb_enc_symname2_p(name, strlen(name), enc);
 }
 
+#define IDSET_ATTRSET_FOR_SYNTAX ((1U<<ID_LOCAL)|(1U<<ID_CONST))
+#define IDSET_ATTRSET_FOR_INTERN (~(~0U<<(1<<ID_SCOPE_SHIFT)) & ~(1U<<ID_ATTRSET))
+
 static int
-rb_enc_symname_type(const char *name, long len, rb_encoding *enc)
+rb_enc_symname_type(const char *name, long len, rb_encoding *enc, unsigned int allowed_atttset)
 {
     const char *m = name;
     const char *e = m + len;
@@ -10131,14 +10175,16 @@ rb_enc_symname_type(const char *name, long len, rb_encoding *enc)
 	if (m >= e || (*m != '_' && !rb_enc_isalpha(*m, enc) && ISASCII(*m)))
 	    return -1;
 	while (m < e && is_identchar(m, e, enc)) m += rb_enc_mbclen(m, e, enc);
+	if (m >= e) break;
 	switch (*m) {
 	  case '!': case '?':
 	    if (type == ID_GLOBAL || type == ID_CLASS || type == ID_INSTANCE) return -1;
 	    type = ID_JUNK;
 	    ++m;
-	    break;
+	    if (m + 1 < e || *m != '=') break;
+	    /* fall through */
 	  case '=':
-	    if (type != ID_CONST && type != ID_LOCAL) return -1;
+	    if (!(allowed_atttset & (1U << type))) return -1;
 	    type = ID_ATTRSET;
 	    ++m;
 	    break;
@@ -10151,15 +10197,15 @@ rb_enc_symname_type(const char *name, long len, rb_encoding *enc)
 int
 rb_enc_symname2_p(const char *name, long len, rb_encoding *enc)
 {
-    return rb_enc_symname_type(name, len, enc) != -1;
+    return rb_enc_symname_type(name, len, enc, IDSET_ATTRSET_FOR_SYNTAX) != -1;
 }
 
 static int
-rb_str_symname_type(VALUE name)
+rb_str_symname_type(VALUE name, unsigned int allowed_atttset)
 {
     const char *ptr = StringValuePtr(name);
     long len = RSTRING_LEN(name);
-    int type = rb_enc_symname_type(ptr, len, rb_enc_get(name));
+    int type = rb_enc_symname_type(ptr, len, rb_enc_get(name), allowed_atttset);
     RB_GC_GUARD(name);
     return type;
 }
@@ -10238,7 +10284,8 @@ intern_str(VALUE str)
     enc = rb_enc_get(str);
     symenc = enc;
 
-    if (rb_cString && !rb_enc_asciicompat(enc)) {
+    if (!len || (rb_cString && !rb_enc_asciicompat(enc))) {
+      junk:
 	id = ID_JUNK;
 	goto new_id;
     }
@@ -10246,6 +10293,7 @@ intern_str(VALUE str)
     id = 0;
     switch (*m) {
       case '$':
+	if (len < 2) goto junk;
 	id |= ID_GLOBAL;
 	if ((mb = is_special_global_name(++m, e, enc)) != 0) {
 	    if (!--mb) symenc = rb_usascii_encoding();
@@ -10254,10 +10302,12 @@ intern_str(VALUE str)
 	break;
       case '@':
 	if (m[1] == '@') {
+	    if (len < 3) goto junk;
 	    m++;
 	    id |= ID_CLASS;
 	}
 	else {
+	    if (len < 2) goto junk;
 	    id |= ID_INSTANCE;
 	}
 	m++;
@@ -10280,24 +10330,27 @@ intern_str(VALUE str)
 		}
 	    }
 	}
-
-	if (m[last] == '=') {
-	    /* attribute assignment */
-	    id = rb_intern3(name, last, enc);
-	    if (id > tLAST_OP_ID && !is_attrset_id(id)) {
-		enc = rb_enc_get(rb_id2str(id));
-		id = rb_id_attrset(id);
-		goto id_register;
-	    }
-	    id = ID_ATTRSET;
+	break;
+    }
+    if (name[last] == '=') {
+	/* attribute assignment */
+	if (last > 1 && name[last-1] == '=')
+	    goto junk;
+	id = rb_intern3(name, last, enc);
+	if (id > tLAST_OP_ID && !is_attrset_id(id)) {
+	    enc = rb_enc_get(rb_id2str(id));
+	    id = rb_id_attrset(id);
+	    goto id_register;
 	}
-	else if (rb_enc_isupper(m[0], enc)) {
+	id = ID_ATTRSET;
+    }
+    else if (id == 0) {
+	if (rb_enc_isupper(m[0], enc)) {
 	    id = ID_CONST;
-        }
+	}
 	else {
 	    id = ID_LOCAL;
 	}
-	break;
     }
     if (!rb_enc_isdigit(*m, enc)) {
 	while (m <= name + last && is_identchar(m, e, enc)) {
@@ -10309,7 +10362,7 @@ intern_str(VALUE str)
 	    }
 	}
     }
-    if (m - name < len) id = ID_JUNK;
+    if (id != ID_ATTRSET && m - name < len) id = ID_JUNK;
     if (sym_check_asciionly(str)) symenc = rb_usascii_encoding();
   new_id:
     if (symenc != enc) rb_enc_associate(str, symenc);
@@ -10392,16 +10445,21 @@ rb_id2str(ID id)
     }
 
     if (is_attrset_id(id)) {
-	ID id2 = (id & ~ID_SCOPE_MASK) | ID_LOCAL;
+	ID id_stem = (id & ~ID_SCOPE_MASK);
 	VALUE str;
 
-	while (!(str = rb_id2str(id2))) {
-	    if (!is_local_id(id2)) return 0;
-	    id2 = (id & ~ID_SCOPE_MASK) | ID_CONST;
-	}
+	do {
+	    if (!!(str = rb_id2str(id_stem | ID_LOCAL))) break;
+	    if (!!(str = rb_id2str(id_stem | ID_CONST))) break;
+	    if (!!(str = rb_id2str(id_stem | ID_INSTANCE))) break;
+	    if (!!(str = rb_id2str(id_stem | ID_GLOBAL))) break;
+	    if (!!(str = rb_id2str(id_stem | ID_CLASS))) break;
+	    if (!!(str = rb_id2str(id_stem | ID_JUNK))) break;
+	    return 0;
+	} while (0);
 	str = rb_str_dup(str);
 	rb_str_cat(str, "=", 1);
-	rb_intern_str(str);
+	register_symid_str(id, str);
 	if (st_lookup(global_symbols.id_str, id, &data)) {
             VALUE str = (VALUE)data;
             if (RBASIC(str)->klass == 0)
@@ -10584,43 +10642,43 @@ rb_check_id_cstr(const char *ptr, long len, rb_encoding *enc)
 int
 rb_is_const_name(VALUE name)
 {
-    return rb_str_symname_type(name) == ID_CONST;
+    return rb_str_symname_type(name, 0) == ID_CONST;
 }
 
 int
 rb_is_class_name(VALUE name)
 {
-    return rb_str_symname_type(name) == ID_CLASS;
+    return rb_str_symname_type(name, 0) == ID_CLASS;
 }
 
 int
 rb_is_global_name(VALUE name)
 {
-    return rb_str_symname_type(name) == ID_GLOBAL;
+    return rb_str_symname_type(name, 0) == ID_GLOBAL;
 }
 
 int
 rb_is_instance_name(VALUE name)
 {
-    return rb_str_symname_type(name) == ID_INSTANCE;
+    return rb_str_symname_type(name, 0) == ID_INSTANCE;
 }
 
 int
 rb_is_attrset_name(VALUE name)
 {
-    return rb_str_symname_type(name) == ID_ATTRSET;
+    return rb_str_symname_type(name, IDSET_ATTRSET_FOR_INTERN) == ID_ATTRSET;
 }
 
 int
 rb_is_local_name(VALUE name)
 {
-    return rb_str_symname_type(name) == ID_LOCAL;
+    return rb_str_symname_type(name, 0) == ID_LOCAL;
 }
 
 int
 rb_is_method_name(VALUE name)
 {
-    switch (rb_str_symname_type(name)) {
+    switch (rb_str_symname_type(name, 0)) {
       case ID_LOCAL: case ID_ATTRSET: case ID_JUNK:
 	return TRUE;
     }
@@ -10630,7 +10688,7 @@ rb_is_method_name(VALUE name)
 int
 rb_is_junk_name(VALUE name)
 {
-    return rb_str_symname_type(name) == -1;
+    return rb_str_symname_type(name, IDSET_ATTRSET_FOR_SYNTAX) == -1;
 }
 
 #endif /* !RIPPER */

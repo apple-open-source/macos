@@ -189,6 +189,12 @@ bool IOHIDEventDriver::handleStart( IOService * provider )
     setProperty("BootProtocol", number);
     OSSafeReleaseNULL(number);
 
+    number = (OSNumber*)copyProperty(kIOHIDAbsoluteAxisBoundsRemovalPercentage, gIOServicePlane);
+    if ( OSDynamicCast(OSNumber, number) ) {
+        _absoluteAxisRemovalPercentage = number->unsigned32BitValue();
+    }
+    OSSafeReleaseNULL(number);
+    
     OSArray *elements = _interface->createMatchingElements();
     bool result = false;
 
@@ -198,14 +204,7 @@ bool IOHIDEventDriver::handleStart( IOService * provider )
         }
     }
     OSSafeRelease(elements);
-
-    number = (OSNumber*)copyProperty(kIOHIDAbsoluteAxisBoundsRemovalPercentage, gIOServicePlane);
-    if ( OSDynamicCast(OSNumber, number) ) {
-        _absoluteAxisRemovalPercentage = number->unsigned32BitValue();
-    }
-    OSSafeReleaseNULL(number);
-
-
+    
     return result;
 }
 

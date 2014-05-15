@@ -2047,9 +2047,15 @@ _helperinit(mach_port_t			server,
 	sessionPrivate = (SCHelperSessionPrivateRef)session;
 
 	// create per-session port
-	(void) mach_port_allocate(mach_task_self(),
-				  MACH_PORT_RIGHT_RECEIVE,
-				  &sessionPrivate->port);
+	kr = mach_port_allocate(mach_task_self(),
+				MACH_PORT_RIGHT_RECEIVE,
+				&sessionPrivate->port);
+	if (kr != KERN_SUCCESS) {
+		SCLog(TRUE, LOG_ERR, CFSTR("_helperinit(): mach_port_allocate() failed: %s"), mach_error_string(kr));
+		*status = kr;
+		goto done;
+	}
+
 	*newSession = sessionPrivate->port;
 
 	(void) mach_port_set_attributes(mach_task_self(),

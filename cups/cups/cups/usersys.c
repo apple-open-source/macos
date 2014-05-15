@@ -1,5 +1,5 @@
 /*
- * "$Id: usersys.c 11528 2014-01-14 20:24:03Z msweet $"
+ * "$Id: usersys.c 11693 2014-03-11 01:24:45Z msweet $"
  *
  * User, system, and password routines for CUPS.
  *
@@ -703,7 +703,10 @@ _cupsGetPassword(const char *prompt)	/* I - Prompt string */
 
   while ((passbytes = read(tty, &passch, 1)) == 1)
   {
-    if (passch == noecho.c_cc[VEOL] || passch == noecho.c_cc[VEOL2] ||
+    if (passch == noecho.c_cc[VEOL] ||
+#  ifdef VEOL2
+        passch == noecho.c_cc[VEOL2] ||
+#  endif /* VEOL2 */
         passch == 0x0A || passch == 0x0D)
     {
      /*
@@ -851,6 +854,7 @@ _cupsSetDefaults(void)
 
   if ((cups_user = getenv("CUPS_USER")) == NULL)
   {
+#ifndef WIN32
    /*
     * Try the USER environment variable...
     */
@@ -868,6 +872,7 @@ _cupsSetDefaults(void)
       if ((pw = getpwnam(cups_user)) == NULL || pw->pw_uid != getuid())
         cups_user = NULL;
     }
+#endif /* !WIN32 */
   }
 
  /*
@@ -1136,5 +1141,5 @@ cups_read_client_conf(
 
 
 /*
- * End of "$Id: usersys.c 11528 2014-01-14 20:24:03Z msweet $".
+ * End of "$Id: usersys.c 11693 2014-03-11 01:24:45Z msweet $".
  */

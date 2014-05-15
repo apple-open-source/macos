@@ -252,7 +252,7 @@ _dispatch_introspection_source_get_info(dispatch_source_t ds)
 	dispatch_function_t handler = dr->ds_handler_func;
 	bool handler_is_block = ds->ds_handler_is_block;
 	bool after = (handler == _dispatch_after_timer_callback);
-	if (after) {
+	if (after && !(ds->ds_atomic_flags & DSF_CANCELED)) {
 		dispatch_continuation_t dc = ctxt;
 		ctxt = dc->dc_ctxt;
 		handler = dc->dc_func;

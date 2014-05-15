@@ -178,7 +178,7 @@
 		72B01EC70BC48C5600C182DA /* System.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0352AA4C0043263F11CA2A40 /* System.framework */; };
 		72B01EC80BC48C5600C182DA /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0352AA4E0043263F11CA2A40 /* SystemConfiguration.framework */; };
 		72B56AC01630D8A2001E213E /* libxml.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 72B56ABF1630D8A2001E213E /* libxml.framework */; };
-		72D85BE0184D57BB003F8931 /* MainMenu.nib in Resources */ = {isa = PBXBuildFile; fileRef = 72D85BDF184D57BB003F8931 /* MainMenu.nib */; };
+		72D593BC18BE7A00002A8C8C /* MainMenu.nib in Resources */ = {isa = PBXBuildFile; fileRef = 72D593B918BE79BD002A8C8C /* MainMenu.nib */; };
 		8F3CA6A713E22FDE00857B09 /* webdav_cookie.c in Sources */ = {isa = PBXBuildFile; fileRef = 8F3CA6A313E22FDD00857B09 /* webdav_cookie.c */; };
 		8F3CA6A813E22FDE00857B09 /* webdav_utils.c in Sources */ = {isa = PBXBuildFile; fileRef = 8F3CA6A513E22FDE00857B09 /* webdav_utils.c */; };
 		8F43CC000F86975B003A8789 /* webdavlib.c in Sources */ = {isa = PBXBuildFile; fileRef = 8FBFB5480F868E09000B3B9B /* webdavlib.c */; };
@@ -394,7 +394,7 @@
 		72B01EA80BC48C5600C182DA /* webdav_cert_ui.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = webdav_cert_ui.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		72B01ECD0BC48C5600C182DA /* webdavfs_agent */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = webdavfs_agent; sourceTree = BUILT_PRODUCTS_DIR; };
 		72B56ABF1630D8A2001E213E /* libxml.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = libxml.framework; path = ../../../../../System/Library/PrivateFrameworks/VCXMPP.framework/Versions/A/Frameworks/libxml.framework; sourceTree = "<group>"; };
-		72D85BDF184D57BB003F8931 /* MainMenu.nib */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = MainMenu.nib; sourceTree = "<group>"; };
+		72D593BA18BE79BD002A8C8C /* English */ = {isa = PBXFileReference; lastKnownFileType = wrapper.nib; name = English; path = webdav_cert_ui.tproj/English.lproj/MainMenu.nib; sourceTree = "<group>"; };
 		8F096241118A5C2F00C03286 /* webdavfs.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; path = webdavfs.xcconfig; sourceTree = "<group>"; };
 		8F3CA6A313E22FDD00857B09 /* webdav_cookie.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = webdav_cookie.c; path = mount.tproj/webdav_cookie.c; sourceTree = "<group>"; };
 		8F3CA6A413E22FDD00857B09 /* webdav_cookie.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = webdav_cookie.h; path = mount.tproj/webdav_cookie.h; sourceTree = "<group>"; };
@@ -764,7 +764,7 @@
 				A4C36647075E96FB00A90178 /* Localizable.strings */,
 				A4C35E63075E902E00A90178 /* Info.plist */,
 				A4E64A23075E480A00FA0F9D /* InfoPlist.strings */,
-				72D85BDF184D57BB003F8931 /* MainMenu.nib */,
+				72D593B918BE79BD002A8C8C /* MainMenu.nib */,
 			);
 			name = Resources;
 			sourceTree = "<group>";
@@ -1016,7 +1016,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				72D85BE0184D57BB003F8931 /* MainMenu.nib in Resources */,
+				72D593BC18BE7A00002A8C8C /* MainMenu.nib in Resources */,
 				72B01E9A0BC48C5600C182DA /* InfoPlist.strings in Resources */,
 				72B01E9C0BC48C5600C182DA /* Localizable.strings in Resources */,
 			);
@@ -1233,6 +1233,15 @@
 				5CDFF4820E929F0A00745F9B /* English */,
 			);
 			name = InfoPlist.strings;
+			sourceTree = "<group>";
+		};
+		72D593B918BE79BD002A8C8C /* MainMenu.nib */ = {
+			isa = PBXVariantGroup;
+			children = (
+				72D593BA18BE79BD002A8C8C /* English */,
+			);
+			name = MainMenu.nib;
+			path = ..;
 			sourceTree = "<group>";
 		};
 		A4C36647075E96FB00A90178 /* Localizable.strings */ = {

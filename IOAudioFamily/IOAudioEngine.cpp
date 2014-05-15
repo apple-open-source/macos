@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2013 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2014 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -642,14 +642,14 @@ void IOAudioEngine::stop(IOService *provider)
 
 IOWorkLoop *IOAudioEngine::getWorkLoop() const
 {
-    audioDebugIOLog(3, "+-IOAudioEngine[%p]::getWorkLoop()\n", this);
+	audioDebugIOLog(7, "+-IOAudioEngine[%p]::getWorkLoop()\n", this);
 
     return workLoop;
 }
 
 IOCommandGate *IOAudioEngine::getCommandGate() const
 {
-    audioDebugIOLog(3, "+-IOAudioEngine[%p]::getCommandGate()\n", this);
+    audioDebugIOLog(7, "+-IOAudioEngine[%p]::getCommandGate()\n", this);
 
     return commandGate;
 }

@@ -385,4 +385,73 @@ class TestSuper < Test::Unit::TestCase
   def test_super_in_BEGIN
     assert_super_in_block("BEGIN")
   end
+
+  class X
+    def foo(*args)
+      args
+    end
+  end
+
+  class Y < X
+    define_method(:foo) do |*args|
+      super(*args)
+    end
+  end
+
+  def test_super_splat
+    # [ruby-list:49575] 
+    y = Y.new
+    assert_equal([1, 2], y.foo(1, 2))
+    assert_equal([1, false], y.foo(1, false))
+    assert_equal([1, 2, 3, 4, 5], y.foo(1, 2, 3, 4, 5))
+    assert_equal([false, true], y.foo(false, true))
+    assert_equal([false, false], y.foo(false, false))
+    assert_equal([1, 2, 3, false, 5], y.foo(1, 2, 3, false, 5))
+  end
+
+  def test_missing_super_in_method_module
+    bug9315 = '[ruby-core:59358] [Bug #9315]'
+    a = Module.new do
+      def foo
+        super
+      end
+    end
+    b = Class.new do
+      include a
+    end
+    assert_raise(NoMethodError, bug9315) do
+      b.new.method(:foo).call
+    end
+  end
+
+  def test_module_super_in_method_module
+    bug9315 = '[ruby-core:59589] [Bug #9315]'
+    a = Module.new do
+      def foo
+        super
+      end
+    end
+    c = Class.new do
+      def foo
+        :ok
+      end
+    end
+    o = c.new.extend(a)
+    assert_nothing_raised(NoMethodError, bug9315) do
+      assert_equal(:ok, o.method(:foo).call, bug9315)
+    end
+  end
+
+  def test_missing_super_in_module_unbound_method
+    bug9377 = '[ruby-core:59619] [Bug #9377]'
+
+    a = Module.new do
+      def foo; super end
+    end
+
+    m = a.instance_method(:foo).bind(Object.new.extend(a))
+    assert_raise(NoMethodError, bug9377) do
+      m.call
+    end
+  end
 end

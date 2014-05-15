@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011, 2012 Apple Inc. All rights reserved.
+ * Copyright (C) 2011, 2012, 2014 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -148,6 +148,9 @@ SOFT_LINK_DLL_IMPORT(AVFoundationCF, AVCFPlayerItemGetCurrentTime, CMTime, __cde
 
 SOFT_LINK_DLL_IMPORT(AVFoundationCF, AVCFPlayerItemGetDuration, CMTime, __cdecl, (AVCFPlayerItemRef playerItem), (playerItem))
 #define AVCFPlayerItemGetDuration softLink_AVCFPlayerItemGetDuration
+
+SOFT_LINK_DLL_IMPORT(AVFoundationCF, AVCFPlayerItemGetPresentationSize, CGSize, __cdecl, (AVCFPlayerItemRef playerItem), (playerItem))
+#define AVCFPlayerItemGetPresentationSize softLink_AVCFPlayerItemGetPresentationSize
 
 SOFT_LINK_DLL_IMPORT(AVFoundationCF, AVCFPlayerItemGetStatus, AVCFPlayerItemStatus, __cdecl, (AVCFPlayerItemRef playerItem, CFErrorRef *errorOut), (playerItem, errorOut))
 #define AVCFPlayerItemGetStatus softLink_AVCFPlayerItemGetStatus
@@ -380,5 +383,8 @@ SOFT_LINK_VARIABLE_DLL_IMPORT(AVFoundationCF, AVCFPlayerAppliesMediaSelectionCri
 
 SOFT_LINK_VARIABLE_DLL_IMPORT(AVFoundationCF, AVCFPlayerItemLegibleOutputTextStylingResolutionSourceAndRulesOnly, const CFStringRef);
 #define AVCFPlayerItemLegibleOutputTextStylingResolutionSourceAndRulesOnly getAVCFPlayerItemLegibleOutputTextStylingResolutionSourceAndRulesOnly()
+
+SOFT_LINK_VARIABLE_DLL_IMPORT(AVFoundationCF, AVCFURLAssetInheritURIQueryComponentFromReferencingURIKey, const CFStringRef);
+#define AVCFURLAssetInheritURIQueryComponentFromReferencingURIKey getAVCFURLAssetInheritURIQueryComponentFromReferencingURIKey()
 
 #endif

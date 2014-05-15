@@ -384,6 +384,8 @@ typedef struct rb_mutex_struct
 } rb_mutex_t;
 
 static void rb_mutex_abandon_all(rb_mutex_t *mutexes);
+static void rb_mutex_abandon_keeping_mutexes(rb_thread_t *th);
+static void rb_mutex_abandon_locking_mutex(rb_thread_t *th);
 static const char* rb_mutex_unlock_th(rb_mutex_t *mutex, rb_thread_t volatile *th);
 
 void
@@ -3832,10 +3834,8 @@ terminate_atfork_i(st_data_t key, st_data_t val, st_data_t current_th)
     GetThreadPtr(thval, th);
 
     if (th != (rb_thread_t *)current_th) {
-	if (th->keeping_mutexes) {
-	    rb_mutex_abandon_all(th->keeping_mutexes);
-	}
-	th->keeping_mutexes = NULL;
+	rb_mutex_abandon_keeping_mutexes(th);
+	rb_mutex_abandon_locking_mutex(th);
 	thread_cleanup_func(th, TRUE);
     }
     return ST_CONTINUE;
@@ -4098,8 +4098,6 @@ thgroup_add(VALUE group, VALUE thread)
 
 #define GetMutexPtr(obj, tobj) \
     TypedData_Get_Struct((obj), rb_mutex_t, &mutex_data_type, (tobj))
-
-static const char *rb_mutex_unlock_th(rb_mutex_t *mutex, rb_thread_t volatile *th);
 
 #define mutex_mark NULL
 
@@ -4425,15 +4423,32 @@ rb_mutex_unlock(VALUE self)
     rb_mutex_t *mutex;
     GetMutexPtr(self, mutex);
 
-    /* When running trap handler */
-    if (!mutex->allow_trap && GET_THREAD()->interrupt_mask & TRAP_INTERRUPT_MASK) {
-	rb_raise(rb_eThreadError, "can't be called from trap context");
-    }
-
     err = rb_mutex_unlock_th(mutex, GET_THREAD());
     if (err) rb_raise(rb_eThreadError, "%s", err);
 
     return self;
+}
+
+static void
+rb_mutex_abandon_keeping_mutexes(rb_thread_t *th)
+{
+    if (th->keeping_mutexes) {
+	rb_mutex_abandon_all(th->keeping_mutexes);
+    }
+    th->keeping_mutexes = NULL;
+}
+
+static void
+rb_mutex_abandon_locking_mutex(rb_thread_t *th)
+{
+    rb_mutex_t *mutex;
+
+    if (!th->locking_mutex) return;
+
+    GetMutexPtr(th->locking_mutex, mutex);
+    if (mutex->th == th)
+	rb_mutex_abandon_all(mutex);
+    th->locking_mutex = Qfalse;
 }
 
 static void
@@ -4880,6 +4895,18 @@ VALUE
 rb_exec_recursive_outer(VALUE (*func) (VALUE, VALUE, int), VALUE obj, VALUE arg)
 {
     return exec_recursive(func, obj, 0, arg, 1);
+}
+
+/*
+ * If recursion is detected on the current method, obj and paired_obj,
+ * the outermost func will be called with (obj, arg, Qtrue). All inner
+ * func will be short-circuited using throw.
+ */
+
+VALUE
+rb_exec_recursive_paired_outer(VALUE (*func) (VALUE, VALUE, int), VALUE obj, VALUE paired_obj, VALUE arg)
+{
+    return exec_recursive(func, obj, rb_obj_id(paired_obj), arg, 1);
 }
 
 /*

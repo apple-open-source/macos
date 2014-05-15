@@ -373,7 +373,9 @@ kern_return_t
 IOFBAcknowledgeNotification( void * notificationID );
 
 enum {
-    kIOFBConnectStateOnline     = 0x00000001
+    kIOFBConnectStateOnline     = 0x00000001,
+    kIOFBConnectStateUnusable   = 0x00000002,
+    kIOFBConnectStateHWOnline   = 0x00000004
 };
 
 kern_return_t

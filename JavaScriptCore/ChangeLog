@@ -1,3 +1,140 @@
+2014-03-19  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r165902.
+
+    2014-03-12  Mark Lam  <mark.lam@apple.com>
+    
+            Update type of local vars to match the type of String length.
+            <https://webkit.org/b/130077>
+    
+            Reviewed by Geoffrey Garen.
+    
+            * runtime/JSStringJoiner.cpp:
+            (JSC::JSStringJoiner::join):
+    
+2014-03-06  Mark Lam  <mark.lam@apple.com>
+
+        Merge r164077, r164089: <rdar://problem/16136637>
+
+    2014-02-13  Mark Lam  <mark.lam@apple.com>
+
+            The JSContainerConvertor and ObjcContainerConvertor need to protect JSValueRefs. Part 2.
+            <https://webkit.org/b/128764>
+
+            Reviewed by Mark Hahnenberg.
+
+            toJS() is the wrong cast function to use. We need to use toJSForGC() instead.
+            Also we need to acquire the JSLock to prevent concurrent accesses to the
+            Strong handle list.
+
+            * API/JSValue.mm:
+            (JSContainerConvertor::add):
+            (containerValueToObject):
+            (ObjcContainerConvertor::add):
+            (objectToValue):
+
+    2014-02-13  Mark Lam  <mark.lam@apple.com>
+
+            The JSContainerConvertor and ObjcContainerConvertor need to protect JSValueRefs.
+            <https://webkit.org/b/128764>
+
+            Reviewed by Mark Hahnenberg.
+
+            Added a vector of Strong<Unknown> references in the 2 containers, and append
+            the newly created JSValues to those vectors. This will keep all those JS objects
+            alive for the duration of the conversion.
+
+            * API/JSValue.mm:
+            (JSContainerConvertor::add):
+            (ObjcContainerConvertor::add):
+
+2014-03-03  Brent Fulgham  <bfulgham@apple.com>
+
+        Unreviewed build fix.
+        <rdar://problem/16197002>
+
+        * JavaScriptCore.vcxproj/JavaScriptCore.vcxproj: Exclude 64-bit assembly code when building
+        32-bit DebugSuffix target.
+
+2014-02-28  Brent Fulgham  <bfulgham@apple.com>
+
+        Unreviewed build fix.
+        <rdar://problem/16197002>
+
+        * JavaScriptCore.vcxproj/JavaScriptCore.proj: Remove trailing
+        slash from path names, as this was causing multiple arguments
+        to be concatenated together (the whitespace was getting escaped
+        by the slash.)
+
+2014-01-27  Brent Fulgham  <bfulgham@apple.com>
+
+        Merge r162723.
+
+    2014-01-24  Brent Fulgham  <bfulgham@apple.com>
+
+            [Win] Convert some NMake files to MSBuild project files 
+            https://bugs.webkit.org/show_bug.cgi?id=127579 
+
+            Reviewed by Tim Horton.
+
+            * JavaScriptCore.vcxproj/JavaScriptCore.make: Removed.
+            * JavaScriptCore.vcxproj/JavaScriptCore.proj: Added.
+
+2014-01-27  Brent Fulgham  <bfulgham@apple.com>
+
+        Merge r154513, r154354.
+
+    2013-08-23  Alex Christensen  <alex.christensen@flexsim.com>
+
+        Re-separating Win32 and Win64 builds.
+        https://bugs.webkit.org/show_bug.cgi?id=120178
+
+        Reviewed by Brent Fulgham.
+
+        * JavaScriptCore.vcxproj/JavaScriptCoreGenerated.make:
+        * JavaScriptCore.vcxproj/LLInt/LLIntAssembly/LLIntAssembly.make:
+        * JavaScriptCore.vcxproj/LLInt/LLIntDesiredOffsets/LLIntDesiredOffsets.make:
+        Pass PlatformArchitecture as a command line parameter to bash scripts.
+        * JavaScriptCore.vcxproj/copy-files.cmd: Use correct architecture
+        for build conditions.
+        * JavaScriptCore.vcxproj/jsc/jscCommon.props: Ditto
+        * JavaScriptCore.vcxproj/testRegExp/testRegExpCommon.props: Ditto
+
+2014-01-23  Brent Fulgham  <bfulgham@apple.com>
+
+        Merge r162621
+
+    2014-01-22  Brent Fulgham  <bfulgham@apple.com>
+
+            [Win] Update project and solution files for 64-bit builds.
+            https://bugs.webkit.org/show_bug.cgi?id=127457
+
+            Reviewed by Eric Carlson.
+
+            * JavaScriptCore.vcxproj/JavaScriptCore.submit.sln: Add 64-bit target.
+            * JavaScriptCore.vcxproj/JavaScriptCore.vcxproj: Specify v100 target
+            for all builds on this branch.
+            * JavaScriptCore.vcxproj/JavaScriptCore.vcxproj.filters: Add missing
+            file from project view.
+            * JavaScriptCore.vcxproj/jsc/jsc.vcxproj: Specify v100 target for
+            all builds on this branch.
+            * JavaScriptCore.vcxproj/testRegExp/testRegExp.vcxproj: Ditto
+            * JavaScriptCore.vcxproj/testapi/testapi.vcxproj: Ditto
+
+2014-01-22  Brent Fulgham  <bfulgham@apple.com>
+
+        Merge r157607
+
+    2013-10-17  Alex Christensen  <achristensen@webkit.org>
+
+            Run JavaScriptCore tests again on Windows.
+            https://bugs.webkit.org/show_bug.cgi?id=122787
+
+            Reviewed by Tim Horton.
+
+            * JavaScriptCore.vcxproj/JavaScriptCore.sln: Added.
+            * jit/JITStubsMSVC64.asm: Removed reference to cti_vm_throw unused since r157581.
+
 2013-12-23  Matthew Hanson  <matthew_hanson@apple.com>
 
         Merge 161003: <rdar://problem/15719584>

@@ -391,6 +391,24 @@ class TestFileExhaustive < Test::Unit::TestCase
   rescue NotImplementedError
   end
 
+  def test_readlink_long_path
+    return unless @symlinkfile
+    bug9157 = '[ruby-core:58592] [Bug #9157]'
+    assert_separately(["-", @symlinkfile, bug9157], <<-"end;")
+      symlinkfile, bug9157 = *ARGV
+      100.step(1000, 100) do |n|
+        File.unlink(symlinkfile)
+        link = "foo"*n
+        begin
+          File.symlink(link, symlinkfile)
+        rescue Errno::ENAMETOOLONG
+          break
+        end
+        assert_equal(link, File.readlink(symlinkfile), bug9157)
+      end
+    end;
+  end
+
   def test_unlink
     assert_equal(1, File.unlink(@file))
     make_file("foo", @file)
@@ -518,6 +536,33 @@ class TestFileExhaustive < Test::Unit::TestCase
   ensure
     ENV["HOME"] = home
   end
+
+  if /mswin|mingw/ =~ RUBY_PLATFORM
+    def test_expand_path_home_memory_leak_in_path
+      assert_no_memory_leak_at_expand_path_home('', 'in path')
+    end
+
+    def test_expand_path_home_memory_leak_in_base
+      assert_no_memory_leak_at_expand_path_home('".",', 'in base')
+    end
+
+    def assert_no_memory_leak_at_expand_path_home(arg, message)
+      prep = 'ENV["HOME"] = "foo"*100'
+      assert_no_memory_leak([], prep, <<-TRY, "memory leaked at non-absolute home #{message}")
+      10000.times do
+        begin
+          File.expand_path(#{arg}"~/a")
+        rescue ArgumentError => e
+          next
+        ensure
+          abort("ArgumentError (non-absolute home) expected") unless e
+        end
+      end
+      GC.start
+      TRY
+    end
+  end
+
 
   def test_expand_path_remove_trailing_alternative_data
     assert_equal File.join(@rootdir, "aaa"), File.expand_path("#{@rootdir}/aaa::$DATA")

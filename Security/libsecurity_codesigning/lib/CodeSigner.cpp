@@ -32,6 +32,7 @@
 #include <security_utilities/unix++.h>
 #include <security_utilities/unixchild.h>
 #include <Security/SecCertificate.h>
+#include <Security/SecCertificatePriv.h>
 #include <vector>
 
 namespace Security {
@@ -89,6 +90,30 @@ void SecCodeSigner::parameters(CFDictionaryRef paramDict)
 		MacOSError::throwMe(errSecCSInvalidObjectRef);
 }
 
+//
+// Retrieve the team ID from the signing certificate if and only if
+// it is an apple developer signing cert
+//
+std::string SecCodeSigner::getTeamIDFromSigner(CFArrayRef certs)
+{
+	if (mSigner && mSigner != SecIdentityRef(kCFNull)) {
+		CFRef<SecCertificateRef> signerCert;
+		MacOSError::check(SecIdentityCopyCertificate(mSigner, &signerCert.aref()));
+
+		/* Make sure the certificate looks like an Apple certificate, because we do not
+			extract the team ID from a non Apple certificate */
+		if (SecStaticCode::isAppleDeveloperCert(certs)) {
+			CFRef<CFStringRef> teamIDFromCert;
+
+			MacOSError::check(SecCertificateCopySubjectComponent(signerCert.get(), &CSSMOID_OrganizationalUnitName, &teamIDFromCert.aref()));
+
+			if (teamIDFromCert)
+				return cfString(teamIDFromCert);
+		}
+	}
+
+	return "";
+}
 
 //
 // Roughly check for validity.
@@ -217,6 +242,9 @@ SecCodeSigner::Parser::Parser(SecCodeSigner &state, CFDictionaryRef parameters)
 	
 	if (CFStringRef ident = get<CFStringRef>(kSecCodeSignerIdentifier))
 		state.mIdentifier = cfString(ident);
+	
+	if (CFStringRef teamid = get<CFStringRef>(kSecCodeSignerTeamIdentifier))
+		state.mTeamID = cfString(teamid);
 	
 	if (CFStringRef prefix = get<CFStringRef>(kSecCodeSignerIdentifierPrefix))
 		state.mIdentifierPrefix = cfString(prefix);

@@ -180,13 +180,15 @@ public:
 	uint8_t	pageSize;				// log2(page size in bytes); 0 => infinite
 	Endian<uint32_t> spare2;		// unused (must be zero)
 	Endian<uint32_t> scatterOffset;	// offset of optional scatter vector (zero if absent)
+	Endian<uint32_t> teamIDOffset;	// offset of optional teamID string
 	
 	// works with the version field; see comments above
-	static const uint32_t currentVersion = 0x20100;		// "version 2.1"
+	static const uint32_t currentVersion = 0x20200;		// "version 2.2"
 	static const uint32_t compatibilityLimit = 0x2F000;	// "version 3 with wiggle room"
 	
 	static const uint32_t earliestVersion = 0x20001;	// earliest supported version
 	static const uint32_t supportsScatter = 0x20100;	// first version to support scatter option
+	static const uint32_t supportsTeamID = 0x20200;	// first version to support team ID option
 	
 	void checkIntegrity() const;	// throws if inconsistent or unsupported version
 
@@ -196,7 +198,7 @@ public:
 	
 	const char *identifier() const { return at<const char>(identOffset); }
 	char *identifier() { return at<char>(identOffset); }
-
+    
 	// main hash array access
 	SpecialSlot maxSpecialSlot() const;
 		
@@ -230,7 +232,10 @@ public:
 		{ return (version >= supportsScatter && scatterOffset) ? at<Scatter>(scatterOffset) : NULL; }
 	const Scatter *scatterVector() const
 		{ return (version >= supportsScatter && scatterOffset) ? at<const Scatter>(scatterOffset) : NULL; }
-	
+
+	const char *teamID() const { return version >= supportsTeamID && teamIDOffset ? at<const char>(teamIDOffset) : NULL; }
+	char *teamID() { return version >= supportsTeamID && teamIDOffset ? at<char>(teamIDOffset) : NULL; }
+    
 public:
 	bool validateSlot(const void *data, size_t size, Slot slot) const;			// validate memory buffer against page slot
 	bool validateSlot(UnixPlusPlus::FileDesc fd, size_t size, Slot slot) const;	// read and validate file

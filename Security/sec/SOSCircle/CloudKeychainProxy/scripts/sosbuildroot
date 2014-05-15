@@ -11,7 +11,7 @@ config=${2-Release}
 roots=/var/tmp
 project=Security
 
-~rc/bin/buildit .  --rootsDirectory=/var/tmp -noverify -release iOS -project $project -archive -dsymsInDstroot \
+~rc/bin/buildit .  --rootsDirectory=/var/tmp -noverify -project $project -archive -dsymsInDstroot \
        -target $target \
        -configuration $config || { echo 'build failed' ; exit 1; }
 

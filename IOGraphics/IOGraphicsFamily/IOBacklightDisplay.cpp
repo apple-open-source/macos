@@ -311,7 +311,37 @@ IOReturn AppleBacklightDisplay::setPowerState( unsigned long powerState, IOServi
 	}
 	else
 	{
-		updatePowerParam();
+#if IOG_FADE
+        SInt32 current, min, max, fade, gamma;
+        OSDictionary * displayParams;
+        displayParams = OSDynamicCast(OSDictionary, copyProperty(gIODisplayParametersKey));
+        if (!powerState 
+            && displayParams 
+            && (getIntegerRange(displayParams, gIODisplayBrightnessFadeKey, &current, &min, &max))
+            && (getIntegerRange(displayParams, gIODisplayBrightnessKey, &current, &min, &max)))
+        {
+            for (fade = max - current; fade < max; fade++)
+            {
+                if (!fDisplayPMVars->displayIdle) break;
+                doIntegerSet(displayParams, gIODisplayBrightnessFadeKey, fade);
+
+                gamma = 65536 - ((fade - (max - current)) * 65536 / current);
+                doIntegerSet(displayParams, gIODisplayGammaScaleKey, gamma);
+                doIntegerSet(displayParams, gIODisplayParametersFlushKey, 0);
+
+                framebuffer->fbUnlock();
+                IOSleep(5);
+                framebuffer->fbLock();
+            }
+            if (fDisplayPMVars->displayIdle) updatePowerParam();
+            doIntegerSet(displayParams, gIODisplayBrightnessFadeKey, 0);
+            gamma = 65536;
+            doIntegerSet(displayParams, gIODisplayGammaScaleKey, gamma);
+            doIntegerSet(displayParams, gIODisplayParametersFlushKey, 0);
+        }
+        else 
+#endif
+        updatePowerParam();
 	}
 
 	if (!fCurrentPowerState) fProviderPower = false;
@@ -486,6 +516,9 @@ bool AppleBacklightDisplay::updatePowerParam(void)
 		}
 		DEBG1("B", " dsyp %d\n", value);
 		ret = super::doIntegerSet(displayParams, gIODisplayPowerStateKey, value);
+#if IOG_FADE2
+        if (kIODisplayPowerStateOff == value) IOSleep(700);
+#endif
 	}
 
     displayParams->release();

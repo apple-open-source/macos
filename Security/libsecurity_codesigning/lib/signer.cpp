@@ -53,8 +53,33 @@ void SecCodeSigner::Signer::sign(SecCSFlags flags)
 {
 	rep = code->diskRep()->base();
 	this->prepare(flags);
-	
+
 	PreSigningContext context(*this);
+
+	/* If an explicit teamID was passed in it must be
+	 the same as what came from the cert */
+	std::string teamIDFromCert = state.getTeamIDFromSigner(context.certs);
+
+	if (state.mPreserveMetadata & kSecCodeSignerPreserveTeamIdentifier) {
+		/* If preserving the team identifier, teamID is set previously when the
+		 code object is still available */
+		if (!teamIDFromCert.empty() && teamID != teamIDFromCert)
+			MacOSError::throwMe(errSecCSInvalidFlags);
+	} else {
+		if (teamIDFromCert.empty()) {
+			/* state.mTeamID is an explicitly passed teamID */
+			teamID = state.mTeamID;
+		} else if (state.mTeamID.empty() || (state.mTeamID == teamIDFromCert)) {
+			/* If there was no explicit team ID set, or the explicit team ID matches
+			 what is in the cert, use the team ID from the certificate */
+			teamID = teamIDFromCert;
+		} else {
+			/* The caller passed in an explicit team ID that does not match what is
+			 in the signing cert, which is an invalid usage */
+			MacOSError::throwMe(errSecCSInvalidFlags);
+		}
+	}
+
 	if (Universal *fat = state.mNoMachO ? NULL : rep->mainExecutableImage()) {
 		signMachO(fat, context);
 	} else {
@@ -113,6 +138,13 @@ void SecCodeSigner::Signer::prepare(SecCSFlags flags)
 	} else
 		secdebug("signer", "using explicit identifier=%s", identifier.c_str());
 
+	teamID = state.mTeamID;
+	if (teamID.empty() && (inherit & kSecCodeSignerPreserveTeamIdentifier)) {
+		const char *c_id = code->teamID();
+		if (c_id)
+			teamID = c_id;
+	}
+    
 	entitlements = state.mEntitlementData;
 	if (!entitlements && (inherit & kSecCodeSignerPreserveEntitlements))
 		entitlements = code->component(cdEntitlementSlot);
@@ -374,7 +406,7 @@ void SecCodeSigner::Signer::signMachO(Universal *fat, const Requirement::Context
 		}
 		
 		// prepare SuperBlob size estimate
-		size_t cdSize = arch.cdbuilder.size();
+		size_t cdSize = arch.cdbuilder.size(CodeDirectory::currentVersion);
 		arch.blobSize = arch.size(cdSize, state.mCMSSize, 0);
 	}
 	
@@ -460,7 +492,8 @@ void SecCodeSigner::Signer::populate(CodeDirectory::Builder &builder, DiskRep::W
 	builder.executable(rep->mainExecutablePath(), pagesize, offset, length);
 	builder.flags(cdFlags);
 	builder.identifier(identifier);
-	
+	builder.teamID(teamID);
+
 	if (CFRef<CFDataRef> data = rep->component(cdInfoSlot))
 		builder.specialSlot(cdInfoSlot, data);
 	if (ireqs) {

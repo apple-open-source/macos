@@ -190,7 +190,8 @@ static inline dispatch_function_t
 _dispatch_trace_timer_function(dispatch_source_t ds, dispatch_source_refs_t dr)
 {
 	dispatch_function_t func = dr->ds_handler_func;
-	if (func == _dispatch_after_timer_callback) {
+	if (func == _dispatch_after_timer_callback &&
+				!(ds->ds_atomic_flags & DSF_CANCELED)) {
 		dispatch_continuation_t dc = ds->do_ctxt;
 		func = dc->dc_func != _dispatch_call_block_and_release ? dc->dc_func :
 				dc->dc_ctxt ? _dispatch_Block_invoke(dc->dc_ctxt) : NULL;

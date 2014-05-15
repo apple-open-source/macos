@@ -48,7 +48,8 @@
 struct heim_digest_desc {
 #define F_SERVER	1
 #define F_HAVE_HASH	2
-#define F_USE_PREFIX	4
+#define F_HAVE_HA1	4
+#define F_USE_PREFIX	8
     int flags;
     int type;
     char *password;
@@ -85,7 +86,7 @@ clear_context(heim_digest_t context)
 {
     MEMSET_FREE_AND_CLEAR(context->password);
     FREE_AND_CLEAR(context->secretHash);
-    context->flags &= ~(F_HAVE_HASH);
+    context->flags &= ~(F_HAVE_HASH|F_HAVE_HA1);
     FREE_AND_CLEAR(context->serverNonce);
     FREE_AND_CLEAR(context->serverRealm);
     FREE_AND_CLEAR(context->serverQOP);
@@ -132,7 +133,7 @@ build_A1_hash(heim_digest_t context, int old_broken)
     char *userhash = NULL;
     char *A1;
 
-    if (context->flags & F_HAVE_HASH) {
+    if ((context->flags & F_HAVE_HASH) || (context->flags & F_HAVE_HA1)) {
 	userhash = strdup(context->secretHash);
     } else if (context->password) {
 	if (context->clientUsername == NULL)
@@ -151,7 +152,7 @@ build_A1_hash(heim_digest_t context, int old_broken)
     if (userhash == NULL)
 	return NULL;
 
-    if ((context->type == HEIM_DIGEST_TYPE_RFC2617_MD5_SESS || context->type == HEIM_DIGEST_TYPE_RFC2831)) {
+    if ((context->type == HEIM_DIGEST_TYPE_RFC2617_MD5_SESS || context->type == HEIM_DIGEST_TYPE_RFC2831) && !(context->flags & F_HAVE_HA1)) {
 	if (context->serverNonce == NULL) {
 	    memset(userhash, 0, strlen(userhash));
 	    free(userhash);
@@ -1009,7 +1010,13 @@ heim_digest_set_key(heim_digest_t context, const char *key, const char *value)
 	if ((context->secretHash = strdup(value)) == NULL)
 	    return ENOMEM;
 
-	context->flags |= F_HAVE_HASH;
+	if (strcmp(key, "userhash") == 0) {
+	    context->flags |= F_HAVE_HASH;
+	    context->flags &= ~F_HAVE_HA1;
+	} else {
+	    context->flags |= F_HAVE_HA1;
+	    context->flags &= ~F_HAVE_HASH;
+	}
     } else if (strcmp(key, "method") == 0) {
 	FREE_AND_CLEAR(context->serverMethod);
 	if ((context->serverMethod = strdup(value)) == NULL)

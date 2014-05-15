@@ -191,6 +191,9 @@
     bool updateOnline(void);
     void displaysOnline(bool nowOnline);
 
+#if IOFB_DISABLEFB
+	static IODeviceMemory * _getApertureRange(IOFramebuffer * fb, IOPixelAperture aperture);
+#endif
 
     static void startThread(bool highPri);
     static void sleepWork( void * arg );
@@ -279,7 +282,6 @@ public:
     bool setPreference( class IODisplay * display, const OSSymbol * key, OSObject * value );
     bool setIntegerPreference( IODisplay * display, const OSSymbol * key, UInt32 value );
     void getTransformPrefs( IODisplay * display );
-    IOReturn flushParameters(void);
     IOReturn getAttributeForConnectionParam(IOIndex connectIndex, 
                                             IOSelect attribute, uintptr_t * value);
     IOReturn setAttributeForConnectionParam(IOIndex connectIndex,

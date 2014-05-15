@@ -119,6 +119,7 @@ public:
 	std::string mainExecutablePath() { return mRep->mainExecutablePath(); }
 	CFURLRef canonicalPath() const { return mRep->canonicalPath(); }
 	std::string identifier() { return codeDirectory()->identifier(); }
+	const char *teamID() { return codeDirectory()->teamID(); }
 	std::string format() const { return mRep->format(); }
 	std::string signatureSource();
  	virtual CFDataRef component(CodeDirectory::SpecialSlot slot, OSStatus fail = errSecCSSignatureFailed);
@@ -169,10 +170,12 @@ public:
 	
 	CFDictionaryRef signingInformation(SecCSFlags flags); // omnibus information-gathering API (creates new dictionary)
 
+	static bool isAppleDeveloperCert(CFArrayRef certs); // determines if this is an apple developer certificate for libraray validation
+
 public:
 	void staticValidate(SecCSFlags flags, const SecRequirement *req);
 	void staticValidateCore(SecCSFlags flags, const SecRequirement *req);
-	
+
 protected:
 	CFDictionaryRef getDictionary(CodeDirectory::SpecialSlot slot, bool check = true); // component value as a dictionary
 	bool verifySignature();

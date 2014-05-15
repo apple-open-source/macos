@@ -904,8 +904,8 @@ module FileUtils
   def symbolic_modes_to_i(modes, path)  #:nodoc:
     current_mode = (File.stat(path).mode & 07777)
     modes.split(/,/).inject(0) do |mode, mode_sym|
-      mode_sym = "a#{mode_sym}" if mode_sym =~ %r!^[+-=]!
-      target, mode = mode_sym.split %r![+-=]!
+      mode_sym = "a#{mode_sym}" if mode_sym =~ %r!^[=+-]!
+      target, mode = mode_sym.split %r![=+-]!
       user_mask = user_mask(target)
       mode_mask = mode_mask(mode ? mode : "", path)
 
@@ -930,6 +930,7 @@ module FileUtils
   def mode_to_s(mode)  #:nodoc:
     mode.is_a?(String) ? mode : "%o" % mode
   end
+  private_module_function :mode_to_s
 
   #
   # Options: noop verbose
@@ -1022,8 +1023,8 @@ module FileUtils
   def chown(user, group, list, options = {})
     fu_check_options options, OPT_TABLE['chown']
     list = fu_list(list)
-    fu_output_message sprintf('chown %s%s',
-                              [user,group].compact.join(':') + ' ',
+    fu_output_message sprintf('chown %s %s',
+                              (group ? "#{user}:#{group}" : user || ':'),
                               list.join(' ')) if options[:verbose]
     return if options[:noop]
     uid = fu_get_uid(user)
@@ -1051,9 +1052,9 @@ module FileUtils
   def chown_R(user, group, list, options = {})
     fu_check_options options, OPT_TABLE['chown_R']
     list = fu_list(list)
-    fu_output_message sprintf('chown -R%s %s%s',
+    fu_output_message sprintf('chown -R%s %s %s',
                               (options[:force] ? 'f' : ''),
-                              [user,group].compact.join(':') + ' ',
+                              (group ? "#{user}:#{group}" : user || ':'),
                               list.join(' ')) if options[:verbose]
     return if options[:noop]
     uid = fu_get_uid(user)

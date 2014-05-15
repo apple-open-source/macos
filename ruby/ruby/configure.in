@@ -530,15 +530,21 @@ AC_DEFUN([RUBY_DTRACE_AVAILABLE],
 AC_DEFUN([RUBY_DTRACE_POSTPROCESS],
 [AC_CACHE_CHECK(whether $DTRACE needs post processing, rb_cv_prog_dtrace_g,
 [
- echo "int main(void){ return 0; }" > conftest.c
- echo "provider conftest{};" > conftest_provider.d
- $CC $CFLAGS -c -o conftest.o conftest.c
- if $DTRACE -G -s conftest_provider.d conftest.o 2>/dev/null; then
-   rb_cv_prog_dtrace_g=yes
- else
-   rb_cv_prog_dtrace_g=no
- fi
- rm -f conftest.o conftest.c conftest_provider.d conftest_provider.o
+  if {
+    echo "provider conftest{ probe fire(); };" > conftest_provider.d &&
+    dtrace -h -o conftest_provider.h -s conftest_provider.d >/dev/null 2>/dev/null &&
+    cat >conftest.c <<_CONF &&
+    @%:@include "conftest_provider.h"
+    int main(void){ CONFTEST_FIRE(); return 0; }
+_CONF
+    $CC $CFLAGS -c -o conftest.o conftest.c &&
+    $DTRACE -G -s conftest_provider.d conftest.o 2>/dev/null
+  }; then
+    rb_cv_prog_dtrace_g=yes
+  else
+    rb_cv_prog_dtrace_g=no
+  fi
+  rm -f conftest.[co] conftest_provider.[dho]
 ])
 ])
 
@@ -1334,7 +1340,22 @@ if test "$GCC" = yes; then
 	AC_DEFINE_UNQUOTED([RUBY_ALIAS_FUNCTION_VOID(prot, name, args)],
 			   [RUBY_ALIAS_FUNCTION_TYPE(void, prot, name, args)])
     fi
-    AC_CACHE_CHECK([for atomic builtins], [rb_cv_gcc_atomic_builtins], [
+
+    AC_CACHE_CHECK([for __atomic builtins], [rb_cv_gcc_atomic_builtins], [
+	AC_TRY_LINK([unsigned char atomic_var;],
+		    [
+			__atomic_exchange_n(&atomic_var, 0, __ATOMIC_SEQ_CST);
+			__atomic_exchange_n(&atomic_var, 1, __ATOMIC_SEQ_CST);
+			__atomic_fetch_add(&atomic_var, 1, __ATOMIC_SEQ_CST);
+			__atomic_fetch_sub(&atomic_var, 1, __ATOMIC_SEQ_CST);
+		    ],
+		    [rb_cv_gcc_atomic_builtins=yes],
+		    [rb_cv_gcc_atomic_builtins=no])])
+    if test "$rb_cv_gcc_atomic_builtins" = yes; then
+	AC_DEFINE(HAVE_GCC_ATOMIC_BUILTINS)
+    fi
+
+    AC_CACHE_CHECK([for __sync builtins], [rb_cv_gcc_sync_builtins], [
 	AC_TRY_LINK([unsigned char atomic_var;],
 		    [
 			__sync_lock_test_and_set(&atomic_var, 0);
@@ -1342,10 +1363,10 @@ if test "$GCC" = yes; then
 			__sync_fetch_and_add(&atomic_var, 1);
 			__sync_fetch_and_sub(&atomic_var, 1);
 		    ],
-		    [rb_cv_gcc_atomic_builtins=yes],
-		    [rb_cv_gcc_atomic_builtins=no])])
-    if test "$rb_cv_gcc_atomic_builtins" = yes; then
-	AC_DEFINE(HAVE_GCC_ATOMIC_BUILTINS)
+		    [rb_cv_gcc_sync_builtins=yes],
+		    [rb_cv_gcc_sync_builtins=no])])
+    if test "$rb_cv_gcc_sync_builtins" = yes; then
+	AC_DEFINE(HAVE_GCC_SYNC_BUILTINS)
     fi
 
     AC_CACHE_CHECK(for __builtin_unreachable, rb_cv_func___builtin_unreachable,
@@ -1610,6 +1631,7 @@ AS_CASE(["$target_os"],
 [aix* | k*bsd*-gnu | kopensolaris*-gnu | linux* | darwin*], [AC_DEFINE(SPT_TYPE,SPT_REUSEARGV)],
 [hpux*], [AC_DEFINE(SPT_TYPE,SPT_PSTAT) ],
 [])
+AC_CHECK_HEADERS(sys/pstat.h)
 
 
 AC_CACHE_CHECK(for signbit, rb_cv_have_signbit,
@@ -2319,7 +2341,7 @@ if test "$with_dln_a_out" != yes; then
 			: ${LDSHARED='$(CC) -shared'}
 			if test "$rb_cv_binary_elf" = yes; then
 			    LDFLAGS="$LDFLAGS -rdynamic"
-			    DLDFLAGS="$DLDFLAGS "'-Wl,-soname,$(.TARGET)'
+			    DLDFLAGS="$DLDFLAGS "'-Wl,-soname,$@'
 			else
 			  test "$GCC" = yes && test "$rb_cv_prog_gnu_ld" = yes || LDSHARED='$(LD) -Bshareable'
 			fi
@@ -2593,7 +2615,8 @@ if test x"$cross_compiling" = xyes; then
   AC_SUBST(XRUBY_RUBYLIBDIR)
   AC_SUBST(XRUBY_RUBYHDRDIR)
   PREP='$(arch)-fake.rb'
-  RUNRUBY='$(MINIRUBY) -I`cd $(srcdir)/lib; pwd`'
+  RUNRUBY_COMMAND='$(MINIRUBY) -I`cd $(srcdir)/lib; pwd`'
+  RUNRUBY='$(RUNRUBY_COMMAND)'
   XRUBY='$(MINIRUBY)'
   TEST_RUNNABLE=no
   CROSS_COMPILING=yes
@@ -2615,7 +2638,8 @@ else
   MINIRUBY='./miniruby$(EXEEXT) -I$(srcdir)/lib -I.'
   MINIRUBY="$MINIRUBY"' -I$(EXTOUT)/common'
   PREP='miniruby$(EXEEXT)'
-  RUNRUBY='$(MINIRUBY) $(srcdir)/tool/runruby.rb --extout=$(EXTOUT)'
+  RUNRUBY_COMMAND='$(MINIRUBY) $(srcdir)/tool/runruby.rb --extout=$(EXTOUT) $(RUNRUBYOPT)'
+  RUNRUBY='$(RUNRUBY_COMMAND) --'
   XRUBY='$(RUNRUBY)'
   TEST_RUNNABLE=yes
   CROSS_COMPILING=no
@@ -2625,6 +2649,7 @@ AC_SUBST(CROSS_COMPILING)
 AC_SUBST(MINIRUBY)
 AC_SUBST(BTESTRUBY)
 AC_SUBST(PREP)
+AC_SUBST(RUNRUBY_COMMAND)
 AC_SUBST(RUNRUBY)
 AC_SUBST(XRUBY)
 AC_SUBST(EXTOUT, [${EXTOUT=.ext}])

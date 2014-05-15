@@ -231,6 +231,7 @@ enum {
 	kSecCodeSignatureForceExpiration = 0x0400, /* force certificate expiration checks */
 	kSecCodeSignatureRestrict = 0x0800, /* restrict dyld loading */
 	kSecCodeSignatureEnforcement = 0x1000, /* enforce code signing */
+	kSecCodeSignatureLibraryValidation = 0x2000, /* library validation required */
 };
 
 

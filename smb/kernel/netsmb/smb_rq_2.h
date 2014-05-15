@@ -256,7 +256,14 @@ struct smb2_query_info_rq {
 	uint32_t ret_buffer_len;
 };
 
+/* smb2_rw_rq flags */
+typedef enum _SMB2_RW_RQ_FLAGS
+{
+    SMB2_SYNC_IO = 0x0001
+} _SMB2_RW_RQ_FLAGS;
+
 struct smb2_rw_rq {
+	uint64_t flags;
 	uint32_t remaining;
 	uint32_t write_flags;
 	SMBFID fid;

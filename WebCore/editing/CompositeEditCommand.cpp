@@ -991,8 +991,10 @@ void CompositeEditCommand::pushAnchorElementDown(Node* anchorNode)
 // Clone the paragraph between start and end under blockElement,
 // preserving the hierarchy up to outerNode. 
 
-void CompositeEditCommand::cloneParagraphUnderNewElement(Position& start, Position& end, Node* passedOuterNode, Element* blockElement)
+void CompositeEditCommand::cloneParagraphUnderNewElement(const Position& start, const Position& end, Node* passedOuterNode, Element* blockElement)
 {
+    ASSERT(comparePositions(start, end) <= 0);
+
     // First we clone the outerNode
     RefPtr<Node> lastNode;
     RefPtr<Node> outerNode = passedOuterNode;
@@ -1004,7 +1006,7 @@ void CompositeEditCommand::cloneParagraphUnderNewElement(Position& start, Positi
         appendNode(lastNode, blockElement);
     }
 
-    if (start.deprecatedNode() != outerNode && lastNode->isElementNode()) {
+    if (start.deprecatedNode() != outerNode && lastNode->isElementNode() && start.anchorNode()->isDescendantOf(outerNode.get())) {
         Vector<RefPtr<Node> > ancestors;
         
         // Insert each node from innerNode to outerNode (excluded) in a list.
@@ -1110,7 +1112,7 @@ void CompositeEditCommand::moveParagraphWithClones(const VisiblePosition& startO
     // We upstream() the end and downstream() the start so that we don't include collapsed whitespace in the move.
     // When we paste a fragment, spaces after the end and before the start are treated as though they were rendered.
     Position start = startOfParagraphToMove.deepEquivalent().downstream();
-    Position end = endOfParagraphToMove.deepEquivalent().upstream();
+    Position end = startOfParagraphToMove == endOfParagraphToMove ? start : endOfParagraphToMove.deepEquivalent().upstream();
 
     cloneParagraphUnderNewElement(start, end, outerNode, blockElement);
       

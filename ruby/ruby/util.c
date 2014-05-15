@@ -2,7 +2,7 @@
 
   util.c -
 
-  $Author: yugui $
+  $Author: nagachika $
   created at: Fri Mar 10 17:22:34 JST 1995
 
   Copyright (C) 1993-2008 Yukihiro Matsumoto
@@ -309,7 +309,9 @@ ruby_qsort(void* base, const size_t nel, const size_t size, cmpfunc_t *cmp, void
   char *L = base;                    	/* left end of current region */
   char *R = (char*)base + size*(nel-1); /* right end of current region */
   size_t chklim = 63;                   /* threshold of ordering element check */
-  stack_node stack[32], *top = stack;   /* 32 is enough for 32bit CPU */
+  enum {size_bits = sizeof(size) * CHAR_BIT};
+  stack_node stack[size_bits];          /* enough for size_t size */
+  stack_node *top = stack;
   int mmkind;
   size_t high, low, n;
 
@@ -715,6 +717,11 @@ extern void *MALLOC(size_t);
 #else
 #define MALLOC malloc
 #endif
+#ifdef FREE
+extern void FREE(void*);
+#else
+#define FREE free
+#endif
 
 #ifndef Omit_Private_Memory
 #ifndef PRIVATE_MEM
@@ -1005,7 +1012,7 @@ Balloc(int k)
 #endif
 
     ACQUIRE_DTOA_LOCK(0);
-    if ((rv = freelist[k]) != 0) {
+    if (k <= Kmax && (rv = freelist[k]) != 0) {
         freelist[k] = rv->next;
     }
     else {
@@ -1015,7 +1022,7 @@ Balloc(int k)
 #else
         len = (sizeof(Bigint) + (x-1)*sizeof(ULong) + sizeof(double) - 1)
                 /sizeof(double);
-        if (pmem_next - private_mem + len <= PRIVATE_mem) {
+        if (k <= Kmax && pmem_next - private_mem + len <= PRIVATE_mem) {
             rv = (Bigint*)pmem_next;
             pmem_next += len;
         }
@@ -1034,6 +1041,10 @@ static void
 Bfree(Bigint *v)
 {
     if (v) {
+        if (v->k > Kmax) {
+            FREE(v);
+            return;
+        }
         ACQUIRE_DTOA_LOCK(0);
         v->next = freelist[v->k];
         freelist[v->k] = v;
@@ -2097,6 +2108,7 @@ break2:
         for (; c >= '0' && c <= '9'; c = *++s) {
 have_dig:
             nz++;
+            if (nf > DBL_DIG * 4) continue;
             if (c -= '0') {
                 nf += nz;
                 for (i = 1; i < nz; i++)

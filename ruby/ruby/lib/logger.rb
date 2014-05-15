@@ -5,7 +5,7 @@
 # License::
 #   You can redistribute it and/or modify it under the same terms of Ruby's
 #   license; either the dual license version in 2003, or any later version.
-# Revision:: $Id: logger.rb 36483 2012-07-20 23:41:51Z drbrain $
+# Revision:: $Id: logger.rb 41954 2013-07-13 15:16:09Z nagachika $
 #
 # A simple system for logging messages.  See Logger for more documentation.
 
@@ -201,7 +201,7 @@ require 'monitor'
 #
 class Logger
   VERSION = "1.2.7"
-  _, name, rev = %w$Id: logger.rb 36483 2012-07-20 23:41:51Z drbrain $
+  _, name, rev = %w$Id: logger.rb 41954 2013-07-13 15:16:09Z nagachika $
   if name
     name = name.chomp(",v")
   else
@@ -289,8 +289,7 @@ class Logger
   def fatal?; @level <= FATAL; end
 
   #
-  # === Synopsis
-  #
+  # :call-seq:
   #   Logger.new(name, shift_age = 7, shift_size = 1048576)
   #   Logger.new(name, shift_age = 'weekly')
   #
@@ -322,8 +321,7 @@ class Logger
   end
 
   #
-  # === Synopsis
-  #
+  # :call-seq:
   #   Logger#add(severity, message = nil, progname = nil) { ... }
   #
   # === Args
@@ -715,8 +713,7 @@ private
     attr_reader :appname
 
     #
-    # == Synopsis
-    #
+    # :call-seq:
     #   Application.new(appname = '')
     #
     # == Args

@@ -843,15 +843,14 @@ create_ip_exc(interp, exc, fmt, va_alist)
 #endif
 {
     va_list args;
-    char buf[BUFSIZ];
+    VALUE msg;
     VALUE einfo;
     struct tcltkip *ptr = get_ip(interp);
 
     va_init_list(args,fmt);
-    vsnprintf(buf, BUFSIZ, fmt, args);
-    buf[BUFSIZ - 1] = '\0';
+    msg = rb_vsprintf(fmt, args);
     va_end(args);
-    einfo = rb_exc_new2(exc, buf);
+    einfo = rb_exc_new3(exc, msg);
     rb_ivar_set(einfo, ID_at_interp, interp);
     if (ptr) {
         Tcl_ResetResult(ptr->ip);
@@ -6651,7 +6650,7 @@ ip_make_safe_core(interp, argc, argv)
     if (Tcl_MakeSafe(ptr->ip) == TCL_ERROR) {
         /* return rb_exc_new2(rb_eRuntimeError,
                               Tcl_GetStringResult(ptr->ip)); */
-        return create_ip_exc(interp, rb_eRuntimeError,
+        return create_ip_exc(interp, rb_eRuntimeError, "%s",
                              Tcl_GetStringResult(ptr->ip));
     }
 
@@ -9343,7 +9342,7 @@ ip_get_variable2_core(interp, argc, argv)
             volatile VALUE exc;
             /* exc = rb_exc_new2(rb_eRuntimeError,
                                  Tcl_GetStringResult(ptr->ip)); */
-            exc = create_ip_exc(interp, rb_eRuntimeError,
+            exc = create_ip_exc(interp, rb_eRuntimeError, "%s",
                                 Tcl_GetStringResult(ptr->ip));
             /* Tcl_Release(ptr->ip); */
             rbtk_release_ip(ptr);
@@ -9482,7 +9481,7 @@ ip_set_variable2_core(interp, argc, argv)
             volatile VALUE exc;
             /* exc = rb_exc_new2(rb_eRuntimeError,
                                  Tcl_GetStringResult(ptr->ip)); */
-            exc = create_ip_exc(interp, rb_eRuntimeError,
+            exc = create_ip_exc(interp, rb_eRuntimeError, "%s",
                                 Tcl_GetStringResult(ptr->ip));
             /* Tcl_Release(ptr->ip); */
             rbtk_release_ip(ptr);
@@ -9602,7 +9601,7 @@ ip_unset_variable2_core(interp, argc, argv)
         if (FIX2INT(flag) & TCL_LEAVE_ERR_MSG) {
             /* return rb_exc_new2(rb_eRuntimeError,
                                   Tcl_GetStringResult(ptr->ip)); */
-            return create_ip_exc(interp, rb_eRuntimeError,
+            return create_ip_exc(interp, rb_eRuntimeError, "%s",
                                  Tcl_GetStringResult(ptr->ip));
         }
         return Qfalse;

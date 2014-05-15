@@ -15,7 +15,7 @@ class CGI
   # Standard internet newline sequence
   EOL = CR + LF
 
-  REVISION = '$Id: core.rb 37811 2012-11-22 17:42:06Z zzak $' #:nodoc:
+  REVISION = '$Id: core.rb 44390 2013-12-24 15:37:51Z nagachika $' #:nodoc:
 
   # Whether processing will be required in binary vs text
   NEEDS_BINMODE = File::BINARY != 0
@@ -574,14 +574,15 @@ class CGI
       raise EOFError, "bad boundary end of body part" unless boundary_end =~ /--/
       params.default = []
       params
-    ensure
-      if $! && tempfiles
+    rescue Exception
+      if tempfiles
         tempfiles.each {|t|
           if t.path
             t.unlink
           end
         }
       end
+      raise
     end # read_multipart
     private :read_multipart
     def create_body(is_large)  #:nodoc:

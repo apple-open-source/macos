@@ -115,6 +115,7 @@ Boolean sslIsSessionActive(const SSLContext *ctx)
 
 static CFTypeID kSSLContextTypeID;
 int kSplitDefaultValue;
+bool kAllowServerIdentityChangeDefaultValue;
 
 static void _sslContextDestroy(CFTypeRef arg);
 static Boolean _sslContextEqual(CFTypeRef a, CFTypeRef b);
@@ -126,11 +127,12 @@ static void _SSLContextReadDefault()
 	/* 0 = disabled, 1 = split every write, 2 = split second and subsequent writes */
     /* Enabled by default, this make cause some interop issues, see <rdar://problem/12307662> and <rdar://problem/12323307> */
     const int defaultSplitDefaultValue = 2;
-
+    //To change:
+    //sudo defaults write /Library/Preferences/com.apple.security SSLWriteSplit -int 0
 	CFTypeRef value = (CFTypeRef)CFPreferencesCopyValue(CFSTR("SSLWriteSplit"),
 							CFSTR("com.apple.security"),
 							kCFPreferencesAnyUser,
-							kCFPreferencesAnyHost);
+							kCFPreferencesCurrentHost);
 	if (value) {
 		if (CFGetTypeID(value) == CFBooleanGetTypeID())
 			kSplitDefaultValue = CFBooleanGetValue((CFBooleanRef)value) ? 1 : 0;
@@ -145,6 +147,33 @@ static void _SSLContextReadDefault()
 	}
 	else {
 		kSplitDefaultValue = defaultSplitDefaultValue;
+	}
+
+
+    /* 0 = disallowed, 1 = allowed */
+    /* Disallowed by default */
+    const bool defaultValue = false;
+    //To change:
+    //sudo defaults write /Library/Preferences/com.apple.security SSLAllowServerIdentityChange -bool YES
+	value = (CFTypeRef)CFPreferencesCopyValue(CFSTR("SSLAllowServerIdentityChange"),
+                                              CFSTR("com.apple.security"),
+                                              kCFPreferencesAnyUser,
+                                              kCFPreferencesCurrentHost);
+	if (value) {
+		if (CFGetTypeID(value) == CFBooleanGetTypeID())
+			kAllowServerIdentityChangeDefaultValue = CFBooleanGetValue((CFBooleanRef)value);
+		else if (CFGetTypeID(value) == CFNumberGetTypeID()) {
+            int localValue;
+			if (!CFNumberGetValue((CFNumberRef)value, kCFNumberIntType, &localValue)) {
+				kAllowServerIdentityChangeDefaultValue = defaultValue;
+            } else {
+                kAllowServerIdentityChangeDefaultValue = localValue;
+            }
+		}
+		CFRelease(value);
+	}
+	else {
+		kAllowServerIdentityChangeDefaultValue = defaultValue;
 	}
 }
 
@@ -274,6 +303,9 @@ SSLContextRef SSLCreateContextWithRecordFuncs(CFAllocatorRef alloc, SSLProtocolS
 	/* Default for sending one-byte app data record is DISABLED */
 	ctx->oneByteRecordEnable = false;
 
+    /* Default for allowing server identity change on renegotiation is FALSE */
+    ctx->allowServerIdentityChange = false;
+
 	/* Consult global system preference for default behavior:
 	 * 0 = disabled, 1 = split every write, 2 = split second and subsequent writes
 	 * (caller can override by setting kSSLSessionOptionSendOneByteRecord)
@@ -282,6 +314,8 @@ SSLContextRef SSLCreateContextWithRecordFuncs(CFAllocatorRef alloc, SSLProtocolS
 	pthread_once(&sReadDefault, _SSLContextReadDefault);
 	if (kSplitDefaultValue > 0)
 		ctx->oneByteRecordEnable = true;
+    if (kAllowServerIdentityChangeDefaultValue>0)
+        ctx->allowServerIdentityChange = true;
 
 	/* default for anonymous ciphers is DISABLED */
 	ctx->anonCipherEnable = false;
@@ -573,6 +607,9 @@ SSLSetSessionOption			(SSLContextRef		context,
             break;
         case kSSLSessionOptionFalseStart:
             context->falseStartEnabled = value;
+            break;
+        case kSSLSessionOptionAllowServerIdentityChange:
+            context->allowServerIdentityChange = value;
             break;
         default: 
             return errSecParam;

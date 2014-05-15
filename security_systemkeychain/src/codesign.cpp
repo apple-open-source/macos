@@ -62,6 +62,7 @@ const char *entitlements = NULL;	// path to entitlement configuration input
 const char *resourceRules = NULL;	// explicit resource rules template
 const char *uniqueIdentifier = NULL; // unique ident hash
 const char *identifierPrefix = NULL; // prefix for un-dotted default identifiers
+const char *teamID = NULL;          // TeamID
 const char *modifiedFiles = NULL;	// file to receive list of modified files
 const char *extractCerts = NULL;	// location for extracting signing chain certificates
 const char *sdkRoot = NULL;			// alternate root for looking up sub-components
@@ -107,6 +108,9 @@ static OSStatus keychain_open(const char *name, SecKeychainRef &keychain);
 static void chooseArchitecture(const char *arg);
 static uint32_t parseMetadataFlags(const char *arg);
 static void checkFeatures(const char *arg);
+static bool checkTeamId(const char *teamID);
+
+static const int TEAM_ID_MAX = 100;
 
 
 //
@@ -144,7 +148,8 @@ enum {
 	optSigningTime,
 	optSignatureSize,
     optTimestamp,
-    optTSANoCerts
+    optTSANoCerts,
+    optTeamID
 };
 
 const struct option options[] = {
@@ -186,6 +191,7 @@ const struct option options[] = {
 	{ "no-legacy-signing", no_argument,		NULL, optNoLegacy },
 	{ "no-macho",	no_argument,			NULL, optNoMachO },
 	{ "numeric-errors", no_argument,		NULL, optNumeric },
+	{ "team-identifier", required_argument,		NULL, optTeamID },
 	{ "prefix",		required_argument,		NULL, optIdentifierPrefix },
 	{ "preserve-metadata", optional_argument, NULL, optPreserveMetadata },
 	{ "procaction",	required_argument,		NULL, optProcAction },
@@ -320,6 +326,12 @@ int main(int argc, char *argv[])
 				break;
 			case optFileList:
 				modifiedFiles = optarg;
+				break;
+			case optTeamID:
+				if (checkTeamId(optarg))
+					teamID = optarg;
+				else
+					fail("TeamIdentifier must be at least 1 and no more than %d alphanumeric characters", TEAM_ID_MAX);
 				break;
 			case optIdentifierPrefix:
 				identifierPrefix = optarg;
@@ -511,6 +523,21 @@ keychain_open(const char *name, SecKeychainRef &keychain)
 	return SecKeychainOpen(name, &keychain);
 }
 
+static bool checkTeamId(const char *teamID)
+{
+	if (!teamID)
+		return false;
+	
+	size_t id_len = strnlen(teamID, TEAM_ID_MAX+1);
+	if (id_len > TEAM_ID_MAX || id_len < 1)
+		return false;
+	
+	for (size_t i = 0; i < id_len; i++) {
+		if (!isalnum(teamID[i]))
+			return false;
+	}
+	return true;
+}
 
 void chooseArchitecture(const char *arg)
 {
@@ -538,6 +565,7 @@ static uint32_t parseMetadataFlags(const char *arg)
 		{ "entitlements", kSecCodeSignerPreserveEntitlements,	true },
 		{ "resource-rules", kSecCodeSignerPreserveResourceRules,true },
 		{ "flags", kSecCodeSignerPreserveFlags,					true },
+		{ "team-identifier", kSecCodeSignerPreserveTeamIdentifier, true},
 		{ NULL }
 	};
 	if (arg == NULL) {	// --preserve-metadata compatibility default

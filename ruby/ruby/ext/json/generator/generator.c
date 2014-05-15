@@ -804,10 +804,10 @@ static void generate_json_float(FBuffer *buffer, VALUE Vstate, JSON_Generator_St
     if (!allow_nan) {
         if (isinf(value)) {
             fbuffer_free(buffer);
-            rb_raise(eGeneratorError, "%u: %s not allowed in JSON", __LINE__, StringValueCStr(tmp));
+            rb_raise(eGeneratorError, "%u: %"PRIsVALUE" not allowed in JSON", __LINE__, RB_OBJ_STRING(tmp));
         } else if (isnan(value)) {
             fbuffer_free(buffer);
-            rb_raise(eGeneratorError, "%u: %s not allowed in JSON", __LINE__, StringValueCStr(tmp));
+            rb_raise(eGeneratorError, "%u: %"PRIsVALUE" not allowed in JSON", __LINE__, RB_OBJ_STRING(tmp));
         }
     }
     fbuffer_append_str(buffer, tmp);
@@ -957,6 +957,7 @@ static VALUE cState_init_copy(VALUE obj, VALUE orig)
 {
     JSON_Generator_State *objState, *origState;
 
+    if (obj == orig) return obj;
     Data_Get_Struct(obj, JSON_Generator_State, objState);
     Data_Get_Struct(orig, JSON_Generator_State, origState);
     if (!objState) rb_raise(rb_eArgError, "unallocated JSON::State");

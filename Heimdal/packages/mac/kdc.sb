@@ -78,6 +78,7 @@
 	(global-name "com.apple.SystemConfiguration.configd")
 	(global-name "com.apple.TrustEvaluationAgent")
 	(global-name "com.apple.ocspd")
+	(global-name "com.apple.networkd")
 	(global-name "com.apple.system.logger")
 	(global-name "com.apple.system.notification_center"))
 

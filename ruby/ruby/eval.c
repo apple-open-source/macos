@@ -2,7 +2,7 @@
 
   eval.c -
 
-  $Author: nobu $
+  $Author: nagachika $
   created at: Thu Jun 10 14:22:17 JST 1993
 
   Copyright (C) 1993-2007 Yukihiro Matsumoto
@@ -377,8 +377,8 @@ rb_mod_s_constants(int argc, VALUE *argv, VALUE mod)
     VALUE cbase = 0;
     void *data = 0;
 
-    if (argc > 0) {
-	return rb_mod_constants(argc, argv, rb_cModule);
+    if (argc > 0 || mod != rb_cModule) {
+	return rb_mod_constants(argc, argv, mod);
     }
 
     while (cref) {

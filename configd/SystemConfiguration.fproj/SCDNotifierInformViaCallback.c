@@ -43,6 +43,10 @@
 #include "SCDynamicStoreInternal.h"
 #include "config.h"		/* MiG generated file */
 
+#if !TARGET_IPHONE_SIMULATOR || (defined(IPHONE_SIMULATOR_HOST_MIN_VERSION_REQUIRED) && (IPHONE_SIMULATOR_HOST_MIN_VERSION_REQUIRED >= 1090))
+#define HAVE_MACHPORT_GUARDS
+#endif
+
 
 static CFStringRef
 notifyMPCopyDescription(const void *info)
@@ -107,51 +111,72 @@ rlsSchedule(void *info, CFRunLoopRef rl, CFStringRef mode)
 							  , CFRelease
 							  , notifyMPCopyDescription
 							  };
+		kern_return_t		kr;
 		mach_port_t		oldNotify;
+#ifdef	HAVE_MACHPORT_GUARDS
+		mach_port_options_t	opts;
+#endif	// HAVE_MACHPORT_GUARDS
 		mach_port_t		port;
 		int			sc_status;
-		kern_return_t		status;
 
 #ifdef	DEBUG
 		SCLog(_sc_verbose, LOG_DEBUG, CFSTR("  activate callback runloop source"));
 #endif	/* DEBUG */
 
-		/* Allocating port (for server response) */
-		status = mach_port_allocate(mach_task_self(), MACH_PORT_RIGHT_RECEIVE, &port);
-		if (status != KERN_SUCCESS) {
-			SCLog(TRUE, LOG_ERR, CFSTR("rlsSchedule mach_port_allocate(): %s"), mach_error_string(status));
-			return;
+		/* allocate a mach port for the SCDynamicStore notifications */
+
+	    retry_allocate :
+
+#ifdef	HAVE_MACHPORT_GUARDS
+		bzero(&opts, sizeof(opts));
+		opts.flags = MPO_CONTEXT_AS_GUARD|MPO_INSERT_SEND_RIGHT;
+
+		kr = mach_port_construct(mach_task_self(), &opts, store, &port);
+#else	// HAVE_MACHPORT_GUARDS
+		kr = mach_port_allocate(mach_task_self(), MACH_PORT_RIGHT_RECEIVE, &port);
+#endif	// HAVE_MACHPORT_GUARDS
+
+		if (kr != KERN_SUCCESS) {
+			SCLog(TRUE, LOG_ERR, CFSTR("rlsSchedule could not allocate mach port: %s"), mach_error_string(kr));
+			if ((kr == KERN_NO_SPACE) || (kr == KERN_RESOURCE_SHORTAGE)) {
+				sleep(1);
+				goto retry_allocate;
+			} else {
+				return;
+			}
 		}
 
-		status = mach_port_insert_right(mach_task_self(),
-						port,
-						port,
-						MACH_MSG_TYPE_MAKE_SEND);
-		if (status != KERN_SUCCESS) {
+#ifndef	HAVE_MACHPORT_GUARDS
+		kr = mach_port_insert_right(mach_task_self(),
+					    port,
+					    port,
+					    MACH_MSG_TYPE_MAKE_SEND);
+		if (kr != KERN_SUCCESS) {
 			/*
 			 * We can't insert a send right into our own port!  This should
 			 * only happen if someone stomped on OUR port (so let's leave
 			 * the port alone).
 			 */
-			SCLog(TRUE, LOG_ERR, CFSTR("rlsSchedule mach_port_insert_right(): %s"), mach_error_string(status));
+			SCLog(TRUE, LOG_ERR, CFSTR("rlsSchedule mach_port_insert_right(): %s"), mach_error_string(kr));
 			return;
 		}
+#endif	// HAVE_MACHPORT_GUARDS
 
 		/* Request a notification when/if the server dies */
-		status = mach_port_request_notification(mach_task_self(),
-							port,
-							MACH_NOTIFY_NO_SENDERS,
-							1,
-							port,
-							MACH_MSG_TYPE_MAKE_SEND_ONCE,
-							&oldNotify);
-		if (status != KERN_SUCCESS) {
+		kr = mach_port_request_notification(mach_task_self(),
+						    port,
+						    MACH_NOTIFY_NO_SENDERS,
+						    1,
+						    port,
+						    MACH_MSG_TYPE_MAKE_SEND_ONCE,
+						    &oldNotify);
+		if (kr != KERN_SUCCESS) {
 			/*
 			 * We can't request a notification for our own port!  This should
 			 * only happen if someone stomped on OUR port (so let's leave
 			 * the port alone).
 			 */
-			SCLog(TRUE, LOG_ERR, CFSTR("rlsSchedule mach_port_request_notification(): %s"), mach_error_string(status));
+			SCLog(TRUE, LOG_ERR, CFSTR("rlsSchedule mach_port_request_notification(): %s"), mach_error_string(kr));
 			return;
 		}
 
@@ -162,29 +187,37 @@ rlsSchedule(void *info, CFRunLoopRef rl, CFStringRef mode)
 	    retry :
 
 		__MACH_PORT_DEBUG(TRUE, "*** rlsSchedule", port);
-		status = notifyviaport(storePrivate->server, port, 0, (int *)&sc_status);
+		kr = notifyviaport(storePrivate->server, port, 0, (int *)&sc_status);
 
 		if (__SCDynamicStoreCheckRetryAndHandleError(store,
-							     status,
+							     kr,
 							     &sc_status,
 							     "rlsSchedule notifyviaport()")) {
 			goto retry;
 		}
 
-		if (status != KERN_SUCCESS) {
-			if ((status == MACH_SEND_INVALID_DEST) || (status == MIG_SERVER_DIED)) {
+		if (kr != KERN_SUCCESS) {
+			if ((kr == MACH_SEND_INVALID_DEST) || (kr == MIG_SERVER_DIED)) {
 				/* remove the send right that we tried (but failed) to pass to the server */
 				(void) mach_port_deallocate(mach_task_self(), port);
 			}
 
 			/* remove our receive right  */
+#ifdef	HAVE_MACHPORT_GUARDS
+			(void) mach_port_destruct(mach_task_self(), port, 0, store);
+#else	// HAVE_MACHPORT_GUARDS
 			(void) mach_port_mod_refs(mach_task_self(), port, MACH_PORT_RIGHT_RECEIVE, -1);
+#endif	// HAVE_MACHPORT_GUARDS
 			return;
 		}
 
 		if (sc_status != kSCStatusOK) {
 			/* something [else] didn't work, remove our receive right  */
+#ifdef	HAVE_MACHPORT_GUARDS
+			(void) mach_port_destruct(mach_task_self(), port, 0, store);
+#else	// HAVE_MACHPORT_GUARDS
 			(void) mach_port_mod_refs(mach_task_self(), port, MACH_PORT_RIGHT_RECEIVE, -1);
+#endif	// HAVE_MACHPORT_GUARDS
 			return;
 		}
 
@@ -245,7 +278,7 @@ rlsCancel(void *info, CFRunLoopRef rl, CFStringRef mode)
 
 	if (n == 0) {
 		int		sc_status;
-		kern_return_t	status;
+		kern_return_t	kr;
 
 #ifdef	DEBUG
 		SCLog(_sc_verbose, LOG_DEBUG, CFSTR("  cancel callback runloop source"));
@@ -280,18 +313,22 @@ rlsCancel(void *info, CFRunLoopRef rl, CFStringRef mode)
 			storePrivate->rlsNotifyPort = NULL;
 
 			/* and, finally, remove our receive right  */
-			(void)mach_port_mod_refs(mach_task_self(), mp, MACH_PORT_RIGHT_RECEIVE, -1);
+#ifdef	HAVE_MACHPORT_GUARDS
+			(void) mach_port_destruct(mach_task_self(), mp, 0, store);
+#else	// HAVE_MACHPORT_GUARDS
+			(void) mach_port_mod_refs(mach_task_self(), mp, MACH_PORT_RIGHT_RECEIVE, -1);
+#endif	// HAVE_MACHPORT_GUARDS
 		}
 
 		if (storePrivate->server != MACH_PORT_NULL) {
-			status = notifycancel(storePrivate->server, (int *)&sc_status);
+			kr = notifycancel(storePrivate->server, (int *)&sc_status);
 
 			(void) __SCDynamicStoreCheckRetryAndHandleError(store,
-									status,
+									kr,
 									&sc_status,
 									"rlsCancel notifycancel()");
 
-			if (status != KERN_SUCCESS) {
+			if (kr != KERN_SUCCESS) {
 				return;
 			}
 		}

@@ -47,6 +47,7 @@
 #include <security_utilities/unix++.h>
 #include <security_utilities/cfmunge.h>
 #include <Security/CMSDecoder.h>
+#include <security_utilities/logging.h>
 
 
 namespace Security {
@@ -54,6 +55,13 @@ namespace CodeSigning {
 
 using namespace UnixPlusPlus;
 
+// A requirement representing a Mac or iOS dev cert, a Mac or iOS distribution cert, or a developer ID
+static const char WWDRRequirement[] = "anchor apple generic and certificate 1[field.1.2.840.113635.100.6.2.1] exists "
+								"and ( cert leaf[subject.CN] = \"Mac Developer: \"* or cert leaf[subject.CN] = \"iPhone Developer: \"* )";
+static const char developerID[] = "anchor apple generic and certificate 1[field.1.2.840.113635.100.6.2.6] exists"
+											" and certificate leaf[field.1.2.840.113635.100.6.1.13] exists";
+static const char distributionCertificate[] =	"anchor apple generic and certificate leaf[field.1.2.840.113635.100.6.1.7] exists";
+static const char iPhoneDistributionCert[] =	"anchor apple generic and certificate leaf[field.1.2.840.113635.100.6.1.4] exists";
 
 //
 // Map a component slot number to a suitable error code for a failure
@@ -478,6 +486,30 @@ bool SecStaticCode::verifySignature()
 		SecTrustResultType trustResult;
 		MacOSError::check(SecTrustEvaluate(mTrust, &trustResult));
 		MacOSError::check(SecTrustGetResult(mTrust, &trustResult, &mCertChain.aref(), &mEvalDetails));
+
+		// if this is an Apple developer cert....
+		if (teamID() && SecStaticCode::isAppleDeveloperCert(mCertChain)) {
+			CFRef<CFStringRef> teamIDFromCert;
+			if (CFArrayGetCount(mCertChain) > 0) {
+				/* Note that SecCertificateCopySubjectComponent sets the out paramater to NULL if there is no field present */
+				MacOSError::check(SecCertificateCopySubjectComponent((SecCertificateRef)CFArrayGetValueAtIndex(mCertChain, Requirement::leafCert),
+																	 &CSSMOID_OrganizationalUnitName,
+																	 &teamIDFromCert.aref()));
+
+				if (teamIDFromCert) {
+					CFRef<CFStringRef> teamIDFromCD = CFStringCreateWithCString(NULL, teamID(), kCFStringEncodingUTF8);
+					if (!teamIDFromCD) {
+						MacOSError::throwMe(errSecCSInternalError);
+					}
+
+					if (CFStringCompare(teamIDFromCert, teamIDFromCD, 0) != kCFCompareEqualTo) {
+						Security::Syslog::error("Team identifier in the signing certificate (%s) does not match the team identifier (%s) in the code directory", cfString(teamIDFromCert).c_str(), teamID());
+						MacOSError::throwMe(errSecCSSignatureInvalid);
+					}
+				}
+			}
+		}
+
 		CODESIGN_EVAL_STATIC_SIGNATURE_RESULT(this, trustResult, mCertChain ? (int)CFArrayGetCount(mCertChain) : 0);
 		switch (trustResult) {
 		case kSecTrustResultProceed:
@@ -1162,6 +1194,8 @@ CFDictionaryRef SecStaticCode::signingInformation(SecCSFlags flags)
 			if (CFAbsoluteTime time = this->signingTimestamp())
 				if (CFRef<CFDateRef> date = CFDateCreate(NULL, time))
 					CFDictionaryAddValue(dict, kSecCodeInfoTimestamp, date);
+			if (const char *teamID = this->teamID())
+				CFDictionaryAddValue(dict, kSecCodeInfoTeamIdentifier, CFTempString(teamID));
 		} catch (...) { }
 	
 	//
@@ -1343,6 +1377,11 @@ void SecStaticCode::handleOtherArchitectures(void (^handle)(SecStaticCode* other
 				if (ctx.offset != activeOffset) {	// inactive architecture; check it
 					SecPointer<SecStaticCode> subcode = new SecStaticCode(DiskRep::bestGuess(this->mainExecutablePath(), &ctx));
 					subcode->detachedSignature(this->mDetachedSig); // carry over explicit (but not implicit) detached signature
+					if (this->teamID() == NULL || subcode->teamID() == NULL) {
+						if (this->teamID() != subcode->teamID())
+							MacOSError::throwMe(errSecCSSignatureInvalid);
+					} else if (strcmp(this->teamID(), subcode->teamID()) != 0)
+						MacOSError::throwMe(errSecCSSignatureInvalid);
 					handle(subcode);
 				}
 			}
@@ -1350,6 +1389,19 @@ void SecStaticCode::handleOtherArchitectures(void (^handle)(SecStaticCode* other
 	}
 }
 
+//
+// A method that takes a certificate chain (certs) and evaluates
+// if it is a Mac or IPhone developer cert, an app store distribution cert,
+// or a developer ID
+//
+bool SecStaticCode::isAppleDeveloperCert(CFArrayRef certs)
+{
+	static const std::string appleDeveloperRequirement = "(" + std::string(WWDRRequirement) + ") or (" + developerID + ") or (" + distributionCertificate + ") or (" + iPhoneDistributionCert + ")";
+	SecRequirement *req = new SecRequirement(parseRequirement(appleDeveloperRequirement), true);
+	Requirement::Context ctx(certs, NULL, NULL, "", NULL);
+
+	return req->requirement()->validates(ctx);
+}
 
 } // end namespace CodeSigning
 } // end namespace Security

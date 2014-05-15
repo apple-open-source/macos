@@ -3,23 +3,33 @@
 # Script to make a CUPS root compatible with the darwinup command.  Standard
 # instructions for people getting these roots are:
 #
-#    sudo darwinup install ~/Desktop/Shared_cups-NNNNNNNN_DSTROOT_osx.tar.gz
+#    sudo darwinup install ~/Desktop/cups-LABEL
+#    sudo killall cupsd
 #    cupsctl --debug-logging
 #
 # Usage:
 #
-#   makedarwinup radar-number
+#   makedarwinup radar-number-or-label
 #
 
 if test $# != 1; then
-	echo "Usage: makedarwinup radar-number"
+	echo "Usage: makedarwinup radar-number-or-label"
 	exit 1
 fi
 
-buildit -project cups -archive -archiveName cups-$1 -archiveOutputDir ~/Desktop -dsymsInDstroot -buildAllAliases -noverify . || exit 1
-echo "Send ~/Desktop/Shared_cups-$1_DSTROOT_osx.tar.gz to tester."
+buildit -project cups -arch i386 -arch x86_64 -offline -archive -archiveName cups-$1 -archiveOutputDir ~/Desktop -dsymsInDstroot -buildAllAliases -noverify . || exit 1
+rm -f ~/Desktop/Shared_cups-$1_HDRDSTROOT_osx.tar.gz
+mv -f ~/Desktop/Shared_cups-$1_DSTROOT_osx.tar.gz ~/Desktop/cups-$1.tar.gz
+
+echo "Send ~/Desktop/cups-$1.tar.gz to tester."
 echo ""
 echo "Commands for tester to run:"
 echo ""
-echo "  sudo darwinup install ~/Desktop/Shared_cups-$1_DSTROOT_osx.tar.gz"
+echo "  sudo darwinup install ~/Desktop/cups-$1.tar.gz"
+echo "  sudo killall cupsd"
 echo "  cupsctl --debug-logging"
+echo ""
+echo "Use the following commands to remove the root:"
+echo ""
+echo "  sudo darwinup uninstall cups-$1.tar.gz"
+echo "  sudo killall cupsd"

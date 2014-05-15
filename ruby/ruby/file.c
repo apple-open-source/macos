@@ -2531,6 +2531,7 @@ rb_readlink(VALUE path)
 	) {
 	rb_str_modify_expand(v, size);
 	size *= 2;
+	rb_str_set_len(v, size);
     }
     if (rv < 0) {
 	rb_str_resize(v, 0);
@@ -4181,7 +4182,6 @@ rb_file_truncate(VALUE obj, VALUE len)
 
 #ifdef __CYGWIN__
 #include <winerror.h>
-extern unsigned long __attribute__((stdcall)) GetLastError(void);
 #endif
 
 static VALUE

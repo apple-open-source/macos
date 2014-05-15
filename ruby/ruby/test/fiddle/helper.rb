@@ -34,6 +34,12 @@ when /darwin/
 when /kfreebsd/
   libc_so = "/lib/libc.so.0.1"
   libm_so = "/lib/libm.so.1"
+when /gnu/	#GNU/Hurd
+  libc_so = "/lib/libc.so.0.3"
+  libm_so = "/lib/libm.so.6"
+when /freebsd/
+  libc_so = "/lib/libc.so.7"
+  libm_so = "/lib/libm.so.5"
 when /bsd|dragonfly/
   libc_so = "/usr/lib/libc.so"
   libm_so = "/usr/lib/libm.so"

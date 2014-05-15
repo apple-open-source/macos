@@ -1,5 +1,5 @@
 /***********************************************************************
- * Copyright (c) 1997-2012, International Business Machines Corporation
+ * Copyright (c) 1997-2014, International Business Machines Corporation
  * and others. All Rights Reserved.
  ***********************************************************************/
 
@@ -237,6 +237,8 @@ public: // package
     void TestSkippedWallTime(void);
 
     void TestCloneLocale(void);
+
+    void TestAddAcrossZoneTransition(void);
 };
 
 #endif /* #if !UCONFIG_NO_FORMATTING */

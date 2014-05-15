@@ -409,6 +409,7 @@ static void tests(void)
               "Found the item we added after restore");
     CFReleaseNull(backup);
 
+    // force tombstone to be added, since it's not the default behavior in Innsbruck per rdar://14680869
     CFDictionaryAddValue(query, kSecUseTombstones, kCFBooleanTrue);
 
     ok_status(SecItemDelete(query), "Deleted item we added");

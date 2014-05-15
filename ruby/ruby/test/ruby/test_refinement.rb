@@ -826,6 +826,182 @@ class TestRefinement < Test::Unit::TestCase
     assert_equal([:foo, :ref, bug7925], x, bug7925)
   end
 
+  def test_case_dispatch_is_aware_of_refinements
+    assert_in_out_err([], <<-RUBY, ["refinement used"], [])
+      $VERBOSE = nil #to suppress warning "Refinements are experimental, ..."
+      module RefineSymbol
+        refine Symbol do
+          def ===(other)
+            true
+          end
+        end
+      end
+
+      using RefineSymbol
+
+      case :a
+      when :b
+        puts "refinement used"
+      else
+        puts "refinement not used"
+      end
+    RUBY
+  end
+
+  def test_instance_methods
+    bug8881 = '[ruby-core:57080] [Bug #8881]'
+    assert_not_include(Foo.instance_methods(false), :z, bug8881)
+    assert_not_include(FooSub.instance_methods(true), :z, bug8881)
+  end
+
+  def test_method_defined
+    assert_not_send([Foo, :method_defined?, :z])
+    assert_not_send([FooSub, :method_defined?, :z])
+  end
+
+  def test_undef_refined_method
+    bug8966 = '[ruby-core:57466] [Bug #8966]'
+
+    assert_in_out_err([], <<-INPUT, ["NameError"], [], bug8966)
+      $VERBOSE = nil #to suppress warning "Refinements are experimental, ..."
+      module Foo
+        refine Object do
+          def foo
+            puts "foo"
+          end
+        end
+      end
+
+      using Foo
+
+      class Object
+        begin
+          undef foo
+        rescue Exception => e
+          p e.class
+        end
+      end
+    INPUT
+
+    assert_in_out_err([], <<-INPUT, ["NameError"], [], bug8966)
+      $VERBOSE = nil #to suppress warning "Refinements are experimental, ..."
+      module Foo
+        refine Object do
+          def foo
+            puts "foo"
+          end
+        end
+      end
+
+      # without `using Foo'
+
+      class Object
+        begin
+          undef foo
+        rescue Exception => e
+          p e.class
+        end
+      end
+    INPUT
+  end
+
+  def test_refine_undefed_method_and_call
+    assert_in_out_err([], <<-INPUT, ["NoMethodError"], [])
+      $VERBOSE = nil #to suppress warning "Refinements are experimental, ..."
+      class Foo
+        def foo
+        end
+
+        undef foo
+      end
+
+      module FooExt
+        refine Foo do
+          def foo
+          end
+        end
+      end
+
+      begin
+        Foo.new.foo
+      rescue => e
+        p e.class
+      end
+    INPUT
+  end
+
+  def test_refine_undefed_method_and_send
+    assert_in_out_err([], <<-INPUT, ["NoMethodError"], [])
+      $VERBOSE = nil #to suppress warning "Refinements are experimental, ..."
+      class Foo
+        def foo
+        end
+
+        undef foo
+      end
+
+      module FooExt
+        refine Foo do
+          def foo
+          end
+        end
+      end
+
+      begin
+        Foo.new.send(:foo)
+      rescue => e
+        p e.class
+      end
+    INPUT
+  end
+
+  def test_adding_private_method
+    bug9452 = '[ruby-core:60111] [Bug #9452]'
+
+    assert_in_out_err([], <<-INPUT, ["Success!", "NoMethodError"], [], bug9452)
+      $VERBOSE = nil #to suppress warning "Refinements are experimental, ..."
+      module R
+        refine Object do
+          def m
+            puts "Success!"
+          end
+
+          private(:m)
+        end
+      end
+
+      using R
+
+      m
+      42.m rescue p($!.class)
+    INPUT
+  end
+
+  def test_making_private_method_public
+    bug9452 = '[ruby-core:60111] [Bug #9452]'
+
+    assert_in_out_err([], <<-INPUT, ["Success!", "Success!"], [], bug9452)
+        $VERBOSE = nil #to suppress warning "Refinements are experimental, ..."
+        class Object
+          private
+          def m
+          end
+        end
+
+        module R
+          refine Object do
+            def m
+              puts "Success!"
+            end
+          end
+        end
+
+        using R
+        m
+        42.m
+    INPUT
+  end
+
   private
 
   def eval_using(mod, s)

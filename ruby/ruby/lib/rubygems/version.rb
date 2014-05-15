@@ -147,8 +147,8 @@ class Gem::Version
 
   # FIX: These are only used once, in .correct?. Do they deserve to be
   # constants?
-  VERSION_PATTERN = '[0-9]+(\.[0-9a-zA-Z]+)*' # :nodoc:
-  ANCHORED_VERSION_PATTERN = /\A\s*(#{VERSION_PATTERN})*\s*\z/ # :nodoc:
+  VERSION_PATTERN = '[0-9]+(?>\.[0-9a-zA-Z]+)*' # :nodoc:
+  ANCHORED_VERSION_PATTERN = /\A\s*(#{VERSION_PATTERN})?\s*\z/ # :nodoc:
 
   ##
   # A string representation of this Version.
@@ -174,7 +174,7 @@ class Gem::Version
   # REFACTOR: There's no real reason this should be separate from #initialize.
 
   def self.create input
-    if input.respond_to? :version then
+    if self === input then # check yourself before you wreck yourself
       input
     elsif input.nil? then
       nil

@@ -5896,6 +5896,7 @@ smb2_smb_read_uio(struct smb_share *share, SMBFID fid, uio_t uio,
         return error;
     }
     
+    readp->flags = 0;
     readp->remaining = 0;
     readp->write_flags = 0;
     readp->fid = fid;
@@ -5945,7 +5946,8 @@ smb2_smb_read_write_async(struct smb_share *share,
     /* Is there enough data to warrent a compound read/write? */
     if (do_read) {
         max_pb = kMAX_READ_BLOCKS;
-        if (*len <= SSTOVC(share)->vc_rxmax) {
+        if ((*len <= SSTOVC(share)->vc_rxmax) ||
+            (in_read_writep->flags & SMB2_SYNC_IO)) {
             /* Only need single read */
             return (smb2_smb_read_one(share, in_read_writep, len, rresid, NULL,
                                       context));
@@ -5953,7 +5955,8 @@ smb2_smb_read_write_async(struct smb_share *share,
     }
     else {
         max_pb = kMAX_WRITE_BLOCKS;
-        if (*len <= SSTOVC(share)->vc_wxmax) {
+        if ((*len <= SSTOVC(share)->vc_wxmax) ||
+            (in_read_writep->flags & SMB2_SYNC_IO)) {
             /* Only need single write */
             return (smb2_smb_write_one(share, in_read_writep, len, rresid, NULL,
                                        context));
@@ -6988,6 +6991,7 @@ smb2_smb_write_uio(struct smb_share *share, SMBFID fid, uio_t uio, int ioflag,
         return error;
     }
     
+    writep->flags = 0;
     writep->remaining = 0;
     writep->write_flags = writeMode;
     writep->fid = fid;

@@ -328,6 +328,7 @@ _kSecCodeSignerResourceRules
 _kSecCodeSignerSDKRoot
 _kSecCodeSignerSigningTime
 _kSecCodeSignerRequireTimestamp
+_kSecCodeSignerTeamIdentifier
 _kSecCodeSignerTimestampServer
 _kSecCodeSignerTimestampAuthentication
 _kSecCodeSignerTimestampOmitCertificates
@@ -350,6 +351,7 @@ _kSecCodeInfoRequirements
 _kSecCodeInfoRequirementData
 _kSecCodeInfoSource
 _kSecCodeInfoStatus
+_kSecCodeInfoTeamIdentifier
 _kSecCodeInfoTrust
 _kSecCodeInfoUnique
 _kSecCodeInfoCodeDirectory

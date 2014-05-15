@@ -51,13 +51,15 @@ public:
 
 	void specialSlot(SpecialSlot slot, CFDataRef data);
 	void identifier(const std::string &code) { mIdentifier = code; }
+	void teamID(const std::string &team) { mTeamID = team; }
 	void flags(uint32_t f) { mFlags = f; }
 	
 	Scatter *scatter(unsigned count);			// allocate that many scatter elements (w/o sentinel)
 	Scatter *scatter() { return mScatter; }		// return already allocated scatter vector
 	
-	size_t size();								// calculate size
+	size_t size(const uint32_t version);		// calculate size
 	CodeDirectory *build();						// build CodeDirectory and return it
+	const size_t fixedSize(const uint32_t version);	// calculate fixed size of the CodeDirectory
 
 	DynamicHash *getHash() const { return CodeDirectory::hashFor(this->mHashType); }
 	
@@ -77,6 +79,7 @@ private:
 	uint32_t mHashType;							// digest algorithm code
 	uint32_t mDigestLength;						// number of bytes in a single glue digest
 	std::string mIdentifier;					// canonical identifier
+	std::string mTeamID;                        // team identifier
 	
 	size_t mSpecialSlots;						// highest special slot set
 	size_t mCodeSlots;							// number of code pages (slots)

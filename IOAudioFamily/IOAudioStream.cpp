@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2013 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2014 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -1207,6 +1207,7 @@ IOReturn IOAudioStream::addClient(IOAudioClientBuffer *clientBuffer)
 			}
 		}
 		else {
+			audioDebugIOLog(3, "   unexpected clientBuffer values (%p, %p, %p, %p, %p, %p)\n", clientBuffer->nextClip, clientBuffer->previousClip, clientBuffer, clientBufferListStart, clientBuffer->nextClient, userClientList );
 			bufferInList = true;
 		}
 		
@@ -1247,9 +1248,14 @@ IOReturn IOAudioStream::addClient(IOAudioClientBuffer *clientBuffer)
                 
                 result = kIOReturnSuccess;
             } else {
+				audioDebugIOLog(3, "   clientBuffer invalid (%d, %d, %d).\n", format.fIsMixable, numClients, getDirection());
                 result = kIOReturnExclusiveAccess;
             }
         }
+		else {
+			// <rdar://13412666> Return success if the buffers are already registered
+			result = kIOReturnSuccess;
+		}
         
         unlockStreamForIO();
     }

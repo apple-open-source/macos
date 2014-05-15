@@ -416,7 +416,7 @@ static int
 iseq_add_mark_object(rb_iseq_t *iseq, VALUE v)
 {
     if (!SPECIAL_CONST_P(v)) {
-	rb_ary_push(iseq->mark_ary, v);
+	rb_iseq_add_mark_object(iseq, v);
     }
     return COMPILE_OK;
 }
@@ -5701,7 +5701,7 @@ iseq_build_from_ary_body(rb_iseq_t *iseq, LINK_ANCHOR *anchor,
 				VALUE vmid = rb_hash_aref(op, ID2SYM(rb_intern("mid")));
 				VALUE vflag = rb_hash_aref(op, ID2SYM(rb_intern("flag")));
 				VALUE vorig_argc = rb_hash_aref(op, ID2SYM(rb_intern("orig_argc")));
-				VALUE vblock = rb_hash_aref(op, ID2SYM(rb_intern("block")));
+				VALUE vblock = rb_hash_aref(op, ID2SYM(rb_intern("blockptr")));
 
 				if (!NIL_P(vmid)) mid = SYM2ID(vmid);
 				if (!NIL_P(vflag)) flag = NUM2ULONG(vflag);

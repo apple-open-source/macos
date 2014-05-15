@@ -1,5 +1,5 @@
 /*
- * $Id: ossl_asn1.c 36895 2012-09-04 00:57:31Z nobu $
+ * $Id: ossl_asn1.c 44659 2014-01-19 16:28:53Z nagachika $
  * 'OpenSSL for Ruby' team members
  * Copyright (C) 2003
  * All rights reserved.
@@ -33,15 +33,22 @@ asn1time_to_time(ASN1_TIME *time)
 {
     struct tm tm;
     VALUE argv[6];
+    int count;
 
     if (!time || !time->data) return Qnil;
     memset(&tm, 0, sizeof(struct tm));
 
     switch (time->type) {
     case V_ASN1_UTCTIME:
-	if (sscanf((const char *)time->data, "%2d%2d%2d%2d%2d%2dZ", &tm.tm_year, &tm.tm_mon,
-    		&tm.tm_mday, &tm.tm_hour, &tm.tm_min, &tm.tm_sec) != 6) {
-	    ossl_raise(rb_eTypeError, "bad UTCTIME format");
+	count = sscanf((const char *)time->data, "%2d%2d%2d%2d%2d%2dZ",
+		&tm.tm_year, &tm.tm_mon, &tm.tm_mday, &tm.tm_hour, &tm.tm_min,
+		&tm.tm_sec);
+
+	if (count == 5) {
+	    tm.tm_sec = 0;
+	} else if (count != 6) {
+	    ossl_raise(rb_eTypeError, "bad UTCTIME format: \"%s\"",
+		    time->data);
 	}
 	if (tm.tm_year < 69) {
 	    tm.tm_year += 2000;
@@ -617,8 +624,8 @@ ossl_asn1_default_tag(VALUE obj)
       	}
     	tmp_class = rb_class_superclass(tmp_class);
     }
-    ossl_raise(eASN1Error, "universal tag for %s not found",
-	       rb_class2name(CLASS_OF(obj)));
+    ossl_raise(eASN1Error, "universal tag for %"PRIsVALUE" not found",
+	       rb_obj_class(obj));
 
     return -1; /* dummy */
 }

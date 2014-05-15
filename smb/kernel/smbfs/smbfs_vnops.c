@@ -510,6 +510,10 @@ smbfs_vnop_close(struct vnop_close_args *ap)
 			}
 		}		
 		share = smb_get_share_with_reference(VTOSMBFS(vp));
+        
+        /* Do any pending set eof or flushes before closing the file */
+        smbfs_smb_fsync(share, np, ap->a_context);
+
 		error = smbfs_close(share, vp, ap->a_fflag, ap->a_context);
 		smb_share_rele(share, ap->a_context);
 		if (!error)
@@ -1091,6 +1095,12 @@ smbfs_vnop_open_common(vnode_t vp, int mode, vfs_context_t context, void *n_last
 		struct smb_share * share;
 		
 		share = smb_get_share_with_reference(VTOSMBFS(vp));
+
+        if (mode & O_TRUNC) {
+            /* If truncating the file on open, do any pending set eofs */
+            smbfs_smb_fsync(share, np, context);
+        }
+
 		error = smbfs_open(share, vp, mode, context);
 		/* 
 		 * We created the file with different posix modes than request in 
@@ -1557,11 +1567,18 @@ smbfs_vnop_compound_open(struct vnop_compound_open_args *ap)
 not_found:
 	/* Set the default create dispostion value */
 	create_authorizer_error = 0;
+    
 	if (fmode & O_TRUNC) {
 		open_disp = FILE_OVERWRITE;
-	} else {
+        if (vp) {
+            /* If truncating the file on open, do any pending set eofs */
+            smbfs_smb_fsync(share, VTOSMB(vp), context);
+        }
+	}
+    else {
 		open_disp = FILE_OPEN;
 	}
+    
 	if (fmode & O_CREAT) {
 		/* Call back and see if it is ok to be created */
 		create_authorizer_error = ap->a_open_create_authorizer(dvp, cnp, vap, context, NULL);

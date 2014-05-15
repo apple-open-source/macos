@@ -132,6 +132,16 @@ File.foreach "config.status" do |line|
       val = "arch_flag || #{val}" if universal
     when /^UNIVERSAL_ARCHNAMES$/
       universal, val = val, 'universal' if universal
+    when /^includedir$/
+      val = "(ENV['SDKROOT'] || (File.exists?(File.join(CONFIG['prefix'],'include')) ? '' : %x(xcode-select --print-path >/dev/null 2>&1 && xcrun --sdk macosx --show-sdk-path 2>/dev/null).chomp)) + #{val}"
+    when /^(CXXFLAGS|LDFLAGS|CFLAGS|LDSHARED|LIBRUBY_LDSHARED)$/
+      if universal
+        # configure didn't strip -arch nor -m32/64 from CXXFLAGS
+        # replace the first with ARCH_FLAG and delete the rest
+        if val.sub!(/-(arch\s*\w+|m(32|64))/, '$(ARCH_FLAG)')
+          val.gsub!(/\s*-(arch\s*\w+|m(32|64))/, '')
+        end
+      end
     end
     v = "  CONFIG[\"#{name}\"] #{eq} #{val}\n"
     if fast[name]
@@ -262,6 +272,9 @@ print <<EOS
 end
 autoload :Config, "rbconfig/obsolete.rb" # compatibility for ruby-1.8.4 and older.
 CROSS_COMPILING = nil unless defined? CROSS_COMPILING
+RUBY_FRAMEWORK = true
+RUBY_FRAMEWORK_VERSION = RbConfig::CONFIG['ruby_version']
+APPLE_GEM_HOME = File.join(RbConfig::CONFIG['libdir'], 'ruby/gems', RbConfig::CONFIG['ruby_version'])
 EOS
 
 $stdout = STDOUT

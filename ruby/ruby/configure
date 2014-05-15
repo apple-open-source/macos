@@ -709,6 +709,7 @@ LIBRUBY_RELATIVE
 EXTOUT
 XRUBY
 RUNRUBY
+RUNRUBY_COMMAND
 PREP
 BTESTRUBY
 MINIRUBY
@@ -5049,7 +5050,7 @@ if test "$GCC" = yes; then
 esac
 	done; }
 else
-    linker_flag=
+    linker_flag=-Wl,
 fi
 
 { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether the linker is GNU ld" >&5
@@ -12000,9 +12001,47 @@ _ACEOF
 _ACEOF
 
     fi
-    { $as_echo "$as_me:${as_lineno-$LINENO}: checking for atomic builtins" >&5
-$as_echo_n "checking for atomic builtins... " >&6; }
+
+    { $as_echo "$as_me:${as_lineno-$LINENO}: checking for __atomic builtins" >&5
+$as_echo_n "checking for __atomic builtins... " >&6; }
 if ${rb_cv_gcc_atomic_builtins+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+
+	cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+unsigned char atomic_var;
+int
+main ()
+{
+
+			__atomic_exchange_n(&atomic_var, 0, __ATOMIC_SEQ_CST);
+			__atomic_exchange_n(&atomic_var, 1, __ATOMIC_SEQ_CST);
+			__atomic_fetch_add(&atomic_var, 1, __ATOMIC_SEQ_CST);
+			__atomic_fetch_sub(&atomic_var, 1, __ATOMIC_SEQ_CST);
+
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_link "$LINENO"; then :
+  rb_cv_gcc_atomic_builtins=yes
+else
+  rb_cv_gcc_atomic_builtins=no
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext conftest.$ac_ext
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $rb_cv_gcc_atomic_builtins" >&5
+$as_echo "$rb_cv_gcc_atomic_builtins" >&6; }
+    if test "$rb_cv_gcc_atomic_builtins" = yes; then
+	$as_echo "#define HAVE_GCC_ATOMIC_BUILTINS 1" >>confdefs.h
+
+    fi
+
+    { $as_echo "$as_me:${as_lineno-$LINENO}: checking for __sync builtins" >&5
+$as_echo_n "checking for __sync builtins... " >&6; }
+if ${rb_cv_gcc_sync_builtins+:} false; then :
   $as_echo_n "(cached) " >&6
 else
 
@@ -12023,17 +12062,17 @@ main ()
 }
 _ACEOF
 if ac_fn_c_try_link "$LINENO"; then :
-  rb_cv_gcc_atomic_builtins=yes
+  rb_cv_gcc_sync_builtins=yes
 else
-  rb_cv_gcc_atomic_builtins=no
+  rb_cv_gcc_sync_builtins=no
 fi
 rm -f core conftest.err conftest.$ac_objext \
     conftest$ac_exeext conftest.$ac_ext
 fi
-{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $rb_cv_gcc_atomic_builtins" >&5
-$as_echo "$rb_cv_gcc_atomic_builtins" >&6; }
-    if test "$rb_cv_gcc_atomic_builtins" = yes; then
-	$as_echo "#define HAVE_GCC_ATOMIC_BUILTINS 1" >>confdefs.h
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $rb_cv_gcc_sync_builtins" >&5
+$as_echo "$rb_cv_gcc_sync_builtins" >&6; }
+    if test "$rb_cv_gcc_sync_builtins" = yes; then
+	$as_echo "#define HAVE_GCC_SYNC_BUILTINS 1" >>confdefs.h
 
     fi
 
@@ -15647,6 +15686,18 @@ case "$target_os" in #(
   *) :
      ;;
 esac
+for ac_header in sys/pstat.h
+do :
+  ac_fn_c_check_header_mongrel "$LINENO" "sys/pstat.h" "ac_cv_header_sys_pstat_h" "$ac_includes_default"
+if test "x$ac_cv_header_sys_pstat_h" = xyes; then :
+  cat >>confdefs.h <<_ACEOF
+#define HAVE_SYS_PSTAT_H 1
+_ACEOF
+
+fi
+
+done
+
 
 
 { $as_echo "$as_me:${as_lineno-$LINENO}: checking for signbit" >&5
@@ -17430,7 +17481,7 @@ esac ;; #(
 			: ${LDSHARED='$(CC) -shared'}
 			if test "$rb_cv_binary_elf" = yes; then
 			    LDFLAGS="$LDFLAGS -rdynamic"
-			    DLDFLAGS="$DLDFLAGS "'-Wl,-soname,$(.TARGET)'
+			    DLDFLAGS="$DLDFLAGS "'-Wl,-soname,$@'
 			else
 			  test "$GCC" = yes && test "$rb_cv_prog_gnu_ld" = yes || LDSHARED='$(LD) -Bshareable'
 			fi
@@ -18053,7 +18104,8 @@ if test x"$cross_compiling" = xyes; then
 
 
   PREP='$(arch)-fake.rb'
-  RUNRUBY='$(MINIRUBY) -I`cd $(srcdir)/lib; pwd`'
+  RUNRUBY_COMMAND='$(MINIRUBY) -I`cd $(srcdir)/lib; pwd`'
+  RUNRUBY='$(RUNRUBY_COMMAND)'
   XRUBY='$(MINIRUBY)'
   TEST_RUNNABLE=no
   CROSS_COMPILING=yes
@@ -18075,11 +18127,13 @@ else
   MINIRUBY='./miniruby$(EXEEXT) -I$(srcdir)/lib -I.'
   MINIRUBY="$MINIRUBY"' -I$(EXTOUT)/common'
   PREP='miniruby$(EXEEXT)'
-  RUNRUBY='$(MINIRUBY) $(srcdir)/tool/runruby.rb --extout=$(EXTOUT)'
+  RUNRUBY_COMMAND='$(MINIRUBY) $(srcdir)/tool/runruby.rb --extout=$(EXTOUT) $(RUNRUBYOPT)'
+  RUNRUBY='$(RUNRUBY_COMMAND) --'
   XRUBY='$(RUNRUBY)'
   TEST_RUNNABLE=yes
   CROSS_COMPILING=no
 fi
+
 
 
 
@@ -18573,15 +18627,21 @@ if ${rb_cv_prog_dtrace_g+:} false; then :
   $as_echo_n "(cached) " >&6
 else
 
- echo "int main(void){ return 0; }" > conftest.c
- echo "provider conftest{};" > conftest_provider.d
- $CC $CFLAGS -c -o conftest.o conftest.c
- if $DTRACE -G -s conftest_provider.d conftest.o 2>/dev/null; then
-   rb_cv_prog_dtrace_g=yes
- else
-   rb_cv_prog_dtrace_g=no
- fi
- rm -f conftest.o conftest.c conftest_provider.d conftest_provider.o
+  if {
+    echo "provider conftest{ probe fire(); };" > conftest_provider.d &&
+    dtrace -h -o conftest_provider.h -s conftest_provider.d >/dev/null 2>/dev/null &&
+    cat >conftest.c <<_CONF &&
+    #include "conftest_provider.h"
+    int main(void){ CONFTEST_FIRE(); return 0; }
+_CONF
+    $CC $CFLAGS -c -o conftest.o conftest.c &&
+    $DTRACE -G -s conftest_provider.d conftest.o 2>/dev/null
+  }; then
+    rb_cv_prog_dtrace_g=yes
+  else
+    rb_cv_prog_dtrace_g=no
+  fi
+  rm -f conftest.co conftest_provider.dho
 
 fi
 { $as_echo "$as_me:${as_lineno-$LINENO}: result: $rb_cv_prog_dtrace_g" >&5

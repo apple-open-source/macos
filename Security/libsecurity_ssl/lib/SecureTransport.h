@@ -130,6 +130,11 @@ typedef enum {
      * using a block cipher.
      */
     kSSLSessionOptionSendOneByteRecord,
+    /*
+     * Allow/Disallow server identity change on renegotiation. Disallow by default
+     * to avoid Triple Handshake attack.
+     */
+    kSSLSessionOptionAllowServerIdentityChange,
 
 } SSLSessionOption;
 

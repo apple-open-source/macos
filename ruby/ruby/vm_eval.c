@@ -34,7 +34,7 @@ static VALUE send_internal(int argc, const VALUE *argv, VALUE recv, call_type sc
 static VALUE vm_call0_body(rb_thread_t* th, rb_call_info_t *ci, const VALUE *argv);
 
 static VALUE
-vm_call0(rb_thread_t* th, VALUE recv, VALUE id, int argc, const VALUE *argv,
+vm_call0(rb_thread_t* th, VALUE recv, ID id, int argc, const VALUE *argv,
 	 const rb_method_entry_t *me, VALUE defined_class)
 {
     rb_call_info_t ci_entry, *ci = &ci_entry;
@@ -486,38 +486,37 @@ rb_search_method_entry(VALUE recv, ID mid, VALUE *defined_class_ptr)
     VALUE klass = CLASS_OF(recv);
 
     if (!klass) {
-        VALUE flags, klass;
-        if (IMMEDIATE_P(recv)) {
+        VALUE flags;
+        if (SPECIAL_CONST_P(recv)) {
             rb_raise(rb_eNotImpError,
-                     "method `%s' called on unexpected immediate object (%p)",
-                     rb_id2name(mid), (void *)recv);
+                     "method `%"PRIsVALUE"' called on unexpected immediate object (%p)",
+                     rb_id2str(mid), (void *)recv);
         }
         flags = RBASIC(recv)->flags;
-        klass = RBASIC(recv)->klass;
         if (flags == 0) {
             rb_raise(rb_eNotImpError,
-                     "method `%s' called on terminated object"
-                     " (%p flags=0x%"PRIxVALUE" klass=0x%"PRIxVALUE")",
-                     rb_id2name(mid), (void *)recv, flags, klass);
+                     "method `%"PRIsVALUE"' called on terminated object"
+                     " (%p flags=0x%"PRIxVALUE")",
+                     rb_id2str(mid), (void *)recv, flags);
         }
         else {
             int type = BUILTIN_TYPE(recv);
             const char *typestr = rb_type_str(type);
             if (typestr && T_OBJECT <= type && type < T_NIL)
                 rb_raise(rb_eNotImpError,
-                         "method `%s' called on hidden %s object"
-                         " (%p flags=0x%"PRIxVALUE" klass=0x%"PRIxVALUE")",
-                         rb_id2name(mid), typestr, (void *)recv, flags, klass);
+                         "method `%"PRIsVALUE"' called on hidden %s object"
+                         " (%p flags=0x%"PRIxVALUE")",
+                         rb_id2str(mid), typestr, (void *)recv, flags);
             if (typestr)
                 rb_raise(rb_eNotImpError,
-                         "method `%s' called on unexpected %s object"
-                         " (%p flags=0x%"PRIxVALUE" klass=0x%"PRIxVALUE")",
-                         rb_id2name(mid), typestr, (void *)recv, flags, klass);
+                         "method `%"PRIsVALUE"' called on unexpected %s object"
+                         " (%p flags=0x%"PRIxVALUE")",
+                         rb_id2str(mid), typestr, (void *)recv, flags);
             else
                 rb_raise(rb_eNotImpError,
-                         "method `%s' called on broken T_???" "(0x%02x) object"
-                         " (%p flags=0x%"PRIxVALUE" klass=0x%"PRIxVALUE")",
-                         rb_id2name(mid), type, (void *)recv, flags, klass);
+                         "method `%"PRIsVALUE"' called on broken T_???" "(0x%02x) object"
+                         " (%p flags=0x%"PRIxVALUE")",
+                         rb_id2str(mid), type, (void *)recv, flags);
         }
     }
     return rb_method_entry(klass, mid, defined_class_ptr);
@@ -1198,7 +1197,10 @@ eval_string_with_cref(VALUE self, VALUE src, VALUE scope, NODE *cref, const char
 	    if (rb_obj_is_kind_of(scope, rb_cBinding)) {
 		GetBindingPtr(scope, bind);
 		envval = bind->env;
-		if (strcmp(file, "(eval)") == 0 && bind->path != Qnil) {
+		if (strcmp(file, "(eval)") != 0) {
+		    absolute_path = rb_str_new_cstr(file);
+		}
+		else if (bind->path != Qnil) {
 		    file = RSTRING_PTR(bind->path);
 		    line = bind->first_lineno;
 		    absolute_path = rb_current_realfilepath();

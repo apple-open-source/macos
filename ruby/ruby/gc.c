@@ -1375,6 +1375,7 @@ run_finalizer(rb_objspace_t *objspace, VALUE obj, VALUE table)
     int status;
     VALUE args[3];
     VALUE objid = nonspecial_obj_id(obj);
+    VALUE saved_errinfo = rb_errinfo();
 
     if (RARRAY_LEN(table) > 0) {
 	args[1] = rb_obj_freeze(rb_ary_new3(1, objid));
@@ -1384,6 +1385,7 @@ run_finalizer(rb_objspace_t *objspace, VALUE obj, VALUE table)
     }
 
     args[2] = (VALUE)rb_safe_level();
+    rb_set_errinfo(Qnil);
     for (i=0; i<RARRAY_LEN(table); i++) {
 	VALUE final = RARRAY_PTR(table)[i];
 	args[0] = RARRAY_PTR(final)[1];
@@ -1393,6 +1395,7 @@ run_finalizer(rb_objspace_t *objspace, VALUE obj, VALUE table)
 	if (status)
 	    rb_set_errinfo(Qnil);
     }
+    GET_THREAD()->errinfo = saved_errinfo;
 }
 
 static void
@@ -1443,10 +1446,9 @@ finalize_list(rb_objspace_t *objspace, RVALUE *p)
 static void
 finalize_deferred(rb_objspace_t *objspace)
 {
-    RVALUE *p = deferred_final_list;
-    deferred_final_list = 0;
+    RVALUE *p;
 
-    if (p) {
+    while ((p = ATOMIC_PTR_EXCHANGE(deferred_final_list, 0)) != 0) {
 	finalize_list(objspace, p);
     }
 }
@@ -3285,6 +3287,8 @@ rb_gc_disable(void)
     rb_objspace_t *objspace = &rb_objspace;
     int old = dont_gc;
 
+    rest_sweep(objspace);
+
     dont_gc = TRUE;
     return old ? Qtrue : Qfalse;
 }
@@ -3879,43 +3883,54 @@ static double
 getrusage_time(void)
 {
 #if defined(HAVE_CLOCK_GETTIME) && defined(CLOCK_PROCESS_CPUTIME_ID)
-    struct timespec ts;
-
-    if (clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &ts) == 0) {
-        return ts.tv_sec + ts.tv_nsec * 1e-9;
-    }
-    return 0.0;
-#elif defined RUSAGE_SELF
-    struct rusage usage;
-    struct timeval time;
-    getrusage(RUSAGE_SELF, &usage);
-    time = usage.ru_utime;
-    return time.tv_sec + time.tv_usec * 1e-6;
-#elif defined _WIN32
-    FILETIME creation_time, exit_time, kernel_time, user_time;
-    ULARGE_INTEGER ui;
-    LONG_LONG q;
-    double t;
-
-    if (GetProcessTimes(GetCurrentProcess(),
-			&creation_time, &exit_time, &kernel_time, &user_time) == 0)
     {
-	return 0.0;
+        static int try_clock_gettime = 1;
+        struct timespec ts;
+        if (try_clock_gettime && clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &ts) == 0) {
+            return ts.tv_sec + ts.tv_nsec * 1e-9;
+        }
+        else {
+            try_clock_gettime = 0;
+        }
     }
-    memcpy(&ui, &user_time, sizeof(FILETIME));
-    q = ui.QuadPart / 10L;
-    t = (DWORD)(q % 1000000L) * 1e-6;
-    q /= 1000000L;
+#endif
+
+#ifdef RUSAGE_SELF
+    {
+        struct rusage usage;
+        struct timeval time;
+        if (getrusage(RUSAGE_SELF, &usage) == 0) {
+            time = usage.ru_utime;
+            return time.tv_sec + time.tv_usec * 1e-6;
+        }
+    }
+#endif
+
+#ifdef _WIN32
+    {
+        FILETIME creation_time, exit_time, kernel_time, user_time;
+        ULARGE_INTEGER ui;
+        LONG_LONG q;
+        double t;
+
+        if (GetProcessTimes(GetCurrentProcess(),
+                            &creation_time, &exit_time, &kernel_time, &user_time) != 0) {
+            memcpy(&ui, &user_time, sizeof(FILETIME));
+            q = ui.QuadPart / 10L;
+            t = (DWORD)(q % 1000000L) * 1e-6;
+            q /= 1000000L;
 #ifdef __GNUC__
-    t += q;
+            t += q;
 #else
-    t += (double)(DWORD)(q >> 16) * (1 << 16);
-    t += (DWORD)q & ~(~0 << 16);
+            t += (double)(DWORD)(q >> 16) * (1 << 16);
+            t += (DWORD)q & ~(~0 << 16);
 #endif
-    return t;
-#else
+            return t;
+        }
+    }
+#endif
+
     return 0.0;
-#endif
 }
 
 static inline void
@@ -4086,7 +4101,7 @@ gc_prof_set_malloc_info(rb_objspace_t *objspace)
 static inline void
 gc_prof_set_heap_info(rb_objspace_t *objspace, gc_profile_record *record)
 {
-    size_t live = objspace->heap.live_num;
+    size_t live = objspace_live_num(objspace);
     size_t total = heaps_used * HEAP_OBJ_LIMIT;
 
     record->heap_use_slots = heaps_used;

@@ -65,7 +65,12 @@ void prepareToSign()
 	if (identifierPrefix)
 		CFDictionaryAddValue(parameters,
 			kSecCodeSignerIdentifierPrefix, CFTempString(identifierPrefix));
-	
+    
+	if (teamID) {
+		CFDictionaryAddValue(parameters,
+                             kSecCodeSignerTeamIdentifier, CFTempString(teamID));
+	}
+
 	if (internalReq)
 		CFDictionaryAddValue(parameters,
 			kSecCodeSignerRequirements, readRequirement(internalReq, 0));

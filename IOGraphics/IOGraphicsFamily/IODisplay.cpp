@@ -47,6 +47,7 @@ const OSSymbol * gIODisplayContrastKey;
 const OSSymbol * gIODisplayBrightnessKey;
 const OSSymbol * gIODisplayLinearBrightnessKey;
 const OSSymbol * gIODisplayUsableLinearBrightnessKey;
+const OSSymbol * gIODisplayBrightnessFadeKey;
 const OSSymbol * gIODisplayHorizontalPositionKey;
 const OSSymbol * gIODisplayHorizontalSizeKey;
 const OSSymbol * gIODisplayVerticalPositionKey;
@@ -62,6 +63,7 @@ const OSSymbol * gIODisplaySelectedColorModeKey;
 const OSSymbol * gIODisplayRedGammaScaleKey;
 const OSSymbol * gIODisplayGreenGammaScaleKey;
 const OSSymbol * gIODisplayBlueGammaScaleKey;
+const OSSymbol * gIODisplayGammaScaleKey;
 
 const OSSymbol * gIODisplayParametersTheatreModeKey;
 const OSSymbol * gIODisplayParametersTheatreModeWindowKey;
@@ -98,17 +100,6 @@ static OSData *  gIODisplayZeroData;
 
 enum {
     kIODisplayMaxUsableState  = kIODisplayMaxPowerState - 1
-};
-
-// these are the private instance variables for power management
-struct IODisplayPMVars
-{
-    UInt32              currentState;
-    // highest state number normally, lowest usable state in emergency
-    unsigned long       maxState;
-    unsigned long       minDimState;
-    // true if the display has had power lowered due to user inactivity
-    bool                displayIdle;
 };
 
 enum 
@@ -166,6 +157,8 @@ void IODisplay::initialize( void )
                                         kIODisplayLinearBrightnessKey );
     gIODisplayUsableLinearBrightnessKey = OSSymbol::withCStringNoCopy(
                                         kIODisplayUsableLinearBrightnessKey );
+    gIODisplayBrightnessFadeKey = OSSymbol::withCStringNoCopy(
+                                        kIODisplayBrightnessFadeKey );
     gIODisplayHorizontalPositionKey = OSSymbol::withCStringNoCopy(
                                           kIODisplayHorizontalPositionKey );
     gIODisplayHorizontalSizeKey = OSSymbol::withCStringNoCopy(
@@ -195,6 +188,8 @@ void IODisplay::initialize( void )
                                         kIODisplayGreenGammaScaleKey );
     gIODisplayBlueGammaScaleKey = OSSymbol::withCStringNoCopy(
                                         kIODisplayBlueGammaScaleKey );
+    gIODisplayGammaScaleKey = OSSymbol::withCStringNoCopy(
+                                        kIODisplayGammaScaleKey );
 
     gIODisplayParametersCommitKey = OSSymbol::withCStringNoCopy(
                                         kIODisplayParametersCommitKey );
@@ -360,6 +355,18 @@ bool IODisplay::start( IOService * provider )
                 continue;
             // vendor
             vendor = (edid->vendorProduct[0] << 8) | edid->vendorProduct[1];
+
+#if 0
+			if (true && (0x10ac == vendor))
+			{
+				vendor = 0;
+				edidData = 0;
+				edid = 0;
+				removeProperty(kIODisplayEDIDKey);
+				break;
+			}
+#endif
+
             // product
             product = (edid->vendorProduct[3] << 8) | edid->vendorProduct[2];
 
@@ -871,10 +878,18 @@ IOReturn IODisplay::setProperties( OSObject * properties )
                 continue;
             value = valueNum->unsigned32BitValue();
 
-            if (value < min)
-                value = min;
-            if (value > max)
-                value = max;
+            if (value < min) value = min;
+            if (value > max) value = max;
+
+			if (kIOGDbgForceBrightness & gIOGDebugFlags)
+			{
+				if (sym == gIODisplayLinearBrightnessKey) continue;
+				if (sym == gIODisplayBrightnessKey)
+				{
+					value = (((max - min) * 3) / 4 + min);
+					updateNumber(params, gIODisplayValueKey, value);
+				}
+			}
 
             ok = setForKey( params, sym, value, min, max );
         }

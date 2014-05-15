@@ -198,7 +198,7 @@ rb_mod_init_copy(VALUE clone, VALUE orig)
     if (RB_TYPE_P(clone, T_CLASS)) {
 	class_init_copy_check(clone, orig);
     }
-    rb_obj_init_copy(clone, orig);
+    if (!OBJ_INIT_COPY(clone, orig)) return clone;
     if (!FL_TEST(CLASS_OF(clone), FL_SINGLETON)) {
 	RBASIC(clone)->klass = rb_singleton_class_clone(orig);
 	rb_singleton_class_attached(RBASIC(clone)->klass, (VALUE)clone);
@@ -989,6 +989,10 @@ method_entry_i(st_data_t key, st_data_t value, st_data_t data)
     st_table *list = (st_table *)data;
     long type;
 
+    if (me && me->def->type == VM_METHOD_TYPE_REFINED) {
+	me = rb_resolve_refined_method(Qnil, me, NULL);
+	if (!me) return ST_CONTINUE;
+    }
     if (!st_lookup(list, key, 0)) {
 	if (UNDEFINED_METHOD_ENTRY_P(me)) {
 	    type = -1; /* none */

@@ -377,8 +377,10 @@ HTMLMediaElement::~HTMLMediaElement()
     }
 #endif
 
-    if (m_mediaController)
+    if (m_mediaController) {
         m_mediaController->removeMediaElement(this);
+        m_mediaController = 0;
+    }
 
 #if ENABLE(MEDIA_SOURCE)
     setSourceState(MediaSource::closedKeyword());
@@ -5133,5 +5135,28 @@ void HTMLMediaElement::removeBehaviorsRestrictionsAfterFirstUserGesture()
     m_restrictions = NoRestrictions;
 }
 
+bool HTMLMediaElement::doesHaveAttribute(const AtomicString& attribute) const
+{
+    QualifiedName attributeName(nullAtom, attribute, nullAtom);
+    if (!fastHasAttribute(attributeName))
+        return false;
+
+    if (Settings* settings = document()->settings()) {
+        if (attributeName == HTMLNames::x_itunes_inherit_uri_query_componentAttr)
+            return settings->enableInheritURIQueryComponent();
+    }
+
+    return true;
 }
+
+bool MediaPlayer::doesHaveAttribute(const AtomicString& attribute) const
+{
+    if (!m_mediaPlayerClient)
+        return false;
+    
+    return m_mediaPlayerClient->doesHaveAttribute(attribute);
+}
+
+}
+
 #endif

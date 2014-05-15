@@ -83,6 +83,7 @@ private:
 	CFRef<CFDictionaryRef> resourceDirectory;	// resource directory
 	CFRef<CFDataRef> resourceDictData; // XML form of resourceDirectory
 	std::string identifier;			// signing identifier
+	std::string teamID;             // team identifier
 	CFRef<CFDataRef> entitlements;	// entitlements
 	uint32_t cdFlags;				// CodeDirectory flags
 	const Requirements *requirements; // internal requirements ready-to-use

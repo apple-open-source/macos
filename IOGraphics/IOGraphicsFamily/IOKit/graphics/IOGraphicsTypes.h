@@ -31,7 +31,7 @@
 extern "C" {
 #endif
 
-#define IOGRAPHICSTYPES_REV     38
+#define IOGRAPHICSTYPES_REV     40
 
 typedef SInt32  IOIndex;
 typedef UInt32  IOSelect;
@@ -176,7 +176,8 @@ enum {
     kDisplayModeValidForMirroringFlag   = 0x00200000,
     kDisplayModeAcceleratorBackedFlag   = 0x00400000,
     kDisplayModeValidForHiResFlag       = 0x00800000,
-    kDisplayModeValidForAirPlayFlag     = 0x01000000
+    kDisplayModeValidForAirPlayFlag     = 0x01000000,
+    kDisplayModeNativeFlag              = 0x02000000
 };
 enum {
     kDisplayModeValidFlag               = 0x00000001,
@@ -706,6 +707,8 @@ enum {
     kConnectionRedGammaScale            = 'rgsc',
     kConnectionGreenGammaScale          = 'ggsc',
     kConnectionBlueGammaScale           = 'bgsc',
+    kConnectionGammaScale               = 'gsc ',
+    kConnectionFlushParameters          = 'flus',
 
     kConnectionHandleDisplayPortEvent   = 'dpir',
 
@@ -1309,6 +1312,7 @@ enum {
 #define kIODisplayBrightnessKey             "brightness"
 #define kIODisplayLinearBrightnessKey       "linear-brightness"
 #define kIODisplayUsableLinearBrightnessKey "usable-linear-brightness"
+#define kIODisplayBrightnessFadeKey         "brightness-fade"
 #define kIODisplayContrastKey               "contrast"
 #define kIODisplayHorizontalPositionKey     "horizontal-position"
 #define kIODisplayHorizontalSizeKey     	"horizontal-size"
@@ -1343,6 +1347,7 @@ enum {
 #define kIODisplayRedGammaScaleKey      "rgsc"
 #define kIODisplayGreenGammaScaleKey    "ggsc"
 #define kIODisplayBlueGammaScaleKey     "bgsc"
+#define kIODisplayGammaScaleKey         "gsc "
 
 #define kIODisplayParametersCommitKey   "commit"
 #define kIODisplayParametersDefaultKey  "defaults"

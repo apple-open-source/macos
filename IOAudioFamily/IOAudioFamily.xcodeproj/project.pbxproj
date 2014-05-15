@@ -582,7 +582,7 @@
 				LIBRARY_SEARCH_PATHS_QUOTED_FOR_TARGET_1 = "\"$(SRCROOT)/build/Development\"";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOAudioFamily;
-				MODULE_VERSION = 1.9.5fc2;
+				MODULE_VERSION = 1.9.7fc2;
 				OTHER_CFLAGS = (
 					"$(DEBUG_CFLAGS)",
 					"-DIOAUDIOFAMILY_SELF_BUILD",
@@ -625,7 +625,7 @@
 				LIBRARY_SEARCH_PATHS_QUOTED_FOR_TARGET_1 = "\"$(SRCROOT)/build/Deployment\"";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOAudioFamily;
-				MODULE_VERSION = 1.9.5fc2;
+				MODULE_VERSION = 1.9.7fc2;
 				OTHER_CFLAGS = (
 					"$(DEBUG_CFLAGS)",
 					"-DIOAUDIOFAMILY_SELF_BUILD",
@@ -668,7 +668,7 @@
 				MACOSX_DEPLOYMENT_TARGET = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOAudioFamily;
-				MODULE_VERSION = 1.9.5fc2;
+				MODULE_VERSION = 1.9.7fc2;
 				OTHER_CFLAGS = (
 					"$(DEBUG_CFLAGS)",
 					"-DIOAUDIOFAMILY_SELF_BUILD",

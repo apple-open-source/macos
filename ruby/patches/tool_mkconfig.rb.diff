@@ -1,17 +1,24 @@
---- tool/mkconfig.rb.orig	2013-02-06 23:21:30.000000000 -0800
-+++ tool/mkconfig.rb	2013-04-22 15:06:23.000000000 -0700
-@@ -127,10 +127,6 @@ File.foreach "config.status" do |line|
+--- tool/mkconfig.rb.orig	2013-10-31 09:38:12.000000000 -0700
++++ tool/mkconfig.rb	2013-10-31 09:44:27.000000000 -0700
+@@ -132,9 +132,15 @@ File.foreach "config.status" do |line|
        val = "arch_flag || #{val}" if universal
      when /^UNIVERSAL_ARCHNAMES$/
        universal, val = val, 'universal' if universal
 -    when /^arch$/
--      if universal
++    when /^includedir$/
++      val = "(ENV['SDKROOT'] || (File.exists?(File.join(CONFIG['prefix'],'include')) ? '' : %x(xcode-select --print-path >/dev/null 2>&1 && xcrun --sdk macosx --show-sdk-path 2>/dev/null).chomp)) + #{val}"
++    when /^(CXXFLAGS|LDFLAGS|CFLAGS|LDSHARED|LIBRUBY_LDSHARED)$/
+       if universal
 -        val.sub!(/universal/, %q[#{arch && universal[/(?:\A|\s)#{Regexp.quote(arch)}=(\S+)/, 1] || '\&'}])
--      end
++        # configure didn't strip -arch nor -m32/64 from CXXFLAGS
++        # replace the first with ARCH_FLAG and delete the rest
++        if val.sub!(/-(arch\s*\w+|m(32|64))/, '$(ARCH_FLAG)')
++          val.gsub!(/\s*-(arch\s*\w+|m(32|64))/, '')
++        end
+       end
      end
      v = "  CONFIG[\"#{name}\"] #{eq} #{val}\n"
-     if fast[name]
-@@ -172,8 +168,7 @@ print "  TOPDIR = File.dirname(__FILE__)
+@@ -178,7 +184,6 @@ print "  TOPDIR = File.dirname(__FILE__)
  print "  DESTDIR = ", (drive ? "TOPDIR && TOPDIR[/\\A[a-z]:/i] || " : ""), "'' unless defined? DESTDIR\n"
  print <<'ARCH' if universal
    arch_flag = ENV['ARCHFLAGS'] || ((e = ENV['RC_ARCHS']) && e.split.uniq.map {|a| "-arch #{a}"}.join(' '))
@@ -19,4 +26,13 @@
  ARCH
  print "  universal = #{universal}\n" if universal
  print "  CONFIG = {}\n"
+@@ -267,6 +272,9 @@ print <<EOS
+ end
+ autoload :Config, "rbconfig/obsolete.rb" # compatibility for ruby-1.8.4 and older.
+ CROSS_COMPILING = nil unless defined? CROSS_COMPILING
++RUBY_FRAMEWORK = true
++RUBY_FRAMEWORK_VERSION = RbConfig::CONFIG['ruby_version']
++APPLE_GEM_HOME = File.join(RbConfig::CONFIG['libdir'], 'ruby/gems', RbConfig::CONFIG['ruby_version'])
+ EOS
  
+ $stdout = STDOUT

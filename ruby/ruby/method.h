@@ -2,7 +2,7 @@
 
   method.h -
 
-  $Author: nobu $
+  $Author: nagachika $
   created at: Wed Jul 15 20:02:33 2009
 
   Copyright (C) 2009 Koichi Sasada
@@ -112,7 +112,7 @@ rb_method_entry_t *rb_add_method(VALUE klass, ID mid, rb_method_type_t type, voi
 rb_method_entry_t *rb_method_entry(VALUE klass, ID id, VALUE *define_class_ptr);
 void rb_add_refined_method_entry(VALUE refined_class, ID mid);
 rb_method_entry_t *rb_resolve_refined_method(VALUE refinements,
-					     rb_method_entry_t *me,
+					     const rb_method_entry_t *me,
 					     VALUE *defined_class_ptr);
 rb_method_entry_t *rb_method_entry_with_refinements(VALUE klass, ID id,
 						    VALUE *defined_class_ptr);

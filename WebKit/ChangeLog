@@ -1,3 +1,115 @@
+2014-03-12  Brent Fulgham  <bfulgham@apple.com>
+
+        [Win] Unreviewed build fix.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in: Correct
+        64-bit debug symbol export definition.
+
+2014-03-10  Brent Fulgham  <bfulgham@apple.com>
+
+        Merge r165393.
+
+    2014-03-10  Brent Fulgham  <bfulgham@apple.com>
+
+            [Win] Pass environment to Pre-Build, Pre-Link, and Post-Build Stages.
+            https://bugs.webkit.org/show_bug.cgi?id=130023
+
+            Reviewed by Dean Jackson.
+
+            * WebKit.vcxproj/WebKit/Interfaces/InterfacesPreBuild.cmd: Use %PlatformArchitecture% rather than
+            hard-coded 32-bit path.
+            * WebKit.vcxproj/WebKit/WebKitPostBuild.cmd: Ditto.
+
+2014-03-07  Brent Fulgham  <bfulgham@apple.com>
+
+        [Win] Build fix for combined 32-bit and 64-bit target.
+
+        * WebKit.vcxproj/WebKit/WebKitDirectX.props: Use PlatformTarget so that path matches
+        what DirectX uses.
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in: Correct some symbols to
+        match sources in branch.
+
+2014-03-07  Brent Fulgham  <bfulgham@apple.com>
+
+        Merge r152930.
+
+    2013-07-19  Alex Christensen  <achristensen@apple.com> 
+ 
+            Added 64-bit symbols to WebKitExports.def.in for 64-bit Windows builds 
+            and a macro to only use them for 64-bit builds. 
+            https://bugs.webkit.org/show_bug.cgi?id=118887 
+
+            Reviewed by Brent Fulgham. 
+
+            * WebKit.vcxproj/WebKit.make: Removed.
+            * WebKit.vcxproj/WebKit/WebKitDirectX.props: Correct link path
+            for 64-bit DirectX.
+            * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in: Added 64-bit symbols. 
+            * WebKit.vcxproj/WebKitExportGenerator/make-export-file-generator: 
+            Added support for new symbolWithPointer macro. 
+
+2014-03-07  Brent Fulgham  <bfulgham@apple.com>
+
+        [Win] Unreviewed gardening.
+
+        Remove deprecated makefile now that MSBuild file is committed.
+
+        * WebKit.vcxproj/WebKit.make: Removed.
+
+2014-03-07  Brent Fulgham  <bfulgham@apple.com>
+
+        Merge r165270.
+
+    2014-03-07  Brent Fulgham  <bfulgham@apple.com>
+
+            [Win] Convert WebKit.make to an MSBuild file.
+            https://bugs.webkit.org/show_bug.cgi?id=129888
+
+            Reviewed by Dean Jackson.
+
+            * WebKit.vcxproj/WebKit.proj: Added.
+
+2014-02-04  Brent Fulgham  <bfulgham@apple.com>
+
+        Merge r154395.
+
+    2013-08-20  Brent Fulgham  <bfulgham@apple.com>
+
+            <https://webkit.org/b/120098> [Windows] Enable the new Web Inspector
+
+            Reviewed by Brian Weinstein.
+
+            * WebKit.vcxproj/WebKit.sln: Add reference to the new WebInspectorUI
+            project so that it will be included in new distributions.
+
+2014-01-23  Brent Fulgham  <bfulgham@apple.com>
+
+        Unreviewed build correction.
+
+        * WebKit.vcxproj/WebKit/WebKit.vcxproj: Link 32-bit builds against QTMovieWin for the time being.
+
+2014-01-23  Brent Fulgham  <bfulgham@apple.com>
+
+        Merge r162621
+
+    2014-01-22  Brent Fulgham  <bfulgham@apple.com>
+
+            [Win] Update project and solution files for 64-bit builds
+            https://bugs.webkit.org/show_bug.cgi?id=127457
+
+            Reviewed by Eric Carlson.
+
+            * WebKit.vcxproj/Interfaces/Interfaces.vcxproj: Specify v100 target
+            for all builds on this branch.
+            * WebKit.vcxproj/WebKit.submit.sln: Add 64-bit target.
+            * WebKit.vcxproj/WebKit/WebKit.vcxproj: Specify v100 target for all
+            builds on this branch.
+            * WebKit.vcxproj/WebKit/WebKitApple.props: Remove unused QTMovieWin
+            library dependency.
+            * WebKit.vcxproj/WebKitExportGenerator/WebKitExportGenerator.vcxproj:
+            Specify v100 target for all builds on this branch.
+            * WebKit.vcxproj/WebKitGUID/WebKitGUID.vcxproj: Ditto
+
 2013-12-11  Matthew Hanson  <matthew_hanson@apple.com>
 
         Merge r154513

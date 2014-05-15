@@ -1387,6 +1387,7 @@ rb_str_modify_expand(VALUE str, long expand)
 	long capa = len + expand;
 	if (!STR_EMBED_P(str)) {
 	    REALLOC_N(RSTRING(str)->as.heap.ptr, char, capa+1);
+	    STR_UNSET_NOCAPA(str);
 	    RSTRING(str)->as.heap.aux.capa = capa;
 	}
 	else if (capa > RSTRING_EMBED_LEN_MAX) {
@@ -1824,6 +1825,13 @@ rb_str_unlocktmp(VALUE str)
     }
     FL_UNSET(str, STR_TMPLOCK);
     return str;
+}
+
+VALUE
+rb_str_locktmp_ensure(VALUE str, VALUE (*func)(VALUE), VALUE arg)
+{
+    rb_str_locktmp(str);
+    return rb_ensure(func, arg, rb_str_unlocktmp, str);
 }
 
 void
@@ -2338,6 +2346,7 @@ str_eql(const VALUE str1, const VALUE str2)
 	return Qtrue;
     return Qfalse;
 }
+
 /*
  *  call-seq:
  *     str == obj   -> true or false
@@ -3897,7 +3906,7 @@ str_gsub(int argc, VALUE *argv, VALUE str, int bang)
 
 	if (OBJ_TAINTED(val)) tainted = 1;
 
-	len = beg - offset;	/* copy pre-match substr */
+	len = beg0 - offset;	/* copy pre-match substr */
         if (len) {
             rb_enc_str_buf_cat(dest, cp, len, str_enc);
         }

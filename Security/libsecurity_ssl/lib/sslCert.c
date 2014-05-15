@@ -143,12 +143,8 @@ SSLProcessCertificate(SSLBuffer message, SSLContext *ctx)
     size_t          listLen, certLen;
     UInt8           *p;
     OSStatus        err;
-#ifdef USE_SSLCERTIFICATE
-    SSLCertificate      *cert;
-#else
     CFMutableArrayRef   certChain = NULL;
     SecCertificateRef   cert;
-#endif
 
     p = message.data;
     listLen = SSLDecodeInt(p,3);
@@ -159,38 +155,23 @@ SSLProcessCertificate(SSLBuffer message, SSLContext *ctx)
     }
 
     while (listLen > 0)
-    {   certLen = SSLDecodeInt(p,3);
-        p += 3;
-        if (listLen < certLen + 3) {
-    		sslErrorLog("SSLProcessCertificate: length decode error 2\n");
+    {
+        if (listLen < 3) {
+            sslErrorLog("SSLProcessCertificate: length decode error 2\n");
             return errSSLProtocol;
         }
-#ifdef USE_SSLCERTIFICATE
-		cert = (SSLCertificate *)sslMalloc(sizeof(SSLCertificate));
-		if(cert == NULL) {
-			return errSecAllocate;
-		}
-        if ((err = SSLAllocBuffer(&cert->derCert, certLen)
-        {   sslFree(cert);
-            return err;
+        certLen = SSLDecodeInt(p,3);
+        p += 3;
+        if (listLen < certLen + 3) {
+		sslErrorLog("SSLProcessCertificate: length decode error 3\n");
+            return errSSLProtocol;
         }
-        memcpy(cert->derCert.data, p, certLen);
-        p += certLen;
-        cert->next = ctx->peerCert;     /* Insert backwards; root cert
-										 * will be first in linked list */
-        ctx->peerCert = cert;
-#else
 		if (!certChain) {
 			certChain = CFArrayCreateMutable(kCFAllocatorDefault, 0,
 				&kCFTypeArrayCallBacks);
 			if (certChain == NULL) {
 				return errSecAllocate;
 			}
-			if (ctx->peerCert) {
-				sslDebugLog("SSLProcessCertificate: releasing existing cert chain\n");
-				CFRelease(ctx->peerCert);
-			}
-			ctx->peerCert = certChain;
 		}
  		cert = SecCertificateCreateWithBytes(NULL, p, certLen);
 		#if SSL_DEBUG && !TARGET_OS_IPHONE
@@ -212,10 +193,27 @@ SSLProcessCertificate(SSLBuffer message, SSLContext *ctx)
 		/* Insert forwards; root cert will be last in linked list */
 		CFArrayAppendValue(certChain, cert);
 		CFRelease(cert);
-#endif
         listLen -= 3+certLen;
     }
     assert(p == message.data + message.length && listLen == 0);
+
+    if (ctx->protocolSide == kSSLClientSide && ctx->peerCert && !ctx->allowServerIdentityChange) {
+        // Do not accept a different server cert during renegotiation unless allowed.
+        if((certChain!=NULL) && !CFEqual(ctx->peerCert, certChain))
+        {
+            CFRelease(certChain);
+            sslErrorLog("Illegal server identity change during renegotiation\n");
+            return errSSLProtocol;
+        }
+    }
+
+    // Replace old cert with new cert.
+    if (ctx->peerCert) {
+        sslDebugLog("SSLProcessCertificate: releasing existing cert chain\n");
+        CFRelease(ctx->peerCert);
+    }
+
+    ctx->peerCert = certChain;
 
     if (!ctx->peerCert) {
 		/* this *might* be OK... */
@@ -240,6 +238,8 @@ SSLProcessCertificate(SSLBuffer message, SSLContext *ctx)
 			return errSSLXCertChainInvalid;
 		}
     }
+
+
 
     if((err = sslVerifyCertChain(ctx, ctx->peerCert, true)) != 0) {
         AlertDescription desc;

@@ -877,6 +877,23 @@ Thread.new(Thread.current) {|mth|
     end
   end
 
+  def test_mutex_unlock_on_trap
+    assert_in_out_err([], <<-INPUT, %w(locked unlocked false), [])
+      m = Mutex.new
+
+      Signal.trap("INT") { |signo|
+        m.unlock
+        puts "unlocked"
+      }
+
+      m.lock
+      puts "locked"
+      Process.kill("INT", $$)
+      sleep 0.2
+      puts m.locked?
+    INPUT
+  end
+
   def invoke_rec script, vm_stack_size, machine_stack_size, use_length = true
     env = {}
     env['RUBY_THREAD_VM_STACK_SIZE'] = vm_stack_size.to_s if vm_stack_size
@@ -920,4 +937,31 @@ Thread.new(Thread.current) {|mth|
     size_large = invoke_rec script, vm_stack_size, 1024 * 1024 * 10
     assert_operator(size_default, :<=, size_large, "large size")
   end
+
+  def test_blocking_mutex_unlocked_on_fork
+    bug8433 = '[ruby-core:55102] [Bug #8433]'
+
+    mutex = Mutex.new
+    flag = false
+    mutex.lock
+
+    th = Thread.new do
+      mutex.synchronize do
+        flag = true
+        sleep
+      end
+    end
+
+    Thread.pass until th.stop?
+    mutex.unlock
+
+    pid = Process.fork do
+      exit(mutex.locked?)
+    end
+
+    th.kill
+
+    pid, status = Process.waitpid2(pid)
+    assert_equal(false, status.success?, bug8433)
+  end if Process.respond_to?(:fork)
 end

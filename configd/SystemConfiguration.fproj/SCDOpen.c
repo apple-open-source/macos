@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2006, 2008-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2006, 2008-2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -136,15 +136,17 @@ __SCDynamicStoreDeallocate(CFTypeRef cf)
 	(void) SCDynamicStoreNotifyCancel(store);
 
 	if (storePrivate->server != MACH_PORT_NULL) {
-		if (!storePrivate->serverNullSession) {
-			/*
-			 * Remove our send right to the SCDynamicStore server (and that will
-			 * result in our session being closed).
-			 */
-			__MACH_PORT_DEBUG(TRUE, "*** __SCDynamicStoreDeallocate", storePrivate->server);
-			(void) mach_port_deallocate(mach_task_self(), storePrivate->server);
-		}
-
+		/*
+		 * Remove our send right to the SCDynamicStore server.
+		 *
+		 * In the case of a "real" session this will result in our
+		 * session being closed.
+		 *
+		 * In the case of a "NULL" session, we just remove the
+		 * the send right reference we are holding.
+		 */
+		__MACH_PORT_DEBUG(TRUE, "*** __SCDynamicStoreDeallocate", storePrivate->server);
+		(void) mach_port_deallocate(mach_task_self(), storePrivate->server);
 		storePrivate->server = MACH_PORT_NULL;
 	}
 
@@ -371,14 +373,17 @@ updateServerPort(SCDynamicStorePrivateRef storePrivate, mach_port_t *server, int
 	pthread_mutex_lock(&_sc_lock);
 	if (_sc_server != MACH_PORT_NULL) {
 		if (*server == _sc_server) {
-			// if the server we tried returned the error, deallocate
-			// our send [or dead name] right
-			(void)mach_port_deallocate(mach_task_self(), _sc_server);
+			mach_port_t	old_port;
 
-			// and [re-]lookup the name to the server
+			// if the server we tried returned the error, save the old port,
+			// [re-]lookup the name to the server, and deallocate the original
+			// send [or dead name] right
+
+			old_port = _sc_server;
 			_sc_server = __SCDynamicStoreServerPort(storePrivate, sc_status_p);
+			(void)mach_port_deallocate(mach_task_self(), old_port);
 		} else {
-			// another thread has refreshed the SCDynamicStore server port
+			// another thread has refreshed the [main] SCDynamicStore server port
 		}
 	} else {
 		_sc_server = __SCDynamicStoreServerPort(storePrivate, sc_status_p);
@@ -393,6 +398,7 @@ updateServerPort(SCDynamicStorePrivateRef storePrivate, mach_port_t *server, int
 static Boolean
 __SCDynamicStoreAddSession(SCDynamicStorePrivateRef storePrivate)
 {
+	kern_return_t		kr		= KERN_SUCCESS;
 	CFDataRef		myName;			/* serialized name */
 	xmlData_t		myNameRef;
 	CFIndex			myNameLen;
@@ -401,7 +407,6 @@ __SCDynamicStoreAddSession(SCDynamicStorePrivateRef storePrivate)
 	CFIndex			myOptionsLen	= 0;
 	int			sc_status	= kSCStatusFailed;
 	mach_port_t		server;
-	kern_return_t		status		= KERN_SUCCESS;
 
 	if (!_SCSerializeString(storePrivate->name, &myName, (void **)&myNameRef, &myNameLen)) {
 		goto done;
@@ -416,56 +421,55 @@ __SCDynamicStoreAddSession(SCDynamicStorePrivateRef storePrivate)
 	}
 
 	/* open a new session with the server */
-	server = _sc_server;
+	server = MACH_PORT_NULL;
 
 
 	updateServerPort(storePrivate, &server, &sc_status);
 
 
-	while (TRUE) {
-		if (server != MACH_PORT_NULL) {
-			if (!storePrivate->serverNullSession) {
-				// if SCDynamicStore session
-				status = configopen(server,
-						    myNameRef,
-						    myNameLen,
-						    myOptionsRef,
-						    myOptionsLen,
-						    &storePrivate->server,
-						    (int *)&sc_status);
-			} else {
-				// if NULL session
-				if (storePrivate->server == MACH_PORT_NULL) {
-					// use the [main] SCDynamicStore server port
+	while (server != MACH_PORT_NULL) {
+		// if SCDynamicStore server available
+
+		if (!storePrivate->serverNullSession) {
+			// if SCDynamicStore session
+			kr = configopen(server,
+					myNameRef,
+					(mach_msg_type_number_t)myNameLen,
+					myOptionsRef,
+					(mach_msg_type_number_t)myOptionsLen,
+					&storePrivate->server,
+					(int *)&sc_status);
+		} else {
+			// if NULL session
+			if (storePrivate->server == MACH_PORT_NULL) {
+				// use the [main] SCDynamicStore server port
+				kr = mach_port_mod_refs(mach_task_self(), server, MACH_PORT_RIGHT_SEND, +1);
+				if (kr == KERN_SUCCESS) {
 					storePrivate->server = server;
 					sc_status = kSCStatusOK;
-					status = KERN_SUCCESS;
 				} else {
-					// if the server port we used returned an error
 					storePrivate->server = MACH_PORT_NULL;
-					status = MACH_SEND_INVALID_DEST;
 				}
+			} else {
+				// if the server port we used returned an error
+				storePrivate->server = MACH_PORT_NULL;
+				kr = MACH_SEND_INVALID_DEST;
 			}
+		}
 
-			if (status == KERN_SUCCESS) {
-				break;
-			}
+		if (kr == KERN_SUCCESS) {
+			break;
+		}
 
-			// our [cached] server port is not valid
-			if ((status != MACH_SEND_INVALID_DEST) && (status != MIG_SERVER_DIED)) {
-				// if we got an unexpected error, don't retry
-				sc_status = status;
-				break;
-			}
+		// our [cached] server port is not valid
+		if ((kr != MACH_SEND_INVALID_DEST) && (kr != MIG_SERVER_DIED)) {
+			// if we got an unexpected error, don't retry
+			sc_status = kr;
+			break;
 		}
 
 
 		updateServerPort(storePrivate, &server, &sc_status);
-
-		if (server == MACH_PORT_NULL) {
-			// if SCDynamicStore server not available
-			break;
-		}
 	}
 	__MACH_PORT_DEBUG(TRUE, "*** SCDynamicStoreAddSession", storePrivate->server);
 
@@ -480,13 +484,13 @@ __SCDynamicStoreAddSession(SCDynamicStorePrivateRef storePrivate)
 			return TRUE;
 		case BOOTSTRAP_UNKNOWN_SERVICE :
 			SCLog(TRUE,
-			      (status == KERN_SUCCESS) ? LOG_DEBUG : LOG_ERR,
+			      (kr == KERN_SUCCESS) ? LOG_DEBUG : LOG_ERR,
 			      CFSTR("SCDynamicStore server not available"));
 			sc_status = kSCStatusNoStoreServer;
 			break;
 		default :
 			SCLog(TRUE,
-			      (status == KERN_SUCCESS) ? LOG_DEBUG : LOG_ERR,
+			      (kr == KERN_SUCCESS) ? LOG_DEBUG : LOG_ERR,
 			      CFSTR("SCDynamicStoreAddSession configopen(): %s"),
 			      SCErrorString(sc_status));
 			break;
@@ -507,32 +511,12 @@ __SCDynamicStoreNullSession(void)
 
 	tsd = __SCGetThreadSpecificData();
 	if (tsd->_sc_store == NULL) {
-#if	!TARGET_IPHONE_SIMULATOR
 		storePrivate = __SCDynamicStoreCreatePrivate(NULL,
 							     CFSTR("NULL session"),
 							     NULL,
 							     NULL);
 		assert(storePrivate != NULL);
-		storePrivate->server = _sc_server;
 		storePrivate->serverNullSession = TRUE;
-#else
-		/*
-		 * In the simulator, this code may be talking to an older version of
-		 * configd that still requires a valid session. Instead of using a
-		 * "NULL" session that uses the server mach port, set up a "normal"
-		 * session in thread-local storage.
-		 */
-		storePrivate = __SCDynamicStoreCreatePrivate(NULL,
-							     CFSTR("Thread local session"),
-							     NULL,
-							     NULL);
-		assert(storePrivate != NULL);
-		/*
-		 * Use MACH_PORT_NULL here to trigger the call to
-		 * __SCDynamicStoreAddSession below.
-		 */
-		storePrivate->server = MACH_PORT_NULL;
-#endif	/* TARGET_IPHONE_SIMULATOR */
 		tsd->_sc_store = (SCDynamicStoreRef)storePrivate;
 	}
 
@@ -571,14 +555,8 @@ __SCDynamicStoreCheckRetryAndHandleError(SCDynamicStoreRef	store,
 	}
 
 	if ((status == MACH_SEND_INVALID_DEST) || (status == MIG_SERVER_DIED)) {
-		/* the server's gone */
-		if (!storePrivate->serverNullSession) {
-			/*
-			 * remove the session's dead name right (and not the
-			 * not the "server" port)
-			 */
-			(void) mach_port_deallocate(mach_task_self(), storePrivate->server);
-		}
+		/* the server's gone, remove the session's dead name right */
+		(void) mach_port_deallocate(mach_task_self(), storePrivate->server);
 		storePrivate->server = MACH_PORT_NULL;
 
 		/* reconnect */

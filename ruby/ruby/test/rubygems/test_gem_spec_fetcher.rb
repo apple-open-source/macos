@@ -52,6 +52,18 @@ class TestGemSpecFetcher < Gem::TestCase
                   ['x',  Gem::Version.new(1),     'ruby']]
   end
 
+  def test_initialize_unwritable_home_dir
+    skip 'chmod not supported' if Gem.win_platform?
+
+    FileUtils.chmod 0000, Gem.user_home
+
+    begin
+      assert Gem::SpecFetcher.new
+    ensure
+      FileUtils.chmod 0755, Gem.user_home
+    end
+  end
+
   def test_spec_for_dependency_all
     d = "#{@gem_repo}#{Gem::MARSHAL_SPEC_DIR}"
     @fetcher.data["#{d}#{@a1.spec_name}.rz"]    = util_zip(Marshal.dump(@a1))
@@ -132,8 +144,10 @@ class TestGemSpecFetcher < Gem::TestCase
 
     assert_equal 0, specs_and_sources.size
     assert_equal 1, errors.size
+    pmm = errors.first
 
-    assert_equal "i386-linux", errors[0].platforms.first
+    assert_equal "i386-linux", pmm.platforms.first
+    assert_equal "Found pl (1), but was for platform i386-linux", pmm.wordy
   end
 
   def test_spec_for_dependency_bad_fetch_spec

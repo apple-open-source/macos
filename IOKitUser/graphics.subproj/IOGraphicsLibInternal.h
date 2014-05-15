@@ -203,7 +203,8 @@ typedef struct GTFTimingCurve GTFTimingCurve;
 enum {
     kExtTagCEA  = 0x02,
     kExtTagVTB  = 0x10,
-    kExtTagDI   = 0x40
+    kExtTagDI   = 0x40,
+    kExtTagDID  = 0x70
 };
 
 
@@ -312,6 +313,47 @@ enum {
     kDTVNumNativeTimings        = 0x0f
 };
 
+struct DisplayIDEXT {
+    UInt8       header;
+    UInt8       version;
+    UInt8       sectionSize;
+    UInt8       productType;
+    UInt8       extensionCount;
+    UInt8       section[122];
+    UInt8       checksum;
+};
+typedef struct DisplayIDEXT DisplayIDEXT;
+
+struct DisplayIDBlock {
+    UInt8       type;
+    UInt8       version;
+    UInt8       size;
+    UInt8       data[0];
+};
+typedef struct DisplayIDBlock DisplayIDBlock;
+
+enum { kDIDBlockTypeDetailedType1 = 0x03 };
+
+struct DisplayIDDetailedType1 {
+    UInt8       pixelClock[3];
+    UInt8       flags;
+    UInt8       horizActive[2];
+    UInt8       horizBlanking[2];
+    UInt8       horizSyncOffset[2];
+    UInt8       horizSyncWidth[2];
+    UInt8       verticalActive[2];
+    UInt8       verticalBlanking[2];
+    UInt8       verticalSyncOffset[2];
+    UInt8       verticalSyncWidth[2];
+};
+typedef struct DisplayIDDetailedType1 DisplayIDDetailedType1;
+
+struct DisplayIDBlockDetailedType1 {
+    DisplayIDBlock         header;
+    DisplayIDDetailedType1 detailed[0];
+};
+typedef struct DisplayIDBlockDetailedType1 DisplayIDBlockDetailedType1;
+
 enum { kNumVendors = 4, kAllVendors = 0 };
 enum {
     kIODisplayDitherControlDefault   =  kIODisplayDitherDefault << kIODisplayDitherRGBShift
@@ -392,6 +434,7 @@ struct IOFBConnect
     IOItemCount                 arbModeBase;
     IODisplayModeID             arbModeIDSeed;
     IODisplayModeID             startMode;
+    IOIndex                     startDepth;
     IODisplayModeID             matchMode;
     IOIndex                     matchDepth;
     IODisplayModeID             defaultMode;
@@ -451,6 +494,14 @@ struct IOFBConnect
     Boolean                     displayMirror;
     Boolean                     didPowerOff;
     Boolean						opened;
+
+    // <rdar://problem/16230274>
+    // When rebuilding mode lists during a mux switch, the subsequent
+    // mode set looks for a mode with a matching timing and sets the
+    // alias mode flag. However if this occurs more than once, the
+    // current mode is no longer marked as an alias mode but we still
+    // need to treat mode switches as if the alias mode flag was set.
+    Boolean                     inMuxSwitch;
 
     struct IOAccelConnectStruct * transformSurface;
 

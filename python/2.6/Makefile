@@ -13,11 +13,8 @@ endif
 # Extra_CC_Flags and Extra_LD_Flags are needed because CFLAGS gets overridden
 # by the RC_* variables.  These values would normally be set by the default
 # python Makefile
-#
-# Workaround for 3281234 (test_coercion failure due to non IEEE-754 in
-# optimizer): add -mno-fused-madd flag
 ##---------------------------------------------------------------------
-Extra_CC_Flags += -fno-common -fno-strict-aliasing -fwrapv -mno-fused-madd -DENABLE_DTRACE -DMACOSX -DNDEBUG -Wall -Wstrict-prototypes -Wshorten-64-to-32
+Extra_CC_Flags += -fno-common -fno-strict-aliasing -fwrapv -DENABLE_DTRACE -DMACOSX -DNDEBUG -Wall -Wstrict-prototypes -Wshorten-64-to-32
 Extra_LD_Flags += -Wl,-F.
 Extra_Install_Flags   = DESTDIR='$(DSTROOT)'
 GnuAfterInstall       = fixup-after-install install-plist

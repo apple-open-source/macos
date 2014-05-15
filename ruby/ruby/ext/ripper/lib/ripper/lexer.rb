@@ -1,5 +1,5 @@
 #
-# $Id: lexer.rb 38273 2012-12-08 07:06:24Z marcandre $
+# $Id: lexer.rb 44985 2014-02-15 16:01:02Z nagachika $
 #
 # Copyright (c) 2004,2005 Minero Aoki
 #
@@ -12,7 +12,7 @@ require 'ripper/core'
 
 class Ripper
 
-  # Tokenizes the Ruby program and returns an Array of String.
+  # Tokenizes the Ruby program and returns an array of strings.
   #
   #   p Ripper.tokenize("def m(a) nil end")
   #      # => ["def", " ", "m", "(", "a", ")", " ", "nil", " ", "end"]
@@ -21,7 +21,7 @@ class Ripper
     Lexer.new(src, filename, lineno).tokenize
   end
 
-  # Tokenizes the Ruby program and returns an Array of an Array,
+  # Tokenizes the Ruby program and returns an array of an array,
   # which is formatted like <code>[[lineno, column], type, token]</code>.
   #
   #   require 'ripper'

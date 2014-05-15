@@ -213,6 +213,8 @@ static void tests(void)
 
     // Both in circle.
 
+    // Emulation of <rdar://problem/13919554> Innsbruck11A368 +Roots: Device A was removed when Device B joined.
+
     // We want Alice to leave circle while an Applicant on a full concordance signed circle with old-Alice as an Alum and Bob a peer.
     // ZZZ
     ok(SOSAccountLeaveCircles(alice_account, &error), "Alice leaves once more  (%@)", error);

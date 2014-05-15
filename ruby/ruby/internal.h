@@ -178,6 +178,8 @@ VALUE num_interval_step_size(VALUE from, VALUE to, VALUE step, int excl);
 int ruby_float_step(VALUE from, VALUE to, VALUE step, int excl);
 double ruby_float_mod(double x, double y);
 int rb_num_negative_p(VALUE);
+VALUE rb_int_succ(VALUE num);
+VALUE rb_int_pred(VALUE num);
 
 /* object.c */
 VALUE rb_obj_equal(VALUE obj1, VALUE obj2);
@@ -282,6 +284,7 @@ VALUE rb_str_quote_unprintable(VALUE);
 VALUE rb_id_quote_unprintable(ID);
 #define QUOTE(str) rb_str_quote_unprintable(str)
 #define QUOTE_ID(id) rb_id_quote_unprintable(id)
+VALUE rb_str_locktmp_ensure(VALUE str, VALUE (*func)(VALUE), VALUE arg);
 
 /* struct.c */
 VALUE rb_struct_init_copy(VALUE copy, VALUE s);

@@ -62,6 +62,7 @@ extern const char *entitlements;		// path to entitlement configuration input
 extern const char *resourceRules;		// explicit resource rules template
 extern const char *uniqueIdentifier;	// unique ident hash
 extern const char *identifierPrefix;	// prefix for un-dotted default identifiers
+extern const char *teamID;              // TeamID
 extern const char *modifiedFiles;		// file to receive list of modified files
 extern const char *extractCerts;		// location for extracting signing chain certificates
 extern const char *sdkRoot;				// alternate root for looking up sub-components

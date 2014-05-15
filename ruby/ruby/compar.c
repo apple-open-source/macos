@@ -2,7 +2,7 @@
 
   compar.c -
 
-  $Author: drbrain $
+  $Author: nagachika $
   created at: Thu Aug 26 14:39:48 JST 1993
 
   Copyright (C) 1993-2007 Yukihiro Matsumoto
@@ -52,9 +52,16 @@ rb_invcmp(VALUE x, VALUE y)
 }
 
 static VALUE
+cmp_eq_recursive(VALUE arg1, VALUE arg2, int recursive)
+{
+    if (recursive) return Qfalse;
+    return rb_funcall(arg1, cmp, 1, arg2);
+}
+
+static VALUE
 cmp_eq(VALUE *a)
 {
-    VALUE c = rb_funcall(a[0], cmp, 1, a[1]);
+    VALUE c = rb_exec_recursive_paired_outer(cmp_eq_recursive, a[0], a[1], a[1]);
 
     if (NIL_P(c)) return Qfalse;
     if (rb_cmpint(c, a[0], a[1]) == 0) return Qtrue;

@@ -1218,6 +1218,19 @@ class TestIO < Test::Unit::TestCase
     end
   end
 
+  def test_close_read_write_separately
+    bug = '[ruby-list:49598]'
+    (1..10).each do |i|
+      assert_nothing_raised(IOError, "#{bug} trying ##{i}") do
+        IO.popen(EnvUtil.rubybin, "r+") {|f|
+          th = Thread.new {f.close_write}
+          f.close_read
+          th.join
+        }
+      end
+    end
+  end
+
   def test_pid
     r, w = IO.pipe
     assert_equal(nil, r.pid)
@@ -1232,6 +1245,17 @@ class TestIO < Test::Unit::TestCase
     assert_equal(pid2, pipe.pid)
     pipe.close
     assert_raise(IOError) { pipe.pid }
+  end
+
+  def tesst_pid_after_close_read
+    pid1 = pid2 = nil
+    IO.popen(["echo", ""], "r+") do |io|
+      pid1 = io.pid
+      io.close_read
+      pid2 = io.pid
+    end
+    assert_not_nil(pid1)
+    assert_equal(pid1, pid2)
   end
 
   def make_tempfile
@@ -2710,4 +2734,46 @@ End
       end
     }
   end if /mswin|mingw/ =~ RUBY_PLATFORM
+
+  def test_read_unlocktmp_ensure
+    bug8669 = '[ruby-core:56121] [Bug #8669]'
+
+    str = ""
+    r, = IO.pipe
+    t = Thread.new { r.read(nil, str) }
+    sleep 0.1 until t.stop?
+    t.raise
+    sleep 0.1 while t.alive?
+    assert_nothing_raised(RuntimeError, bug8669) { str.clear }
+  ensure
+    t.kill
+  end
+
+  def test_readpartial_unlocktmp_ensure
+    bug8669 = '[ruby-core:56121] [Bug #8669]'
+
+    str = ""
+    r, = IO.pipe
+    t = Thread.new { r.readpartial(4096, str) }
+    sleep 0.1 until t.stop?
+    t.raise
+    sleep 0.1 while t.alive?
+    assert_nothing_raised(RuntimeError, bug8669) { str.clear }
+  ensure
+    t.kill
+  end
+
+  def test_sysread_unlocktmp_ensure
+    bug8669 = '[ruby-core:56121] [Bug #8669]'
+
+    str = ""
+    r, = IO.pipe
+    t = Thread.new { r.sysread(4096, str) }
+    sleep 0.1 until t.stop?
+    t.raise
+    sleep 0.1 while t.alive?
+    assert_nothing_raised(RuntimeError, bug8669) { str.clear }
+  ensure
+    t.kill
+  end
 end

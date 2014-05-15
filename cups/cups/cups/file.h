@@ -1,5 +1,5 @@
 /*
- * "$Id: file.h 11093 2013-07-03 20:48:42Z msweet $"
+ * "$Id: file.h 11693 2014-03-11 01:24:45Z msweet $"
  *
  *   Public file definitions for CUPS.
  *
@@ -16,6 +16,8 @@
  *   law.  Distribution and use rights are outlined in the file "LICENSE.txt"
  *   which should have been included with this file.  If this file is
  *   file is missing or damaged, see the license at "http://www.cups.org/".
+ *
+ *   This file is subject to the Apple OS-Developed Software exception.
  */
 
 #ifndef _CUPS_FILE_H_
@@ -112,5 +114,5 @@ extern ssize_t		cupsFileWrite(cups_file_t *fp, const char *buf,
 #endif /* !_CUPS_FILE_H_ */
 
 /*
- * End of "$Id: file.h 11093 2013-07-03 20:48:42Z msweet $".
+ * End of "$Id: file.h 11693 2014-03-11 01:24:45Z msweet $".
  */

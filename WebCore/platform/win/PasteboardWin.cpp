@@ -677,7 +677,7 @@ void Pasteboard::writeURLToDataObject(const KURL& kurl, const String& titleStr, 
     fgd->fgd[0].dwFlags = FD_FILESIZE;
     fgd->fgd[0].nFileSizeLow = content.length();
 
-    unsigned maxSize = std::min(fsPath.length(), WTF_ARRAY_LENGTH(fgd->fgd[0].cFileName));
+    unsigned maxSize = std::min<unsigned>(fsPath.length(), WTF_ARRAY_LENGTH(fgd->fgd[0].cFileName));
     CopyMemory(fgd->fgd[0].cFileName, fsPath.characters(), maxSize * sizeof(UChar));
     GlobalUnlock(urlFileDescriptor);
 
@@ -734,7 +734,7 @@ void Pasteboard::writeImage(Node* node, const KURL&, const String&)
 {
     ASSERT(node);
 
-    if (!(node->renderer() && node->renderer()->isImage()))
+    if (!(node->renderer() && node->renderer()->isRenderImage()))
         return;
 
     RenderImage* renderer = toRenderImage(node->renderer());
@@ -885,7 +885,7 @@ static CachedImage* getCachedImage(Element* element)
     // Attempt to pull CachedImage from element
     ASSERT(element);
     RenderObject* renderer = element->renderer();
-    if (!renderer || !renderer->isImage()) 
+    if (!renderer || !renderer->isRenderImage())
         return 0;
 
     RenderImage* image = toRenderImage(renderer);
@@ -929,7 +929,7 @@ static HGLOBAL createGlobalImageFileDescriptor(const String& url, const String& 
         return 0;
     }
 
-    int maxSize = std::min(fsPath.length(), WTF_ARRAY_LENGTH(fgd->fgd[0].cFileName));
+    int maxSize = std::min<int>(fsPath.length(), WTF_ARRAY_LENGTH(fgd->fgd[0].cFileName));
     CopyMemory(fgd->fgd[0].cFileName, (LPCWSTR)fsPath.characters(), maxSize * sizeof(UChar));
     GlobalUnlock(memObj);
 

@@ -176,6 +176,12 @@ void dump(const char *target)
 		note(1, "Info.plist entries=%d", CFDictionaryGetCount(info));
 	else
 		note(1, "Info.plist=not bound");
+    
+	if (CFStringRef teamID = api.get<CFStringRef>(kSecCodeInfoTeamIdentifier))
+		note(1, "TeamIdentifier=%s", cfString(teamID).c_str());
+	else
+		note(1, "TeamIdentifier=not set");
+
 	
 	if (CFDictionaryRef resources = api.get<CFDictionaryRef>(kSecCodeInfoResourceDirectory)) {
 		CFDictionaryRef rules1 =

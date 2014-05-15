@@ -894,6 +894,8 @@ Certificate::copyDNSNames()
 		/* Encoding is kCFStringEncodingUTF8 since the string is either
 		   PRINTABLE_STRING, IA5_STRING, T61_STRING or PKIX_UTF8_STRING. */
 		CFStringRef string = CFStringCreateWithBytes(NULL, it->Data, static_cast<CFIndex>(it->Length), kCFStringEncodingUTF8, true);
+		/* Be prepared for improperly formatted (non-UTF8) strings! */
+		if (!string) continue;
 		CFArrayAppendValue(array, string);
 		CFRelease(string);
 	}
@@ -932,6 +934,8 @@ Certificate::copyEmailAddresses()
 		/* Encoding is kCFStringEncodingUTF8 since the string is either
 		   PRINTABLE_STRING, IA5_STRING, T61_STRING or PKIX_UTF8_STRING. */
 		CFStringRef string = CFStringCreateWithBytes(NULL, it->Data, static_cast<CFIndex>(it->Length), kCFStringEncodingUTF8, true);
+		/* Be prepared for improperly formatted (non-UTF8) strings! */
+		if (!string) continue;
 		CFArrayAppendValue(array, string);
 		CFRelease(string);
 	}

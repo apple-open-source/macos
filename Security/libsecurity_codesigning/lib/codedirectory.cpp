@@ -143,6 +143,8 @@ void CodeDirectory::checkIntegrity() const
 	// now check interior offsets for validity
 	if (!stringAt(identOffset))
 		MacOSError::throwMe(errSecCSSignatureFailed); // identifier out of blob range
+	if (version >= supportsTeamID && teamIDOffset != 0 && !stringAt(teamIDOffset))
+			MacOSError::throwMe(errSecCSSignatureFailed); // identifier out of blob range
 	if (!contains(hashOffset - int64_t(hashSize) * nSpecialSlots, hashSize * (int64_t(nSpecialSlots) + nCodeSlots)))
 		MacOSError::throwMe(errSecCSSignatureFailed); // hash array out of blob range
 	if (const Scatter *scatter = this->scatterVector()) {
@@ -292,5 +294,6 @@ const SecCodeDirectoryFlagTable kSecCodeDirectoryFlagTable[] = {
 	{ "expires",		kSecCodeSignatureForceExpiration,	true },
 	{ "restrict",		kSecCodeSignatureRestrict,		true },
 	{ "enforcement",	kSecCodeSignatureEnforcement,		true },
+	{ "library-validation", kSecCodeSignatureLibraryValidation,		true },
 	{ NULL }
 };

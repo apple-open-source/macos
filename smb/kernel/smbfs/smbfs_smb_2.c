@@ -611,6 +611,7 @@ resend:
     /* 
      * Build the Read request 
      */
+    readp->flags = 0;
     readp->remaining = 0;
     readp->write_flags = 0;
     fid = 0xffffffffffffffff;   /* fid is -1 for compound requests */

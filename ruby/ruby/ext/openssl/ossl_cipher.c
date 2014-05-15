@@ -1,5 +1,5 @@
 /*
- * $Id: ossl_cipher.c 38492 2012-12-20 07:42:56Z emboss $
+ * $Id: ossl_cipher.c 44659 2014-01-19 16:28:53Z nagachika $
  * 'OpenSSL for Ruby' project
  * Copyright (C) 2001-2002  Michal Rokos <m.rokos@sh.cvut.cz>
  * All rights reserved.
@@ -213,9 +213,9 @@ ossl_cipher_init(int argc, VALUE *argv, VALUE self, int mode)
 	 * We deprecated the arguments for this method, but we decided
 	 * keeping this behaviour for backward compatibility.
 	 */
-	const char *cname  = rb_class2name(rb_obj_class(self));
-	rb_warn("arguments for %s#encrypt and %s#decrypt were deprecated; "
-                "use %s#pkcs5_keyivgen to derive key and IV",
+	VALUE cname  = rb_class_path(rb_obj_class(self));
+	rb_warn("arguments for %"PRIsVALUE"#encrypt and %"PRIsVALUE"#decrypt were deprecated; "
+                "use %"PRIsVALUE"#pkcs5_keyivgen to derive key and IV",
                 cname, cname, cname);
 	StringValue(pass);
 	GetCipher(self, ctx);

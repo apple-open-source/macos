@@ -108,11 +108,24 @@ CodeDirectory::Scatter *CodeDirectory::Builder::scatter(unsigned count)
 	return mScatter;
 }
 
+// This calculates the fixed size of the code directory
+// Because of <rdar://problem/16102695>, if the team ID
+// field is not used, we leave out the team ID offset
+// as well, to keep cd hashes consistent between
+// versions.
+const size_t CodeDirectory::Builder::fixedSize(const uint32_t version)
+{
+	size_t cdSize = sizeof(CodeDirectory);
+	if (version < supportsTeamID)
+		cdSize -= sizeof(mDir->teamIDOffset);
+
+	return cdSize;
+}
 
 //
 // Calculate the size we'll need for the CodeDirectory as described so far
 //
-size_t CodeDirectory::Builder::size()
+size_t CodeDirectory::Builder::size(const uint32_t version)
 {
 	assert(mExec);			// must have called executable()
 	if (mExecLength == 0)
@@ -125,10 +138,14 @@ size_t CodeDirectory::Builder::size()
 		mCodeSlots = (mExecLength + mPageSize - 1) / mPageSize; // round up
 	}
 		
-	size_t offset = sizeof(CodeDirectory);
+	size_t offset = fixedSize(version);
+	
 	offset += mScatterSize;				// scatter vector
 	offset += mIdentifier.size() + 1;	// size of identifier (with null byte)
+	if (mTeamID.size())
+		offset += mTeamID.size() + 1;	// size of teamID (with null byte)
 	offset += (mCodeSlots + mSpecialSlots) * mDigestLength; // hash vector
+
 	return offset;
 }
 
@@ -149,16 +166,26 @@ size_t CodeDirectory::Builder::size()
 CodeDirectory *CodeDirectory::Builder::build()
 {
 	assert(mExec);			// must have (successfully) called executable()
-
+	uint32_t version;
+	
 	// size and allocate
 	size_t identLength = mIdentifier.size() + 1;
-	size_t total = size();
+	size_t teamIDLength = mTeamID.size() + 1;
+	
+	// Determine the version
+	if (mTeamID.size()) {
+		version = currentVersion;
+	} else {
+		version = supportsScatter;
+	}
+	
+	size_t total = size(version);
 	if (!(mDir = (CodeDirectory *)calloc(1, total)))	// initialize to zero
 		UnixError::throwMe(ENOMEM);
 	
 	// fill header
 	mDir->initialize(total);
-	mDir->version = currentVersion;
+	mDir->version = version;
 	mDir->flags = mFlags;
 	mDir->nSpecialSlots = (uint32_t)mSpecialSlots;
 	mDir->nCodeSlots = (uint32_t)mCodeSlots;
@@ -175,8 +202,8 @@ CodeDirectory *CodeDirectory::Builder::build()
 		mDir->pageSize = 0;	// means infinite page size
 
 	// locate and fill flex fields
-	size_t offset = sizeof(CodeDirectory);
-
+	size_t offset = fixedSize(mDir->version);
+	
 	if (mScatter) {
 		mDir->scatterOffset = (uint32_t)offset;
 		memcpy(mDir->scatterVector(), mScatter, mScatterSize);
@@ -186,7 +213,12 @@ CodeDirectory *CodeDirectory::Builder::build()
 	mDir->identOffset = (uint32_t)offset;
 	memcpy(mDir->identifier(), mIdentifier.c_str(), identLength);
 	offset += identLength;
-
+	
+	if (mTeamID.size()) {
+		mDir->teamIDOffset = (uint32_t)offset;
+		memcpy(mDir->teamID(), mTeamID.c_str(), teamIDLength);
+		offset += teamIDLength;
+	}
 	// (add new flexibly-allocated fields here)
 
 	mDir->hashOffset = (uint32_t)(offset + mSpecialSlots * mDigestLength);

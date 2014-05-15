@@ -175,8 +175,13 @@ classname(VALUE klass, int *permanent)
 		path = find_class_path(klass, (ID)0);
 	    }
 	    if (NIL_P(path)) {
-		if (!cid || !st_lookup(RCLASS_IV_TBL(klass), (st_data_t)tmp_classpath, &n)) {
+		if (!cid) {
 		    return Qnil;
+		}
+		if (!st_lookup(RCLASS_IV_TBL(klass), (st_data_t)tmp_classpath, &n)) {
+		    path = rb_str_dup(rb_id2str(cid));
+		    OBJ_FREEZE(path);
+		    return path;
 		}
 		*permanent = 0;
 		path = (VALUE)n;
@@ -2495,8 +2500,9 @@ cvar_list(void *data)
  *     class Two < One
  *       @@var2 = 2
  *     end
- *     One.class_variables   #=> [:@@var1]
- *     Two.class_variables   #=> [:@@var2, :@@var1]
+ *     One.class_variables          #=> [:@@var1]
+ *     Two.class_variables          #=> [:@@var2, :@@var1]
+ *     Two.class_variables(false)   #=> [:@@var2]
  */
 
 VALUE

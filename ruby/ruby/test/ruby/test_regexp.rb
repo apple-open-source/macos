@@ -500,6 +500,12 @@ class TestRegexp < Test::Unit::TestCase
     assert_equal('foo[\z]baz', "foobarbaz".sub!(/(b..)/, '[\z]'))
   end
 
+  def test_regsub_K
+    bug8856 = '[ruby-dev:47694] [Bug #8856]'
+    result = "foobarbazquux/foobarbazquux".gsub(/foo\Kbar/, "")
+    assert_equal('foobazquux/foobazquux', result, bug8856)
+  end
+
   def test_KCODE
     assert_nil($KCODE)
     assert_nothing_raised { $KCODE = nil }
@@ -941,5 +947,22 @@ class TestRegexp < Test::Unit::TestCase
     assert_equal false, /x/=== 42
     err = assert_raise(TypeError){ Regexp.quote(42) }
     assert_equal 'no implicit conversion of Fixnum into String', err.message, bug7539
+  end
+
+  def test_conditional_expression
+    bug8583 = '[ruby-dev:47480] [Bug #8583]'
+
+    conds = {"xy"=>true, "yx"=>true, "xx"=>false, "yy"=>false}
+    assert_match_each(/\A((x)|(y))(?(2)y|x)\z/, conds, bug8583)
+    assert_match_each(/\A((?<x>x)|(?<y>y))(?(<x>)y|x)\z/, conds, bug8583)
+  end
+
+  def assert_match_each(re, conds, msg = nil)
+    errs = conds.select {|str, match| match ^ (re =~ str)}
+    msg = message(msg) {
+      "Expected #{re.inspect} to\n" +
+      errs.map {|str, match| "\t#{'not ' unless match}match #{str.inspect}"}.join(",\n")
+    }
+    assert(errs.empty?, msg)
   end
 end

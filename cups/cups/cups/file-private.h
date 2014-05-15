@@ -1,5 +1,5 @@
 /*
- * "$Id: file-private.h 3253 2011-05-13 23:04:41Z msweet $"
+ * "$Id: file-private.h 11693 2014-03-11 01:24:45Z msweet $"
  *
  *   Private file definitions for CUPS.
  *
@@ -16,6 +16,8 @@
  *   law.  Distribution and use rights are outlined in the file "LICENSE.txt"
  *   which should have been included with this file.  If this file is
  *   file is missing or damaged, see the license at "http://www.cups.org/".
+ *
+ *   This file is subject to the Apple OS-Developed Software exception.
  */
 
 #ifndef _CUPS_FILE_PRIVATE_H_
@@ -133,5 +135,5 @@ extern void			_cupsFileCheckFilter(void *context,
 #endif /* !_CUPS_FILE_PRIVATE_H_ */
 
 /*
- * End of "$Id: file-private.h 3253 2011-05-13 23:04:41Z msweet $".
+ * End of "$Id: file-private.h 11693 2014-03-11 01:24:45Z msweet $".
  */

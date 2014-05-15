@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2012 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2014 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -1912,7 +1912,7 @@ IOReturn IOAudioEngineUserClient::performClientIO(UInt32 firstSampleFrame, UInt3
         } 
 		else 
 		{
-			audioDebugIOLog(3, "  AUDIO OFFLINE\n");
+			audioDebugIOLog(3, "IOAudioEngineUserClient[%p] - AUDIO OFFLINE. online=%d. state=%d. loopCount=%d, lastLoopTime=%d\n", isOnline(), audioEngine->getState(), audioEngine->status->fCurrentLoopCount, audioEngine->status->fLastLoopTime);
  	        result = kIOReturnOffline;
         }
         
@@ -2585,21 +2585,28 @@ IOReturn IOAudioEngineUserClient::startClient()
                         while (clientBuffer) {
                             if (clientBuffer->mAudioClientBuffer32.audioStream) {
 								audioDebugIOLog(3, "  output clientBuffer %p \n", clientBuffer);
-                               result = clientBuffer->mAudioClientBuffer32.audioStream->addClient( &clientBuffer->mAudioClientBuffer32 ); 
+                                result = clientBuffer->mAudioClientBuffer32.audioStream->addClient( &clientBuffer->mAudioClientBuffer32 ); 
                                 if (result != kIOReturnSuccess) {
+									audioEngine->stopClient(this);				//	<rdar://13412666> stopClient on failure
                                     break;
                                 }
                             }
                             clientBuffer = clientBuffer->mNextBuffer64;
                         }
             
-                        clientBuffer = bufferSet->inputBufferList;
-                        while (clientBuffer) {
-							audioDebugIOLog(3, "  input clientBuffer %p \n", clientBuffer);
-							if (clientBuffer->mAudioClientBuffer32.audioStream) {
-                                clientBuffer->mAudioClientBuffer32.audioStream->addClient( &( clientBuffer->mAudioClientBuffer32 ) ); 
-                            }
-                            clientBuffer = clientBuffer->mNextBuffer64;
+						if (result == kIOReturnSuccess) {
+							clientBuffer = bufferSet->inputBufferList;
+							while (clientBuffer) {
+								audioDebugIOLog(3, "  input clientBuffer %p \n", clientBuffer);
+								if (clientBuffer->mAudioClientBuffer32.audioStream) {
+									result = clientBuffer->mAudioClientBuffer32.audioStream->addClient( &( clientBuffer->mAudioClientBuffer32 ) );
+									if (result != kIOReturnSuccess) {
+										audioEngine->stopClient(this);				//	<rdar://13412666> stopClient on failure
+										break;
+									}
+								}
+								clientBuffer = clientBuffer->mNextBuffer64;
+							}
                         }
                         
                         bufferSet->resetNextOutputPosition();

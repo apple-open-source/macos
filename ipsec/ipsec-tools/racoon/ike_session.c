@@ -1824,7 +1824,7 @@ ike_session_drop_rekey (ike_session_t *session, ike_session_rekey_type_t rekey_t
 			}
 		} else if (!session->is_btmm_ipsec) {
 			if (rekey_type == IKE_SESSION_REKEY_TYPE_PH1 &&
-				!ike_session_has_negoing_ph2(session)) {
+				!ike_session_has_negoing_ph2(session) && !ike_session_has_established_ph2(session)) {
 				// for vpn: only drop ph1 if there are no more ph2s.
 				plog(ASL_LEVEL_DEBUG, "vpn session is idle: drop ph1 rekey.\n");
 				return 1;

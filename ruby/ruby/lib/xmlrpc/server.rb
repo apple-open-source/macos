@@ -430,7 +430,7 @@ class CGIServer < BasicServer
         </head>
         <body>
           <h1>#{err}</h1>
-          <p>Unexpected error occured while processing XML-RPC request!</p>
+          <p>Unexpected error occurred while processing XML-RPC request!</p>
         </body>
       </html>
     MSGEND
@@ -505,7 +505,7 @@ class ModRubyServer < BasicServer
         </head>
         <body>
           <h1>#{err}</h1>
-          <p>Unexpected error occured while processing XML-RPC request!</p>
+          <p>Unexpected error occurred while processing XML-RPC request!</p>
         </body>
       </html>
     MSGEND
@@ -702,6 +702,6 @@ end # module XMLRPC
 
 =begin
 = History
-    $Id: server.rb 36958 2012-09-13 02:22:10Z zzak $
+    $Id: server.rb 44391 2013-12-24 15:46:01Z nagachika $
 =end
 

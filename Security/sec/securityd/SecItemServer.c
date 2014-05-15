@@ -611,12 +611,12 @@ struct sql_stages {
    the script in the main table.
     {pre,main,post, reencode} */
 static struct sql_stages s3dl_upgrade_script[] = {
-    { -1, 0, 1, false },/* 0->current: Create version 6 database. */
-    {},                 /* 1->current: Upgrade to version 6 from version 1 -- Unsupported. */
-    {},                 /* 2->current: Upgrade to version 6 from version 2 -- Unsupported */
-    {},                 /* 3->current: Upgrade to version 6 from version 3 -- Unsupported */
-    {},                 /* 4->current: Upgrade to version 6 from version 4 -- Unsupported */
-    { 3, 0, 7, true },  /* 5->current: Upgrade to version 6 from version 5 */
+    { -1, 0, 1, false },/* 0->current: Create version 6 (Innsbruck) database. */
+    {},                 /* 1->current: Upgrade to version 6 from version 1 (LittleBear) -- Unsupported. */
+    {},                 /* 2->current: Upgrade to version 6 from version 2 (BigBearBeta) -- Unsupported */
+    {},                 /* 3->current: Upgrade to version 6 from version 3 (Apex) -- Unsupported */
+    {},                 /* 4->current: Upgrade to version 6 from version 4 (Telluride) -- Unsupported */
+    { 3, 0, 7, true },  /* 5->current: Upgrade to version 6 from version 5 (TellurideGM). */
 };
 
 static bool sql_run_script(SecDbConnectionRef dbt, int number, CFErrorRef *error)

@@ -955,6 +955,7 @@ mnew(VALUE klass, VALUE obj, ID id, VALUE mclass, int scope)
 		def->type = VM_METHOD_TYPE_MISSING;
 		def->original_id = id;
 		def->alias_count = 0;
+		defined_class = klass;
 
 		meb.flag = 0;
 		meb.mark = 0;
@@ -996,10 +997,6 @@ mnew(VALUE klass, VALUE obj, ID id, VALUE mclass, int scope)
     while (rclass != klass &&
 	   (FL_TEST(rclass, FL_SINGLETON) || RB_TYPE_P(rclass, T_ICLASS))) {
 	rclass = RCLASS_SUPER(rclass);
-    }
-
-    if (RB_TYPE_P(klass, T_ICLASS)) {
-	klass = RBASIC(klass)->klass;
     }
 
   gen_method:
@@ -1172,9 +1169,16 @@ static VALUE
 method_owner(VALUE obj)
 {
     struct METHOD *data;
+    VALUE defined_class;
 
     TypedData_Get_Struct(obj, struct METHOD, &method_data_type, data);
-    return data->me->klass;
+    defined_class = data->defined_class;
+
+    if (RB_TYPE_P(defined_class, T_ICLASS)) {
+	defined_class = RBASIC(defined_class)->klass;
+    }
+
+    return defined_class;
 }
 
 void

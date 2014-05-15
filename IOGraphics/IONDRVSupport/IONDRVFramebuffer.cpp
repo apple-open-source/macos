@@ -1154,12 +1154,12 @@ IOReturn IONDRVFramebuffer::extStatus( OSObject * owner, void * code, void * par
 
 IOReturn IONDRVFramebuffer::doControl( UInt32 code, void * params )
 {
-    return (getControllerWorkLoop()->runAction((IOWorkLoop::Action) &extControl, this, (void *) code, params));
+    return (getControllerWorkLoop()->runAction((IOWorkLoop::Action) &extControl, this, (void *)(uintptr_t) code, params));
 }
 
 IOReturn IONDRVFramebuffer::doStatus( UInt32 code, void * params )
 {
-    return (getControllerWorkLoop()->runAction((IOWorkLoop::Action) &extStatus, this, (void *) code, params));
+    return (getControllerWorkLoop()->runAction((IOWorkLoop::Action) &extStatus, this, (void *)(uintptr_t) code, params));
 }
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -1822,10 +1822,10 @@ void IONDRVFramebuffer::getCurrentConfiguration( void )
 
         if (vAddr)
         {
-            page = pmap_find_phys(kernel_pmap, vAddr);
-            if (!page)
-                panic("pmap_find_phys %qx", vAddr);
-            __private->physicalFramebuffer = ptoa_64(page) + (PAGE_MASK & vAddr);
+			if (vAddr & 1) page = atop_64(vAddr);
+			else           page = pmap_find_phys(kernel_pmap, vAddr);
+            if (!page) panic("pmap_find_phys %qx", vAddr);
+            __private->physicalFramebuffer = ptoa_64(page) + (PAGE_MASK & vAddr & ~1);
         }
     }
 }
@@ -1870,14 +1870,6 @@ IODeviceMemory * IONDRVFramebuffer::getApertureRange( IOPixelAperture aper )
     IOReturn                    err;
     IOPixelInformation          info;
     IOByteCount                 bytes;
-
-    if (!__private->physicalFramebuffer)
-    {
-        if (!vramMemory)
-            vramMemory = getVRAMRange();
-        if (vramMemory)
-            __private->physicalFramebuffer = vramMemory->getPhysicalSegment(0, 0, kIOMemoryMapperNone);
-    }
 
     if (!__private->physicalFramebuffer)
         return (NULL);
@@ -3787,7 +3779,7 @@ IOReturn IONDRVFramebuffer::ndrvUpdatePowerState( void )
     VDPowerStateRec     sleepInfo;
     bool                supportsReducedPower;
 
-    super::handleEvent( kIOFBNotifyWillChangeSpeed, (void *) __private->reducedSpeed );
+    super::handleEvent( kIOFBNotifyWillChangeSpeed, (void *)(uintptr_t) __private->reducedSpeed );
 
     sleepInfo.powerState = 0;
     sleepInfo.powerFlags = 0;
@@ -3812,7 +3804,7 @@ IOReturn IONDRVFramebuffer::ndrvUpdatePowerState( void )
     else
         err = kIOReturnUnsupported;
 
-    super::handleEvent( kIOFBNotifyDidChangeSpeed, (void *) __private->reducedSpeed );
+    super::handleEvent( kIOFBNotifyDidChangeSpeed, (void *)(uintptr_t) __private->reducedSpeed );
 
     return (err);
 }
@@ -4202,7 +4194,7 @@ IOReturn IOBootNDRV::doStatus( UInt32 code, void * params )
                 switchInfo->csData     = kIOBootNDRVDisplayMode;
                 switchInfo->csMode     = kDepthMode1;
                 switchInfo->csPage     = 1;
-                switchInfo->csBaseAddr = NULL;
+                switchInfo->csBaseAddr = (char *)(1 | fVRAMDesc->getPhysicalSegment(0, NULL, kIOMemoryMapperNone));
                 ret = kIOReturnSuccess;
             }
             break;

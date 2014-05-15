@@ -1,3 +1,144 @@
+2014-03-21  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r166026.
+
+    2014-03-20  Alexey Proskuryakov  <ap@apple.com>
+    
+            Generalize WebInspector check in maybeInitializeSandboxExtensionHandle().
+            https://bugs.webkit.org/show_bug.cgi?id=130079
+            <rdar://problem/16286683>
+    
+            Reviewed by Anders Carlsson.
+    
+            * UIProcess/WebPageProxy.cpp: (WebKit::WebPageProxy::maybeInitializeSandboxExtensionHandle):
+            Perform an early return for all paths that don't need a sandbox extension due to
+            access being assumed, not only for WebInspector pages.
+    
+            * UIProcess/WebProcessProxy.cpp:
+            (WebKit::WebProcessProxy::hasAssumedReadAccessToURL):
+            (WebKit::WebProcessProxy::checkURLReceivedFromWebProcess):
+            * UIProcess/WebProcessProxy.h:
+            Factored out m_localPathsWithAssumedReadAccess iteration to a public function.
+    
+2014-03-18  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Add a newline to the end of WKPreferences.cpp to suppress -Werror, -pedantic, and -Wnewline-eof.
+
+        Unreviewed build fix.
+
+        * UIProcess/API/C/WKPreferences.cpp:
+        (WKPreferencesGetEnableInheritURIQueryComponent):
+
+2014-03-18  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Remove consecutive single quotations, as the C compiler does not recognize scheme comments.
+
+        Unreviewed build fix.
+
+        * WebProcess/com.apple.WebProcess.sb.in:
+
+2014-03-18  Jer Noble  <jer.noble@apple.com>
+
+        Unreviewed Mountain Lion build fix.  Work around "empty character constant" error
+        by replacing double single-quotes with single double-quotes.
+
+        * NetworkProcess/mac/com.apple.WebKit.NetworkProcess.sb.in:
+
+2014-03-17  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r165753.
+
+    2014-03-17  Brent Fulgham  <bfulgham@apple.com>
+    
+            Provide preference to enable additional AVFoundation options
+            https://bugs.webkit.org/show_bug.cgi?id=130275
+    
+            Reviewed by Eric Carlson.
+    
+            * Shared/WebPreferencesStore.h: Added new preference.
+            * UIProcess/API/C/WKPreferences.cpp:
+            (WKPreferencesSetEnableInheritURIQueryComponent): Added.
+            (WKPreferencesGetEnableInheritURIQueryComponent): Added.
+            * UIProcess/API/C/WKPreferencesPrivate.h:
+            * WebProcess/WebPage/WebPage.cpp:
+            (WebKit::WebPage::updatePreferences): Handle new preference.
+    
+2014-03-17  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r165657.
+
+    2014-03-14  Alexey Proskuryakov  <ap@apple.com>
+    
+            [Mac] Sync extended attribute related rules with AppSandbox profile
+            https://bugs.webkit.org/show_bug.cgi?id=130263
+            <rdar://problem/16318965>
+    
+            Reviewed by Sam Weinig.
+    
+            * NetworkProcess/mac/com.apple.WebKit.NetworkProcess.sb.in:
+            * Resources/PlugInSandboxProfiles/com.apple.QuickTime Plugin.plugin.sb:
+            * Resources/PlugInSandboxProfiles/com.apple.WebKit.plugin-common.sb:
+            * Resources/PlugInSandboxProfiles/com.apple.ist.ds.appleconnect.webplugin.sb:
+            * Resources/PlugInSandboxProfiles/com.macromedia.Flash Player.plugin.sb:
+            * Resources/PlugInSandboxProfiles/com.microsoft.SilverlightPlugin.sb:
+            * Resources/PlugInSandboxProfiles/com.oracle.java.JavaAppletPlugin.sb:
+            * WebProcess/com.apple.WebProcess.sb.in:
+    
+2014-02-12  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r162679.
+
+    2014-01-23  Jon Honeycutt  <jhoneycutt@apple.com>
+
+            Assertion failure in WebCore::PseudoElement::didRecalcStyle()
+            <https://bugs.webkit.org/show_bug.cgi?id=126761>
+            <rdar://problem/15793540>
+
+            Reviewed by Andy Estes.
+
+            * WebProcess/WebPage/ios/WebPageIOS.mm:
+            (WebKit::WebPage::getPositionInformation):
+            Check isRenderImage() rather than isImage() before casting to
+            RenderImage.
+
+2014-02-12  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r162904.
+
+2014-01-27  Andy Estes  <aestes@apple.com>
+
+        [WebKit2] Add SPI to disable the WebCore memory cache
+        https://bugs.webkit.org/show_bug.cgi?id=127747
+
+        Reviewed by Tim Horton.
+
+        * Shared/WebProcessCreationParameters.cpp:
+        (WebKit::WebProcessCreationParameters::WebProcessCreationParameters):
+        Initialized memoryCacheDisabled to false.
+        (WebKit::WebProcessCreationParameters::encode):
+        Encoded memoryCacheDisabled.
+        (WebKit::WebProcessCreationParameters::decode):
+        Decoded memoryCacheDisabled.
+        * Shared/WebProcessCreationParameters.h:
+        * UIProcess/API/C/WKContext.cpp:
+        (WKContextSetMemoryCacheDisabled):
+        Called WebContext::setMemoryCacheDisabled().
+        * UIProcess/API/C/WKContextPrivate.h: Declared new SPI.
+        * UIProcess/WebContext.cpp:
+        (WebKit::WebContext::WebContext): Initialized m_memoryCacheDisabled to false.
+        (WebKit::WebContext::createNewWebProcess):
+        Set WebProcessCreationParameters::memoryCacheDisabled to m_memoryCacheDisabled.
+        (WebKit::WebContext::setMemoryCacheDisabled): Set m_memoryCacheDisabled
+        and sent new value to all existing processes.
+        * UIProcess/WebContext.h:
+        * WebProcess/WebProcess.cpp:
+        (WebKit::WebProcess::initializeWebProcess):
+        Called WebProcess::setMemoryCacheDisabled().
+        (WebKit::WebProcess::setMemoryCacheDisabled):
+        Called MemoryCache::setDisabled() if the disabled state changed.
+        * WebProcess/WebProcess.h:
+        * WebProcess/WebProcess.messages.in:
+
 2013-12-23  Matthew Hanson  <matthew_hanson@apple.com>
 
         Merge 161003: <rdar://problem/15719584>

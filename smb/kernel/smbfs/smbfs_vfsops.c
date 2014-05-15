@@ -909,29 +909,35 @@ smbfs_mount(struct mount *mp, vnode_t devvp, user_addr_t data, vfs_context_t con
 		vfs_setflags(mp, MNT_RDONLY);
 	}
     
+    /*
+     * We now default to have named streams on if the server supports named
+     * streams. The user can turn off named streams by setting the correct
+     * option in the nsmb.conf file. The "nsmb.conf" allows the user to turn 
+     * off named streams per share. So now we only check for turning off named 
+     * streams since the default is to have them on.
+     */
+    if (share->ss_attributes & FILE_NAMED_STREAMS) {
+        if (!(smp->sm_args.altflags & SMBFS_MNT_STREAMS_ON)) {
+            share->ss_attributes &= ~FILE_NAMED_STREAMS;
+        }
+    }
+    
     if (!(SSTOVC(share)->vc_flags & SMBV_SMB2)) {
         /*
          * SMB 1.x Only
          *
          * We now default to have named streams on if the server supports named
-         * streams. The user can turn off named streams by setting the correct
-         * option in the nsmb.conf file or by creating a file on the top level
-         * of the share called ".com.apple.smb.streams.off". The "nsmb.conf" 
-         * allows the user to turn off named streams per share. So now we only 
-         * check for turning off named streams since the default is to have 
-         * them on.
+         * streams. The user can turn off named streams by creating a file on 
+         * the top level of the share called ".com.apple.smb.streams.off". 
          *
-         * .com.apple.smb.streams.on - If exist on top level of share means 
-         * turn on streams.
-         * .com.apple.smb.streams.off - If exist on top level of share means 
+         * .com.apple.smb.streams.off - If exist on top level of share means
          * turn off streams.
          */
-        if (share->ss_attributes & FILE_NAMED_STREAMS) {		
-            if (!(smp->sm_args.altflags & SMBFS_MNT_STREAMS_ON) || 
-                (smbfs_smb_query_info(share, VTOSMB(vp), SMB_STREAMS_OFF, 
-                                      sizeof(SMB_STREAMS_OFF) - 1, NULL, context) == 0)) {
+        if (share->ss_attributes & FILE_NAMED_STREAMS) {
+            if (smbfs_smb_query_info(share, VTOSMB(vp), SMB_STREAMS_OFF,
+                                     sizeof(SMB_STREAMS_OFF) - 1, NULL, context) == 0) {
                 share->ss_attributes &= ~FILE_NAMED_STREAMS;
-            } else if (! UNIX_SERVER(SSTOVC(share)) && 
+            } else if (! UNIX_SERVER(SSTOVC(share)) &&
                        (smbfs_smb_qstreaminfo(share, VTOSMB(vp),
                                               NULL, 0,
                                               SFM_DESKTOP_NAME,
@@ -939,16 +945,16 @@ smbfs_mount(struct mount *mp, vnode_t devvp, user_addr_t data, vfs_context_t con
                                               NULL, NULL,
                                               &stream_flags, NULL,
                                               context) == 0)) {
-                /* 
+                /*
                  * We would like to know if this is a really old Windows server
-                 * with Services For Mac (SFM Volume), we skip this check for 
+                 * with Services For Mac (SFM Volume), we skip this check for
                  * unix servers.
                  */
                 smp->sm_flags |= MNT_IS_SFM_VOLUME;
             }
         }
     }
-	
+
 	/*
 	 * The AFP code sets io_devblocksize to one, which is used by the Cluster IO
 	 * code to decide what to do when writing past the eof.  ClusterIO code uses 

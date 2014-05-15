@@ -576,6 +576,29 @@ class TestArray < Test::Unit::TestCase
     assert_equal(3, a.count {|x| x % 2 == 1 })
     assert_equal(2, a.count(1) {|x| x % 2 == 1 })
     assert_raise(ArgumentError) { a.count(0, 1) }
+
+    bug8654 = '[ruby-core:56072]'
+    assert_in_out_err [], <<-EOS, ["0"], [], bug8654
+      a1 = []
+      a2 = Array.new(100) { |i| i }
+      a2.count do |i|
+        p i
+        a2.replace(a1) if i == 0
+      end
+    EOS
+
+    assert_in_out_err [], <<-EOS, ["[]", "0"], [], bug8654
+      ARY = Array.new(100) { |i| i }
+      class Fixnum
+        alias old_equal ==
+        def == other
+          ARY.replace([]) if self.equal?(0)
+          p ARY
+          self.equal?(other)
+        end
+      end
+      p ARY.count(42)
+    EOS
   end
 
   def test_delete
@@ -1672,8 +1695,8 @@ class TestArray < Test::Unit::TestCase
                       [2,2,2,2],[2,2,2,3],[2,2,3,3],[2,3,3,3],[3,3,3,3]],
                  a.repeated_combination(4).to_a.sort)
     assert_equal(@cls[], a.repeated_combination(-1).to_a)
-    assert_equal("abcde".each_char.to_a.repeated_combination(5).map{|a|a.sort}.sort,
-                 "edcba".each_char.to_a.repeated_combination(5).map{|a|a.sort}.sort)
+    assert_equal("abcde".each_char.to_a.repeated_combination(5).map{|e|e.sort}.sort,
+                 "edcba".each_char.to_a.repeated_combination(5).map{|e|e.sort}.sort)
     assert_equal(@cls[].repeated_combination(0).to_a, @cls[[]])
     assert_equal(@cls[].repeated_combination(1).to_a, @cls[])
 
@@ -2020,6 +2043,19 @@ class TestArray < Test::Unit::TestCase
       alias rand call
     end
     assert_raise(RuntimeError) {ary.shuffle!(random: gen)}
+
+    zero = Object.new
+    def zero.to_int
+      0
+    end
+    gen_to_int = proc do |max|
+      zero
+    end
+    class << gen_to_int
+      alias rand call
+    end
+    ary = (0...10000).to_a
+    assert_equal(ary.rotate, ary.shuffle(random: gen_to_int))
   end
 
   def test_sample
@@ -2103,6 +2139,19 @@ class TestArray < Test::Unit::TestCase
     assert_equal([5000, 0, 5001, 2, 5002, 4, 5003, 6, 5004, 8, 5005], ary.sample(11, random: gen0))
     ary.sample(11, random: gen1) # implementation detail, may change in the future
     assert_equal([], ary)
+
+    half = Object.new
+    def half.to_int
+      5000
+    end
+    gen_to_int = proc do |max|
+      half
+    end
+    class << gen_to_int
+      alias rand call
+    end
+    ary = (0...10000).to_a
+    assert_equal(5000, ary.sample(random: gen_to_int))
   end
 
   def test_cycle

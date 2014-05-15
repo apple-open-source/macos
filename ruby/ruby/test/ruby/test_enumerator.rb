@@ -104,6 +104,36 @@ class TestEnumerator < Test::Unit::TestCase
     assert_equal([[1,5],[2,6],[3,7]], @obj.to_enum(:foo, 1, 2, 3).with_index(5).to_a)
   end
 
+  def test_with_index_large_offset
+    bug8010 = '[ruby-dev:47131] [Bug #8010]'
+    s = 1 << (8*1.size-2)
+    assert_equal([[1,s],[2,s+1],[3,s+2]], @obj.to_enum(:foo, 1, 2, 3).with_index(s).to_a, bug8010)
+    s <<= 1
+    assert_equal([[1,s],[2,s+1],[3,s+2]], @obj.to_enum(:foo, 1, 2, 3).with_index(s).to_a, bug8010)
+  end
+
+  def test_with_index_nonnum_offset
+    bug8010 = '[ruby-dev:47131] [Bug #8010]'
+    s = Object.new
+    def s.to_int; 1 end
+    assert_equal([[1,1],[2,2],[3,3]], @obj.to_enum(:foo, 1, 2, 3).with_index(s).to_a, bug8010)
+  end
+
+  def test_with_index_string_offset
+    bug8010 = '[ruby-dev:47131] [Bug #8010]'
+    assert_raise(TypeError, bug8010){ @obj.to_enum(:foo, 1, 2, 3).with_index('1').to_a }
+  end
+
+  def test_with_index_dangling_memo
+    bug9178 = '[ruby-core:58692] [Bug #9178]'
+    assert_separately([], <<-"end;")
+    bug = "#{bug9178}"
+    e = [1].to_enum(:chunk).with_index {|c,i| i == 5}
+    assert_kind_of(Enumerator, e)
+    assert_equal([false, [1]], e.to_a[0], bug)
+    end;
+  end
+
   def test_with_object
     obj = [0, 1]
     ret = (1..10).each.with_object(obj) {|i, memo|

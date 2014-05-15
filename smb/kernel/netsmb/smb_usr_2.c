@@ -710,6 +710,9 @@ smb_usr_read_write(struct smb_share *share, u_long cmd, struct smb2ioc_rw *rw_io
     }
     
     if (read_writep->auio) {
+        /* <14516550> All IO requests from user space are done synchronously */
+        read_writep->flags |= SMB2_SYNC_IO;
+
         uio_addiov(read_writep->auio, rw_ioc->ioc_kern_base, rw_ioc->ioc_len);
         
         read_writep->remaining = rw_ioc->ioc_remaining;

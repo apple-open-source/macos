@@ -1,4 +1,4 @@
-# $Id: test_fileutils.rb 39015 2013-02-02 03:54:00Z mame $
+# $Id: test_fileutils.rb 41946 2013-07-13 14:32:56Z nagachika $
 
 require 'fileutils'
 require_relative 'fileasserts'
@@ -991,7 +991,6 @@ class TestFileUtils
   def test_chmod_verbose
     check_singleton :chmod
 
-    r, w = IO.pipe
     stderr_back = $stderr
     read, $stderr = IO.pipe
     th = Thread.new { read.read }
@@ -1007,6 +1006,23 @@ class TestFileUtils
     assert_equal(["chmod 700 tmp/a", "chmod 500 tmp/a"], lines)
   ensure
     $stderr = stderr_back if stderr_back
+  end if have_file_perm?
+
+  def test_s_chmod_verbose
+    output_back = FileUtils.instance_variable_get(:@fileutils_output)
+    read, write = IO.pipe
+    FileUtils.instance_variable_set(:@fileutils_output, write)
+    th = Thread.new { read.read }
+
+    touch 'tmp/a'
+    FileUtils.chmod 0700, 'tmp/a', verbose: true
+    assert_equal 0700, File.stat('tmp/a').mode & 0777
+
+    write.close
+    lines = th.value.lines.map {|l| l.chomp }
+    assert_equal(["chmod 700 tmp/a"], lines)
+  ensure
+    FileUtils.instance_variable_set(:@fileutils_output, output_back) if output_back
   end if have_file_perm?
 
   # FIXME: How can I test this method?

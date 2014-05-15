@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009 - 2012 Apple Inc. All rights reserved.
+ * Copyright (c) 2009 - 2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -1057,7 +1057,11 @@ smbfs_setsecurity(struct smb_share *share, vnode_t vp, struct vnode_attr *vap,
 				arights |= SMB2_FILE_WRITE_DATA;
 			if (acep->ace_rights & KAUTH_VNODE_READ_DATA)
 				arights |= SMB2_FILE_READ_DATA;
-			wset_acerights(w_acep, arights);
+
+            /* <15782523> Always set the Synchronize bit for now */
+            arights |= SMB2_SYNCHRONIZE;
+            
+            wset_acerights(w_acep, arights);
 			w_sidp = acesid(w_acep);
 			if ((smp->sm_flags & MNT_MAPS_NETWORK_LOCAL_USER) && 
 				(kauth_guid_equal(&smp->sm_args.uuid, &acep->ace_applicable))) {

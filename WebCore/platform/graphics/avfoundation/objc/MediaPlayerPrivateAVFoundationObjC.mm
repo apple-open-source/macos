@@ -52,6 +52,7 @@
 #import <wtf/Uint32Array.h>
 #import <wtf/Uint8Array.h>
 #import <wtf/text/CString.h>
+#import <wtf/text/StringBuilder.h>
 
 #import <AVFoundation/AVFoundation.h>
 #import <CoreMedia/CoreMedia.h>
@@ -94,6 +95,7 @@ SOFT_LINK_POINTER(AVFoundation, AVMediaTypeClosedCaption, NSString *)
 SOFT_LINK_POINTER(AVFoundation, AVMediaTypeVideo, NSString *)
 SOFT_LINK_POINTER(AVFoundation, AVMediaTypeAudio, NSString *)
 SOFT_LINK_POINTER(AVFoundation, AVPlayerItemDidPlayToEndTimeNotification, NSString *)
+SOFT_LINK_POINTER(AVFoundation, AVURLAssetInheritURIQueryComponentFromReferencingURIKey, NSString *)
 SOFT_LINK_POINTER(AVFoundation, AVAssetImageGeneratorApertureModeCleanAperture, NSString *)
 SOFT_LINK_POINTER(AVFoundation, AVURLAssetReferenceRestrictionsKey, NSString *)
 
@@ -112,6 +114,7 @@ SOFT_LINK_CONSTANT(CoreMedia, kCMTimeZero, CMTime)
 #define AVMediaTypeVideo getAVMediaTypeVideo()
 #define AVMediaTypeAudio getAVMediaTypeAudio()
 #define AVPlayerItemDidPlayToEndTimeNotification getAVPlayerItemDidPlayToEndTimeNotification()
+#define AVURLAssetInheritURIQueryComponentFromReferencingURIKey getAVURLAssetInheritURIQueryComponentFromReferencingURIKey()
 #define AVAssetImageGeneratorApertureModeCleanAperture getAVAssetImageGeneratorApertureModeCleanAperture()
 #define AVURLAssetReferenceRestrictionsKey getAVURLAssetReferenceRestrictionsKey()
 
@@ -158,7 +161,6 @@ enum MediaPlayerAVFoundationObservationContext {
 }
 -(id)initWithCallback:(MediaPlayerPrivateAVFoundationObjC*)callback;
 -(void)disconnect;
--(void)playableKnown;
 -(void)metadataLoaded;
 -(void)seekCompleted:(BOOL)finished;
 -(void)didEnd:(NSNotification *)notification;
@@ -229,6 +231,7 @@ void MediaPlayerPrivateAVFoundationObjC::registerMediaEngine(MediaEngineRegistra
 
 MediaPlayerPrivateAVFoundationObjC::MediaPlayerPrivateAVFoundationObjC(MediaPlayer* player)
     : MediaPlayerPrivateAVFoundation(player)
+    , m_weakPtrFactory(this)
     , m_objcObserver(adoptNS([[WebCoreAVFMovieObserver alloc] initWithCallback:this]))
     , m_videoFrameHasDrawn(false)
     , m_haveCheckedPlayability(false)
@@ -417,6 +420,10 @@ void MediaPlayerPrivateAVFoundationObjC::createAVAssetForURL(const String& url)
 
     if ([headerFields.get() count])
         [options.get() setObject:headerFields.get() forKey:@"AVURLAssetHTTPHeaderFieldsKey"];
+
+    if (player()->doesHaveAttribute("x-itunes-inherit-uri-query-component"))
+        [options.get() setObject: [NSNumber numberWithBool: TRUE] forKey: AVURLAssetInheritURIQueryComponentFromReferencingURIKey];
+
 #endif
 
     NSURL *cocoaURL = KURL(ParsedURLString, url);
@@ -495,9 +502,13 @@ void MediaPlayerPrivateAVFoundationObjC::checkPlayability()
     m_haveCheckedPlayability = true;
 
     LOG(Media, "MediaPlayerPrivateAVFoundationObjC::checkPlayability(%p)", this);
+    auto weakThis = createWeakPtr();
 
     [m_avAsset.get() loadValuesAsynchronouslyForKeys:[NSArray arrayWithObject:@"playable"] completionHandler:^{
-        [m_objcObserver.get() playableKnown];
+        dispatch_async(dispatch_get_main_queue(), ^{
+            if (weakThis.get())
+                weakThis->scheduleMainThreadNotification(MediaPlayerPrivateAVFoundation::Notification::AssetPlayabilityKnown);
+        });
     }];
 }
 
@@ -1581,14 +1592,6 @@ NSArray* itemKVOProperties()
         return;
 
     m_callback->scheduleMainThreadNotification(MediaPlayerPrivateAVFoundation::Notification::AssetMetadataLoaded);
-}
-
-- (void)playableKnown
-{
-    if (!m_callback)
-        return;
-
-    m_callback->scheduleMainThreadNotification(MediaPlayerPrivateAVFoundation::Notification::AssetPlayabilityKnown);
 }
 
 - (void)seekCompleted:(BOOL)finished

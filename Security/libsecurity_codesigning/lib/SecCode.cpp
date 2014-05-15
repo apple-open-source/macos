@@ -242,6 +242,7 @@ const CFStringRef kSecCodeInfoRequirements =	CFSTR("requirements");
 const CFStringRef kSecCodeInfoRequirementData =	CFSTR("requirement-data");
 const CFStringRef kSecCodeInfoSource =			CFSTR("source");
 const CFStringRef kSecCodeInfoStatus =			CFSTR("status");
+const CFStringRef kSecCodeInfoTeamIdentifier =  CFSTR("teamid");
 const CFStringRef kSecCodeInfoTime =			CFSTR("signing-time");
 const CFStringRef kSecCodeInfoTimestamp =		CFSTR("signing-timestamp");
 const CFStringRef kSecCodeInfoTrust =			CFSTR("trust");

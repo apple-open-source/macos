@@ -25,6 +25,10 @@ Extra_Configure_Flags  = \
 	--with-sitedir=$(SITEDIR) \
 	--enable-shared \
 	--with-arch=$(subst $(space),$(comma),$(RC_ARCHS)) \
+	--with-bundled-md5 \
+	--with-bundled-sha1 \
+	--with-bundled-sha2 \
+	--with-bundled-rmd160 \
 	ac_cv_func_getcontext=no \
 	ac_cv_func_setcontext=no \
 	ac_cv_c_compiler_gnu=no \
@@ -40,7 +44,7 @@ EXTRAS_DIR = $(SRCROOT)/extras
 
 # Automatic Extract & Patch
 AEP_Project    = $(Project)
-AEP_Version    = 2.0.0-p247
+AEP_Version    = 2.0.0-p451
 AEP_ProjVers   = $(AEP_Project)-$(AEP_Version)
 AEP_Filename   = $(AEP_ProjVers).tar.bz2
 AEP_ExtractDir = $(AEP_ProjVers)
@@ -49,7 +53,9 @@ AEP_Patches    = ext_digest_md5_commoncrypto.diff \
 	ext_openssl_extconf.rb.diff \
 	configure.diff \
 	tool_config.guess.diff \
-	tool_mkconfig.rb.diff
+	tool_mkconfig.rb.diff \
+	ext_etc_etc.c.diff \
+	common.mk.diff
 
 MAJOR     = $(shell echo $(AEP_Version) | cut -d. -f1)
 MINOR     = $(shell echo $(AEP_Version) | cut -d. -f2)
@@ -70,11 +76,11 @@ $(ConfigStamp2): $(ConfigStamp)
 	$(_v) $(TOUCH) $(ConfigStamp2)
 
 build:: configure
-	$(MKDIR) $(SYMROOT)
+	$(INSTALL_DIRECTORY) $(SYMROOT)
 	$(_v) $(MAKE) -C $(BuildDirectory) V=1 CC=$(shell xcrun -f clang) OBJCOPY=": noobjcopy" XLDFLAGS='' RUBY_CODESIGN="-"
 
 post-install:
-	$(MKDIR) $(DSTROOT)$(FW_VERSION_DIR)/Resources
+	$(INSTALL_DIRECTORY) $(DSTROOT)$(FW_VERSION_DIR)/Resources
 	$(LN) -vfsh Versions/Current/Resources $(DSTROOT)/$(FW_DIR)/Resources
 	$(INSTALL_FILE) $(LOCAL_FW_RES_DIR)/Info.plist $(DSTROOT)/$(FW_VERSION_DIR)/Resources
 	$(INSTALL_FILE) $(LOCAL_FW_RES_DIR)/version.plist $(DSTROOT)/$(FW_VERSION_DIR)/Resources
@@ -83,13 +89,13 @@ post-install:
 	   $(LOCAL_FW_RES_DIR)/Info.plist > $(DSTROOT)/$(FW_VERSION_DIR)/Resources/Info.plist
 	$(INSTALL_FILE) $(LOCAL_FW_RES_DIR)/version.plist \
 		$(DSTROOT)/$(FW_VERSION_DIR)/Resources/version.plist
-	$(MKDIR) $(DSTROOT)/$(FW_VERSION_DIR)/Resources/English.lproj
+	$(INSTALL_DIRECTORY) $(DSTROOT)/$(FW_VERSION_DIR)/Resources/English.lproj
 	$(INSTALL_FILE) $(LOCAL_FW_RES_DIR)/English.lproj/InfoPlist.strings $(DSTROOT)/$(FW_VERSION_DIR)/Resources/English.lproj
 	$(LN) -vfsh $(VERSION) $(DSTROOT)/$(FW_DIR)/Versions/Current
-	$(MKDIR) $(DSTROOT)/$(FW_VERSION_DIR)/Headers
+	$(INSTALL_DIRECTORY) $(DSTROOT)/$(FW_VERSION_DIR)/Headers
 	$(LN) -vfsh Versions/Current/Headers $(DSTROOT)/$(FW_DIR)/Headers
 	$(LN) -vfh $(DSTROOT)$(FW_VERSION_DIR)$(USRINCLUDEDIR)/ruby-$(VERSION3)/ruby.h $(DSTROOT)/$(FW_DIR)/Headers/
-	$(MKDIR) $(DSTROOT)/$(FW_VERSION_DIR)/Headers/ruby
+	$(INSTALL_DIRECTORY) $(DSTROOT)/$(FW_VERSION_DIR)/Headers/ruby
 	# fix #include <ruby.h> for BridgeSupport
 	for h in $(DSTROOT)$(FW_VERSION_DIR)$(USRINCLUDEDIR)/ruby-$(VERSION3)/*/*.h; do \
 		$(SED) -i '' -e 's:#include <ruby\.h>:#include "ruby\.h":' \
@@ -104,24 +110,18 @@ post-install:
 	find $(SYMROOT) -type f -perm -a+x | xargs -t -n 1 dsymutil
 	find $(SYMROOT) -empty -delete
 	find $(DSTROOT)$(FW_VERSION_DIR) -type f \( -name '*.so' -or -name '*.bundle' -or -name '*.dylib' \) | xargs -t $(STRIP) -x
-	for i in $(shell find $(DSTROOT) -type f -name rbconfig.rb); do \
-		$(SED) -E -i '' -e 's/(-arch +(ppc|ppc64|i386|x86_64) *)+/#{arch_flag} /g' -e 's/-static"/"/' $$i || exit 1; \
-		patch -V never -p0 $$i $(SRCROOT)/patches/rbconfig.diff || exit 1; \
-	done
 	$(ECHO) Ignore signature warning, binary will be resigned
 	$(STRIP) -x $(DSTROOT)$(FW_VERSION_DIR)$(USRBINDIR)/ruby
 	codesign -f -s - $(DSTROOT)$(FW_VERSION_DIR)$(USRBINDIR)/ruby
-	$(MKDIR) $(DSTROOT)$(USRBINDIR)
+	$(INSTALL_DIRECTORY) $(DSTROOT)$(USRBINDIR)
 	for i in $(shell find "$(DSTROOT)$(FW_VERSION_DIR)$(USRBINDIR)" -type f); do \
-		$(LN) -vfs ../../System/Library/Frameworks/Ruby.framework/Versions/Current/usr/bin/`basename $$i` "$(DSTROOT)$(USRBINDIR)" || exit 1; \
+		$(INSTALL_SCRIPT) $$i "$(DSTROOT)$(USRBINDIR)" || exit 1; \
 	done
-	$(MKDIR) "$(DSTROOT)/$(USRLIBDIR)"
-	for i in $(shell find "$(DSTROOT)$(FW_VERSION_DIR)$(USRLIBDIR)" -name "*.dylib"); do \
-		$(LN) -vfs ../../System/Library/Frameworks/Ruby.framework/Versions/Current/usr/lib/`basename $$i` "$(DSTROOT)$(USRLIBDIR)" || exit 1; \
-	done
+	$(INSTALL_DIRECTORY) "$(DSTROOT)/$(USRLIBDIR)"
+	rsync -aim --include='*/' --include='*.dylib' --exclude='*' "$(DSTROOT)$(FW_VERSION_DIR)$(USRLIBDIR)/" "$(DSTROOT)$(USRLIBDIR)/"
 	$(LN) -vfsh ../../System/Library/Frameworks/Ruby.framework/Versions/Current/usr/lib/ruby "$(DSTROOT)$(USRLIBDIR)"
 	$(LN) -vfsh ../../System/Library/Frameworks/Ruby.framework/Versions/Current/usr/share/ri "$(DSTROOT)/usr/share/ri"
-	$(MKDIR) "$(DSTROOT)/$(SITEDIR)"
+	$(INSTALL_DIRECTORY) "$(DSTROOT)/$(SITEDIR)"
 	$(LN) -vfsh ../../../../../../../../..$(SITEDIR) "$(DSTROOT)/$(FW_VERSION_DIR)$(USRLIBDIR)/ruby/site_ruby"
 	for i in $(shell find $(DSTROOT)$(FW_VERSION_DIR)$(USRLIBDIR) -type f -name 'libruby*dylib'); do \
 		$(MV) $$i $(DSTROOT)/$(FW_VERSION_DIR)/Ruby || exit 1; \
@@ -129,19 +129,19 @@ post-install:
 	(cd $(DSTROOT)$(FW_VERSION_DIR)$(USRLIBDIR); $(LN) -vsh ../../Ruby $$(readlink libruby.dylib))
 	# rdar://problem/8937160
 	$(CHMOD) -h 0755 $(DSTROOT)/$(FW_VERSION_DIR)$(USRLIBDIR)/libruby.dylib
-	$(MKDIR) $(DSTROOT)/$(MANDIR)/man1
+	$(INSTALL_DIRECTORY) $(DSTROOT)/$(MANDIR)/man1
 	$(INSTALL_FILE) $(SRCROOT)/gem.1 $(DSTROOT)$(MANDIR)/man1
 	# nuke duplicates that are only different in case
 	find $(DSTROOT) -type f | sort -fr | uniq -id | xargs -t rm
-	$(MKDIR) $(DSTROOT)/$(USRGEMDIR)
+	$(INSTALL_DIRECTORY) $(DSTROOT)/$(USRGEMDIR)
 
 OSV = $(DSTROOT)/usr/local/OpenSourceVersions
 OSL = $(DSTROOT)/usr/local/OpenSourceLicenses
 
 install-plist:
-	$(MKDIR) $(OSV)
+	$(INSTALL_DIRECTORY) $(OSV)
 	$(INSTALL_FILE) $(SRCROOT)/$(Project).plist $(OSV)/$(Project).plist
-	$(MKDIR) $(OSL)
+	$(INSTALL_DIRECTORY) $(OSL)
 	$(INSTALL_FILE) $(Sources)/COPYING $(OSL)/$(Project).txt
 
 ETC_DIR = $(DSTROOT)/private/etc
@@ -151,7 +151,7 @@ install-rails-placeholder:
 	$(INSTALL_FILE) -m 555 $(EXTRAS_DIR)/rails $(DSTROOT)/usr/bin
 
 install-irbrc:
-	$(MKDIR) $(ETC_DIR)
+	$(INSTALL_DIRECTORY) $(ETC_DIR)
 	$(INSTALL_FILE) $(EXTRAS_DIR)/irbrc $(ETC_DIR)/irbrc
 
 # Extract the source.
@@ -160,6 +160,10 @@ install_source::
 	$(RM) $(SRCROOT)/$(AEP_Filename)
 	$(RMDIR) $(SRCROOT)/$(Project)
 	$(MV) $(SRCROOT)/$(AEP_ExtractDir) $(SRCROOT)/$(Project)
+	# Annotate the bison generated files
+	for f in $(SRCROOT)/$(Project)/parse.{c,h} $(SRCROOT)/$(Project)/ext/ripper/ripper.c; do \
+		ruby -i -pe '$$_ = $$_ + %(\n/* Apple Note: For the avoidance of doubt, Apple elects to distribute this file under the terms of the BSD license. */\n) if $$_ =~ /version 2.2 of Bison/' $$f && echo "Added BSD exception to $$f"; \
+	done
 	$(CP) $(SRCROOT)/extras/md5cc.{c,h} $(SRCROOT)/$(Project)/ext/digest/md5
 	$(CP) $(SRCROOT)/extras/sha1cc.{c,h} $(SRCROOT)/$(Project)/ext/digest/sha1
 	for patchfile in $(AEP_Patches); do \

@@ -120,7 +120,7 @@ SCRIPT_ARGS   =	--dest-dir="$(DESTDIR)" \
 		--make-flags="$(MAKEFLAGS)"
 EXTMK_ARGS    =	$(SCRIPT_ARGS) --extension $(EXTS) --extstatic $(EXTSTATIC) \
 		--make-flags="V=$(V) MINIRUBY='$(MINIRUBY)'" --
-INSTRUBY      =	$(SUDO) $(MINIRUBY) $(srcdir)/tool/rbinstall.rb
+INSTRUBY      =	$(SUDO) SDKROOT=/ $(RUNRUBY) -r./$(arch)-fake $(srcdir)/tool/rbinstall.rb
 INSTRUBY_ARGS =	$(SCRIPT_ARGS) \
 		--data-mode=$(INSTALL_DATA_MODE) \
 		--prog-mode=$(INSTALL_PROG_MODE) \
@@ -206,7 +206,7 @@ $(CAPIOUT)/.timestamp: Doxyfile $(PREP)
 Doxyfile: $(srcdir)/template/Doxyfile.tmpl $(PREP) $(srcdir)/tool/generic_erb.rb $(RBCONFIG)
 	$(ECHO) generating $@
 	$(Q) $(MINIRUBY) $(srcdir)/tool/generic_erb.rb -o $@ $(srcdir)/template/Doxyfile.tmpl \
-	--srcdir="$(srcdir)" --miniruby="$(MINIRUBY)"
+	--srcdir="$(srcdir)" --miniruby="$(BASERUBY)"
 
 program: showflags $(PROGRAM)
 wprogram: showflags $(WPROGRAM)
@@ -432,7 +432,7 @@ post-no-install-doc::
 
 CLEAR_INSTALLED_LIST = clear-installed-list
 
-install-prereq: $(CLEAR_INSTALLED_LIST) PHONY
+install-prereq: $(CLEAR_INSTALLED_LIST) yes-fake PHONY
 
 clear-installed-list: PHONY
 	@> $(INSTALLED_LIST) set MAKE="$(MAKE)"

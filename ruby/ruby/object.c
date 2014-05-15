@@ -771,12 +771,30 @@ rb_obj_tap(VALUE obj)
  *     Undefining one
  */
 
+/*
+ * Document-method: extended
+ *
+ * call-seq:
+ *    extended(othermod)
+ *
+ * The equivalent of <tt>included</tt>, but for extended modules.
+ *
+ *        module A
+ *          def self.extended(mod)
+ *            puts "#{self} extended in #{mod}"
+ *          end
+ *        end
+ *        module Enumerable
+ *          extend A
+ *        end
+ *         # => prints "A extended in Enumerable"
+ */
 
 /*
  * Document-method: included
  *
  * call-seq:
- *    included( othermod )
+ *    included(othermod)
  *
  * Callback invoked whenever the receiver is included in another
  * module or class. This should be used in preference to
@@ -798,7 +816,7 @@ rb_obj_tap(VALUE obj)
  * Document-method: prepended
  *
  * call-seq:
- *    prepended( othermod )
+ *    prepended(othermod)
  *
  * The equivalent of <tt>included</tt>, but for prepended modules.
  *
@@ -1320,7 +1338,8 @@ rb_obj_not_match(VALUE obj1, VALUE obj2)
  *  call-seq:
  *     obj <=> other -> 0 or nil
  *
- *  Returns 0 if obj === other, otherwise nil.
+ *  Returns 0 if +obj+ and +other+ are the same object
+ *  or <code>obj == other</code>, otherwise nil.
  *
  *  The <=> is used by various methods to compare objects, for example
  *  Enumerable#sort, Enumerable#max etc.
@@ -1330,7 +1349,7 @@ rb_obj_not_match(VALUE obj1, VALUE obj2)
  *  1 means self is bigger than other. Nil means the two values could not be
  *  compared.
  *
- *  When you defined <=>, you can include Comparable to gain the methods <=, <,
+ *  When you define <=>, you can include Comparable to gain the methods <=, <,
  *  ==, >=, > and between?.
  */
 static VALUE
@@ -1463,7 +1482,7 @@ rb_class_inherited_p(VALUE mod, VALUE arg)
     VALUE start = mod;
 
     if (mod == arg) return Qtrue;
-    if (!CLASS_OR_MODULE_P(arg)) {
+    if (!CLASS_OR_MODULE_P(arg) && !RB_TYPE_P(arg, T_ICLASS)) {
 	rb_raise(rb_eTypeError, "compared with non class/module");
     }
     arg = RCLASS_ORIGIN(arg);
@@ -2331,18 +2350,31 @@ convert_type(VALUE val, const char *tname, const char *method, int raise)
     r = rb_check_funcall(val, m, 0, 0);
     if (r == Qundef) {
 	if (raise) {
-	    rb_raise(rb_eTypeError, i < IMPLICIT_CONVERSIONS
-                ? "no implicit conversion of %s into %s"
-                : "can't convert %s into %s",
-		     NIL_P(val) ? "nil" :
-		     val == Qtrue ? "true" :
-		     val == Qfalse ? "false" :
-		     rb_obj_classname(val),
+	    const char *msg = i < IMPLICIT_CONVERSIONS ?
+		"no implicit conversion of" : "can't convert";
+	    const char *cname = NIL_P(val) ? "nil" :
+		val == Qtrue ? "true" :
+		val == Qfalse ? "false" :
+		NULL;
+	    if (cname)
+		rb_raise(rb_eTypeError, "%s %s into %s", msg, cname, tname);
+	    rb_raise(rb_eTypeError, "%s %"PRIsVALUE" into %s", msg,
+		     rb_obj_class(val),
 		     tname);
 	}
 	return Qnil;
     }
     return r;
+}
+
+NORETURN(static void conversion_mismatch(VALUE, const char *, const char *, VALUE));
+static void
+conversion_mismatch(VALUE val, const char *tname, const char *method, VALUE result)
+{
+    VALUE cname = rb_obj_class(val);
+    rb_raise(rb_eTypeError,
+	     "can't convert %"PRIsVALUE" to %s (%"PRIsVALUE"#%s gives %"PRIsVALUE")",
+	     cname, tname, cname, method, rb_obj_class(result));
 }
 
 VALUE
@@ -2353,9 +2385,7 @@ rb_convert_type(VALUE val, int type, const char *tname, const char *method)
     if (TYPE(val) == type) return val;
     v = convert_type(val, tname, method, TRUE);
     if (TYPE(v) != type) {
-	const char *cname = rb_obj_classname(val);
-	rb_raise(rb_eTypeError, "can't convert %s to %s (%s#%s gives %s)",
-		 cname, tname, cname, method, rb_obj_classname(v));
+	conversion_mismatch(val, tname, method, v);
     }
     return v;
 }
@@ -2370,9 +2400,7 @@ rb_check_convert_type(VALUE val, int type, const char *tname, const char *method
     v = convert_type(val, tname, method, FALSE);
     if (NIL_P(v)) return Qnil;
     if (TYPE(v) != type) {
-	const char *cname = rb_obj_classname(val);
-	rb_raise(rb_eTypeError, "can't convert %s to %s (%s#%s gives %s)",
-		 cname, tname, cname, method, rb_obj_classname(v));
+	conversion_mismatch(val, tname, method, v);
     }
     return v;
 }
@@ -2387,9 +2415,7 @@ rb_to_integer(VALUE val, const char *method)
     if (RB_TYPE_P(val, T_BIGNUM)) return val;
     v = convert_type(val, "Integer", method, TRUE);
     if (!rb_obj_is_kind_of(v, rb_cInteger)) {
-	const char *cname = rb_obj_classname(val);
-	rb_raise(rb_eTypeError, "can't convert %s to Integer (%s#%s gives %s)",
-		 cname, cname, method, rb_obj_classname(v));
+	conversion_mismatch(val, "Integer", method, v);
     }
     return v;
 }
@@ -3144,6 +3170,7 @@ Init_Object(void)
     rb_define_alloc_func(rb_cClass, rb_class_s_alloc);
     rb_undef_method(rb_cClass, "extend_object");
     rb_undef_method(rb_cClass, "append_features");
+    rb_undef_method(rb_cClass, "prepend_features");
 
     /*
      * Document-class: Data

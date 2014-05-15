@@ -5035,6 +5035,11 @@ HRESULT WebView::notifyPreferencesChanged(IWebNotification* notification)
         return hr;
     settings->setRequestAnimationFrameEnabled(enabled);
 
+    hr = prefsPrivate->isInheritURIQueryComponentEnabled(&enabled); 
+    if (FAILED(hr)) 
+        return hr; 
+    settings->setEnableInheritURIQueryComponent(enabled);
+
     return S_OK;
 }
 
@@ -5562,7 +5567,7 @@ void WebView::updateSelectionForIME()
     if (!targetFrame)
         return;
 
-    if (!targetFrame->editor().cancelCompositionIfSelectionIsInvalid())
+    if (targetFrame->editor().cancelCompositionIfSelectionIsInvalid())
         resetIME(targetFrame);
 }
 

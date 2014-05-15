@@ -1,2 +1,2 @@
-/-Wno-long-double -no-cpp-precomp /s///
+/-Wno-long-double -no-cpp-precomp -mno-fused-madd/s///
 w

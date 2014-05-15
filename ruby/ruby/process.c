@@ -3312,7 +3312,7 @@ rb_fork_internal(int *status, int (*chfunc)(void*, char *, size_t), void *charg,
     int err, state = 0;
     int ep[2];
     VALUE exc = Qnil;
-    int error_occured;
+    int error_occurred;
 
     if (status) *status = 0;
 
@@ -3328,10 +3328,6 @@ rb_fork_internal(int *status, int (*chfunc)(void*, char *, size_t), void *charg,
     }
     else {
 	if (pipe_nocrash(ep, fds)) return -1;
-	if (fcntl(ep[1], F_SETFD, FD_CLOEXEC)) {
-	    preserving_errno((close(ep[0]), close(ep[1])));
-	    return -1;
-	}
         pid = retry_fork(status, ep, chfunc_is_async_signal_safe);
         if (pid < 0)
             return pid;
@@ -3358,8 +3354,8 @@ rb_fork_internal(int *status, int (*chfunc)(void*, char *, size_t), void *charg,
 #endif
         }
         close(ep[1]);
-        error_occured = recv_child_error(ep[0], &state, &exc, &err, errmsg, errmsg_buflen, chfunc_is_async_signal_safe);
-        if (state || error_occured) {
+        error_occurred = recv_child_error(ep[0], &state, &exc, &err, errmsg, errmsg_buflen, chfunc_is_async_signal_safe);
+        if (state || error_occurred) {
             if (status) {
                 rb_protect(proc_syswait, (VALUE)pid, status);
                 if (state) *status = state;
@@ -5667,29 +5663,23 @@ rb_daemon(int nochdir, int noclose)
     before_fork();
     err = daemon(nochdir, noclose);
     after_fork();
+    rb_thread_atfork();
 #else
     int n;
 
-    switch (rb_fork_ruby(NULL)) {
-      case -1:
-	rb_sys_fail("daemon");
-      case 0:
-	break;
-      default:
-	_exit(EXIT_SUCCESS);
+#define fork_daemon() \
+    switch (rb_fork_ruby(NULL)) { \
+      case -1: return -1; \
+      case 0:  rb_thread_atfork(); break; \
+      default: _exit(EXIT_SUCCESS); \
     }
 
-    proc_setsid();
+    fork_daemon();
+
+    if (setsid() < 0) return -1;
 
     /* must not be process-leader */
-    switch (rb_fork_ruby(NULL)) {
-      case -1:
-	return -1;
-      case 0:
-	break;
-      default:
-	_exit(EXIT_SUCCESS);
-    }
+    fork_daemon();
 
     if (!nochdir)
 	err = chdir("/");

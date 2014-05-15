@@ -1,6 +1,15 @@
---- configure.orig	2013-05-14 05:02:28.000000000 -0700
-+++ configure	2013-05-14 08:54:29.000000000 -0700
-@@ -5106,8 +5106,8 @@ fi
+--- configure.orig	2013-12-15 17:29:21.000000000 -0800
++++ configure	2013-12-15 17:30:05.000000000 -0800
+@@ -5050,7 +5050,7 @@ if test "$GCC" = yes; then
+ esac
+ 	done; }
+ else
+-    linker_flag=
++    linker_flag=-Wl,
+ fi
+ 
+ { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether the linker is GNU ld" >&5
+@@ -5107,8 +5107,8 @@ fi
  
  # RUBY_UNIVERSAL_ARCH begin
  ARCH_FLAG=`expr " $CFLAGS " : '.* \(-m[0-9][0-9]*\) '`
@@ -11,7 +20,7 @@
  unset universal_binary universal_archnames
  if test ${target_archs+set}; then
      { $as_echo "$as_me:${as_lineno-$LINENO}: checking target architectures" >&5
-@@ -5134,13 +5134,7 @@ $as_echo "failed" >&6; }
+@@ -5135,13 +5135,7 @@ $as_echo "failed" >&6; }
  esac
      done
      target_archs="$universal_binary"
@@ -26,7 +35,7 @@
      { $as_echo "$as_me:${as_lineno-$LINENO}: result: $target_archs" >&5
  $as_echo "$target_archs" >&6; }
  
-@@ -8591,7 +8585,7 @@ $as_echo "#define HAVE_SYS_WAIT_H 1" >>c
+@@ -8592,7 +8586,7 @@ $as_echo "#define HAVE_SYS_WAIT_H 1" >>c
  
  fi
  
@@ -35,7 +44,7 @@
  		 fcntl.h sys/fcntl.h sys/select.h sys/time.h sys/times.h sys/param.h\
  		 syscall.h pwd.h grp.h a.out.h utime.h direct.h sys/resource.h \
  		 sys/mkdev.h sys/utime.h xti.h netinet/in_systm.h float.h ieeefp.h \
-@@ -8840,20 +8834,15 @@ else
+@@ -8841,20 +8835,15 @@ else
  _ACEOF
  if ac_fn_c_try_compile "$LINENO"; then :
  

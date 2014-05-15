@@ -351,6 +351,8 @@ struct SSLContext
 	Boolean				rsaBlindingEnable;
 	Boolean				oneByteRecordEnable;    /* enable 1/n-1 data splitting for TLSv1 and SSLv3 */
 	Boolean				wroteAppData;           /* at least one write completed with current writeCipher */
+    Boolean             allowServerIdentityChange; /* allow server identity change on renegotiation
+                                                    disallowed by default to avoid triple handshake attack */
 
 	/* optional session cache timeout (in seconds) override - 0 means default */
 	uint32_t 				sessionCacheTimeout;

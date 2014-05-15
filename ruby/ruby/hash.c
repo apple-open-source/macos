@@ -480,6 +480,11 @@ rb_hash_s_try_convert(VALUE dummy, VALUE hash)
     return rb_check_hash_type(hash);
 }
 
+struct rehash_arg {
+    VALUE hash;
+    st_table *tbl;
+};
+
 static int
 rb_hash_rehash_i(VALUE key, VALUE value, VALUE arg)
 {
@@ -512,6 +517,7 @@ rb_hash_rehash_i(VALUE key, VALUE value, VALUE arg)
 static VALUE
 rb_hash_rehash(VALUE hash)
 {
+    VALUE tmp;
     st_table *tbl;
 
     if (RHASH_ITER_LEV(hash) > 0) {
@@ -520,10 +526,14 @@ rb_hash_rehash(VALUE hash)
     rb_hash_modify_check(hash);
     if (!RHASH(hash)->ntbl)
         return hash;
+    tmp = hash_alloc(0);
     tbl = st_init_table_with_size(RHASH(hash)->ntbl->type, RHASH(hash)->ntbl->num_entries);
+    RHASH(tmp)->ntbl = tbl;
+
     rb_hash_foreach(hash, rb_hash_rehash_i, (VALUE)tbl);
     st_free_table(RHASH(hash)->ntbl);
     RHASH(hash)->ntbl = tbl;
+    RHASH(tmp)->ntbl = 0;
 
     return hash;
 }
@@ -1172,16 +1182,23 @@ static NOINSERT_UPDATE_CALLBACK(hash_aset_str)
  *     hsh[key] = value        -> value
  *     hsh.store(key, value)   -> value
  *
- *  Element Assignment---Associates the value given by
- *  <i>value</i> with the key given by <i>key</i>.
- *  <i>key</i> should not have its value changed while it is in
- *  use as a key (a <code>String</code> passed as a key will be
- *  duplicated and frozen).
+ *  == Element Assignment
+ *
+ *  Associates the value given by +value+ with the key given by +key+.
  *
  *     h = { "a" => 100, "b" => 200 }
  *     h["a"] = 9
  *     h["c"] = 4
  *     h   #=> {"a"=>9, "b"=>200, "c"=>4}
+ *
+ *  +key+ should not have its value changed while it is in use as a key (an
+ *  <tt>unfrozen String</tt> passed as a key will be duplicated and frozen).
+ *
+ *     a = "a"
+ *     b = "b".freeze
+ *     h = { a => 100, b => 200 }
+ *     h.key(100).equal? a #=> false
+ *     h.key(200).equal? b #=> true
  *
  */
 
@@ -1216,14 +1233,24 @@ replace_i(VALUE key, VALUE val, VALUE hash)
 static VALUE
 rb_hash_initialize_copy(VALUE hash, VALUE hash2)
 {
+    st_table *ntbl;
+
     rb_hash_modify_check(hash);
     hash2 = to_hash(hash2);
 
     Check_Type(hash2, T_HASH);
 
-    if (!RHASH_EMPTY_P(hash2)) {
+    if (hash == hash2) return hash;
+
+    ntbl = RHASH(hash)->ntbl;
+    if (RHASH(hash2)->ntbl) {
+	if (ntbl) st_free_table(ntbl);
         RHASH(hash)->ntbl = st_copy(RHASH(hash2)->ntbl);
-	rb_hash_rehash(hash);
+	if (RHASH(hash)->ntbl->num_entries)
+	    rb_hash_rehash(hash);
+    }
+    else if (ntbl) {
+	st_clear(ntbl);
     }
 
     if (FL_TEST(hash2, HASH_PROC_DEFAULT)) {

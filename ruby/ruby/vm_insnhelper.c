@@ -919,18 +919,29 @@ opt_eq_func(VALUE recv, VALUE obj, CALL_INFO ci)
 }
 
 static VALUE
+vm_call0(rb_thread_t*, VALUE, ID, int, const VALUE*, const rb_method_entry_t*, VALUE);
+
+static VALUE
 check_match(VALUE pattern, VALUE target, enum vm_check_match_type type)
 {
     switch (type) {
       case VM_CHECKMATCH_TYPE_WHEN:
 	return pattern;
-      case VM_CHECKMATCH_TYPE_CASE:
-	return rb_funcall2(pattern, idEqq, 1, &target);
-      case VM_CHECKMATCH_TYPE_RESCUE: {
+      case VM_CHECKMATCH_TYPE_RESCUE:
 	if (!rb_obj_is_kind_of(pattern, rb_cModule)) {
 	    rb_raise(rb_eTypeError, "class or module required for rescue clause");
 	}
-	return RTEST(rb_funcall2(pattern, idEqq, 1, &target));
+	/* fall through */
+      case VM_CHECKMATCH_TYPE_CASE: {
+	VALUE defined_class;
+	rb_method_entry_t *me = rb_method_entry_with_refinements(CLASS_OF(pattern), idEqq, &defined_class);
+	if (me) {
+	  return vm_call0(GET_THREAD(), pattern, idEqq, 1, &target, me, defined_class);
+	}
+	else {
+	  /* fallback to funcall (e.g. method_missing) */
+	  return rb_funcall2(pattern, idEqq, 1, &target);
+	}
       }
       default:
 	rb_bug("check_match: unreachable");
@@ -1739,6 +1750,8 @@ vm_call_method(rb_thread_t *th, rb_control_frame_t *cfp, rb_call_info_t *ci)
   start_method_dispatch:
     if (ci->me != 0) {
 	if ((ci->me->flag == 0)) {
+	    VALUE klass;
+
 	  normal_method_dispatch:
 	    switch (ci->me->def->type) {
 	      case VM_METHOD_TYPE_ISEQ:{
@@ -1771,10 +1784,10 @@ vm_call_method(rb_thread_t *th, rb_control_frame_t *cfp, rb_call_info_t *ci)
 		return vm_call_bmethod(th, cfp, ci);
 	      }
 	      case VM_METHOD_TYPE_ZSUPER:{
-		VALUE klass;
-
+		klass = ci->me->klass;
+		klass = RCLASS_ORIGIN(klass);
 	      zsuper_method_dispatch:
-		klass = RCLASS_SUPER(ci->me->klass);
+		klass = RCLASS_SUPER(klass);
 		ci_temp = *ci;
 		ci = &ci_temp;
 
@@ -1826,16 +1839,20 @@ vm_call_method(rb_thread_t *th, rb_control_frame_t *cfp, rb_call_info_t *ci)
 		    ci->me = me;
 		    ci->defined_class = defined_class;
 		    if (me->def->type != VM_METHOD_TYPE_REFINED) {
-			goto normal_method_dispatch;
+			goto start_method_dispatch;
 		    }
 		}
 
 	      no_refinement_dispatch:
 		if (ci->me->def->body.orig_me) {
 		    ci->me = ci->me->def->body.orig_me;
-		    goto normal_method_dispatch;
+		    if (UNDEFINED_METHOD_ENTRY_P(ci->me)) {
+			ci->me = 0;
+		    }
+		    goto start_method_dispatch;
 		}
 		else {
+		    klass = ci->me->klass;
 		    goto zsuper_method_dispatch;
 		}
 	      }
@@ -1983,7 +2000,7 @@ vm_search_super_method(rb_thread_t *th, rb_control_frame_t *reg_cfp, rb_call_inf
 {
     VALUE current_defined_class;
     rb_iseq_t *iseq = GET_ISEQ();
-    VALUE sigval = TOPN(ci->orig_argc);
+    VALUE sigval = TOPN(ci->argc);
 
     current_defined_class = GET_CFP()->klass;
     if (NIL_P(current_defined_class)) {
@@ -2013,6 +2030,12 @@ vm_search_super_method(rb_thread_t *th, rb_control_frame_t *reg_cfp, rb_call_inf
 		 "implicit argument passing of super from method defined"
 		 " by define_method() is not supported."
 		 " Specify all arguments explicitly.");
+    }
+    if (!ci->klass) {
+	/* bound instance method of module */
+	ci->aux.missing_reason = NOEX_SUPER;
+	CI_SET_FASTPATH(ci, vm_call_method_missing, 1);
+	return;
     }
 
     /* TODO: use inline cache */

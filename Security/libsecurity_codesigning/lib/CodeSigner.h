@@ -55,12 +55,14 @@ public:
 	
 	void parameters(CFDictionaryRef args);	// parse and set parameters
 	bool valid() const;
+    
+	std::string getTeamIDFromSigner(CFArrayRef certs);
 	
 	void sign(SecStaticCode *code, SecCSFlags flags);
 	void remove(SecStaticCode *code, SecCSFlags flags);
 	
 	void returnDetachedSignature(BlobCore *blob, Signer &signer);
-	
+
 protected:
 	std::string sdkPath(const std::string &path) const;
 	bool isAdhoc() const;
@@ -84,6 +86,7 @@ private:
 	CodeDirectory::HashAlgorithm mDigestAlgorithm; // interior digest (hash) algorithm
 	std::string mIdentifier;		// unique identifier override
 	std::string mIdentifierPrefix;	// prefix for un-dotted default identifiers
+	std::string mTeamID;            // teamID
 	bool mNoMachO;					// override to perform non-Mach-O signing
 	bool mDryRun;					// dry run (do not change target)
 	CFRef<CFNumberRef> mPageSize;	// main executable page size

@@ -223,9 +223,9 @@ send_accept (OM_uint32 *minor_status,
 			  nt.u.negTokenResp.supportedMech,
 			  NULL);
 	if (ret) {
-	    free_NegotiationToken(&nt);
+	    ret = GSS_S_FAILURE;
 	    *minor_status = ENOMEM;
-	    return GSS_S_FAILURE;
+	    goto out;
 	}
     } else {
 	nt.u.negTokenResp.supportedMech = NULL;
@@ -265,9 +265,9 @@ send_accept (OM_uint32 *minor_status,
 	    ALLOC(nt.u.negTokenResp.mechListMIC, 1);
 	    if (nt.u.negTokenResp.mechListMIC == NULL) {
 		gss_release_buffer(minor_status, &mech_mic_buf);
-		free_NegotiationToken(&nt);
+		ret = GSS_S_FAILURE;
 		*minor_status = ENOMEM;
-		return GSS_S_FAILURE;
+		goto out;
 	    }
 	    nt.u.negTokenResp.mechListMIC->length = mech_mic_buf.length;
 	    nt.u.negTokenResp.mechListMIC->data   = mech_mic_buf.value;
@@ -285,9 +285,9 @@ send_accept (OM_uint32 *minor_status,
 		       output_token->value, output_token->length,
 		       &nt, &size, ret);
     if (ret) {
-	free_NegotiationToken(&nt);
-	*minor_status = ret;
-	return GSS_S_FAILURE;
+	ret = GSS_S_FAILURE;
+	*minor_status = ENOMEM;
+	goto out;
     }
 
     /*
@@ -300,6 +300,7 @@ send_accept (OM_uint32 *minor_status,
 	ret = GSS_S_COMPLETE;
     else
 	ret = GSS_S_CONTINUE_NEEDED;
+ out:
     free_NegotiationToken(&nt);
     return ret;
 }
@@ -484,6 +485,8 @@ acceptor_start
     int get_mic = 0;
     int first_ok = 0;
 
+    memset(&nt, 0, sizeof(nt));
+
     mech_output_token.value = NULL;
     mech_output_token.length = 0;
 
@@ -523,7 +526,6 @@ acceptor_start
     ni = &nt.u.negTokenInit;
 
     if (ni->mechTypes.len < 1) {
-	free_NegotiationToken(&nt);
 	*minor_status = 0;
 	ret = GSS_S_DEFECTIVE_TOKEN;
 	goto out;
@@ -541,9 +543,7 @@ acceptor_start
 			   ctx->NegTokenInit_mech_types.length,
 			   &mt, &size, kret);
 	if (kret) {
-	    HEIMDAL_MUTEX_unlock(&ctx->ctx_id_mutex);
 	    *minor_status = kret;
-	    free_NegotiationToken(&nt);
 	    ret = GSS_S_FAILURE;
 	    goto out;
 	}
@@ -632,9 +632,7 @@ acceptor_start
 	    gss_release_oid(&junk, &preferred_mech_type);
 	}
 	if (preferred_mech_type == GSS_C_NO_OID) {
-	    HEIMDAL_MUTEX_unlock(&ctx->ctx_id_mutex);
-	    free_NegotiationToken(&nt);
-	    return ret;
+	    goto out;
 	}
 
 	ctx->preferred_mech_type = preferred_mech_type;

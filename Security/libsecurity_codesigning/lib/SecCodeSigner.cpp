@@ -57,6 +57,7 @@ const CFStringRef kSecCodeSignerTimestampServer = CFSTR("timestamp-url");
 const CFStringRef kSecCodeSignerTimestampAuthentication = CFSTR("timestamp-authentication");
 const CFStringRef kSecCodeSignerTimestampOmitCertificates =	CFSTR("timestamp-omit-certificates");
 const CFStringRef kSecCodeSignerPreserveMetadata = CFSTR("preserve-metadata");
+const CFStringRef kSecCodeSignerTeamIdentifier =	CFSTR("teamidentifier");
 
 // temporary add-back to bridge B&I build dependencies -- remove soon
 const CFStringRef kSecCodeSignerTSAUse = CFSTR("timestamp-required");

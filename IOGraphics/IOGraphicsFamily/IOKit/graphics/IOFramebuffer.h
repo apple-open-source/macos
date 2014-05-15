@@ -221,7 +221,8 @@ protected:
     unsigned int                        captured:1;
     unsigned int                        sleepConnectCheck:1;
     unsigned int                        messaged:1;
-    unsigned int                        _IOFramebuffer_reservedC:28;
+    unsigned int                        cursorEnable:1;
+    unsigned int                        _IOFramebuffer_reservedC:27;
     IOFramebuffer *                     nextDependent;
     OSSet *                             fbNotifications;
 
