@@ -9735,6 +9735,7 @@ job_mig_init_session(job_t j, name_t session_type, mach_port_t asport)
 	if (j->mgr->session_initialized) {
 		job_log(j, LOG_ERR, "Tried to initialize an already setup session!");
 		kr = BOOTSTRAP_NOT_PRIVILEGED;
+		return kr;
 	} else if (strcmp(session_type, VPROCMGR_SESSION_LOGINWINDOW) == 0) {
 		jobmgr_t jmi;
 

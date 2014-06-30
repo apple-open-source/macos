@@ -14,6 +14,9 @@ if((! -e "$ROOT_CERT_DIR") || (! -e "$KC_DIR")) then
    exit(1)
 endif
 
+# this option is essential to process filenames containing a wildcard
+set nonomatch
+
 set ROOT_CERT_KC=SystemRootCertificates.keychain
 set ROOT_CERT_KC_PATH="$KC_DIR/$ROOT_CERT_KC"
 set SETTINGS_FILE=SystemTrustSettings.plist
@@ -47,7 +50,7 @@ foreach root (*)
 		$SECURITY -q add-certificates -k "$ROOT_CERT_KC_PATH" "$root" || exit(1)
 	else
 		$SECURITY -q add-trusted-cert -i "$SETTINGS_FILE_PATH" -o "$SETTINGS_FILE_PATH" -k "$ROOT_CERT_KC_PATH" "$root" || exit(1)
-	endif	
+	endif
 end
 
 # After adding the trusted roots, add trust settings to explicitly distrust certs

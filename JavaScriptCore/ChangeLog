@@ -1,3 +1,138 @@
+2014-05-23  Dana Burkart  <dburkart@apple.com>
+
+        Merge r167832
+
+    2014-04-25  Oliver Hunt  <oliver@apple.com>
+
+            Need earlier cell test
+            https://bugs.webkit.org/show_bug.cgi?id=132211
+
+            Reviewed by Mark Lam.
+
+            Move cell test to before the function call repatch
+            location, as the repatch logic for 32bit assumes that the
+            caller will already have performed a cell check.
+
+            * jit/JITCall32_64.cpp:
+            (JSC::JIT::compileOpCall):
+
+2014-05-22  Dana Burkart  <dburkart@apple.com>
+
+        Merge r165162
+
+    2014-03-05  Mark Lam  <mark.lam@apple.com>
+
+            llint_slow_path_check_has_instance() should not adjust PC before accessing operands.
+            <https://webkit.org/b/129768>
+
+            Reviewed by Mark Hahnenberg.
+
+            When evaluating "a instanceof b" where b is an object that ImplementsHasInstance
+            and OverridesHasInstance (e.g. a bound function), the LLINT will take the slow
+            path llint_slow_path_check_has_instance(), and execute a code path that does the
+            following:
+            1. Adjusts the byte code PC to the jump target PC.
+            2. For the purpose of storing the result, get the result registerIndex from the
+               1st operand using the PC as if the PC is still pointing to op_check_has_instance
+               bytecode.
+
+            The result is that whatever value resides after where the jump target PC is will
+            be used as a result register value.  Depending on what that value is, the result
+            can be:
+            1. the code coincidently works correctly
+            2. memory corruption
+            3. crashes
+
+            The fix is to only adjust the byte code PC after we have stored the result.
+            
+            * llint/LLIntSlowPaths.cpp:
+            (llint_slow_path_check_has_instance):
+
+2014-05-02  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r167548.
+
+    2014-04-19  Filip Pizlo  <fpizlo@apple.com>
+    
+            Make it easier to check if an integer sum would overflow
+            https://bugs.webkit.org/show_bug.cgi?id=131900
+    
+            Reviewed by Darin Adler.
+    
+            * dfg/DFGOperations.cpp:
+            * runtime/Operations.h:
+            (JSC::jsString):
+    
+2014-05-02  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r167544.
+
+    2014-04-19  Filip Pizlo  <fpizlo@apple.com>
+    
+            Address some feedback on https://bugs.webkit.org/show_bug.cgi?id=130684.
+    
+            * dfg/DFGOperations.cpp:
+            * runtime/JSString.h:
+            (JSC::JSRopeString::RopeBuilder::append):
+    
+2014-05-02  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r167354.
+
+    2014-04-16  Filip Pizlo  <fpizlo@apple.com>
+    
+            Unreviewed, ARMv7 build fix after r167336.
+    
+            * assembler/MacroAssemblerARMv7.h:
+            (JSC::MacroAssemblerARMv7::branchAdd32):
+    
+2014-05-02  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r167336.
+
+    2014-04-15  Filip Pizlo  <fpizlo@apple.com>
+    
+            compileMakeRope does not emit necessary bounds checks
+            https://bugs.webkit.org/show_bug.cgi?id=130684
+            <rdar://problem/16398388>
+    
+            Reviewed by Oliver Hunt.
+            
+            Add string length bounds checks in a bunch of places. We should never allow a string
+            to have a length greater than 2^31-1 because it's not clear that the language has
+            semantics for it and because there is code that assumes that this cannot happen.
+            
+            Also add a bunch of tests to that effect to cover the various ways in which this was
+            previously allowed to happen.
+    
+            * dfg/DFGOperations.cpp:
+            * dfg/DFGSpeculativeJIT.cpp:
+            (JSC::DFG::SpeculativeJIT::compileMakeRope):
+            * ftl/FTLLowerDFGToLLVM.cpp:
+            (JSC::FTL::LowerDFGToLLVM::compileMakeRope):
+            * runtime/JSString.cpp:
+            (JSC::JSRopeString::RopeBuilder::expand):
+            * runtime/JSString.h:
+            (JSC::JSString::create):
+            (JSC::JSRopeString::RopeBuilder::append):
+            (JSC::JSRopeString::RopeBuilder::release):
+            (JSC::JSRopeString::append):
+            * runtime/Operations.h:
+            (JSC::jsString):
+            (JSC::jsStringFromRegisterArray):
+            (JSC::jsStringFromArguments):
+            * runtime/StringPrototype.cpp:
+            (JSC::stringProtoFuncIndexOf):
+            (JSC::stringProtoFuncSlice):
+            (JSC::stringProtoFuncSubstring):
+            (JSC::stringProtoFuncToLowerCase):
+            * tests/stress/make-large-string-jit-strcat.js: Added.
+            (foo):
+            * tests/stress/make-large-string-jit.js: Added.
+            (foo):
+            * tests/stress/make-large-string-strcat.js: Added.
+            * tests/stress/make-large-string.js: Added.
+    
 2014-03-19  Matthew Hanson  <matthew_hanson@apple.com>
 
         Merge r165902.

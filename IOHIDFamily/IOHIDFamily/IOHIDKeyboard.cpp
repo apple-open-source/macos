@@ -2,7 +2,7 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2013 Apple Computer, Inc.  All Rights Reserved.
+ * Copyright (c) 1999-2009 Apple Computer, Inc.  All Rights Reserved.
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -181,14 +181,14 @@ IOHIDKeyboard::start(IOService *provider)
 }
 
 void IOHIDKeyboard::stop(IOService * provider)
-{
-    _provider = NULL;
+{    
     if (_asyncLEDThread)
     {
-        thread_call_cancel(_asyncLEDThread);
-        thread_call_free(_asyncLEDThread);
-        _asyncLEDThread = 0;
+	thread_call_cancel(_asyncLEDThread);
+	thread_call_free(_asyncLEDThread);
+	_asyncLEDThread = 0;
     }
+
     super::stop(provider);
 }
 
@@ -211,10 +211,8 @@ void IOHIDKeyboard::dispatchKeyboardEvent(
                                 bool                        keyDown,
                                 IOOptionBits                options)
 {
-    UInt32          alpha       = usage;
-    bool            repeat      = ((options & kHIDDispatchOptionKeyboardNoRepeat) == 0);
-    UInt32          vendorID    = _provider ? _provider->getVendorID() : 0;
-    unsigned int    keycode     = 0xff;
+    UInt32  alpha   = usage;
+    bool    repeat  = ((options & kHIDDispatchOptionKeyboardNoRepeat) == 0);
     
     if ((usagePage > 0xffff) || (usage > 0xffff))
         IOLog("IOHIDKeyboard::dispatchKeyboardEvent usage/page unexpectedly large %02x:%02x\n", (int)usagePage, (int)usage);
@@ -224,28 +222,25 @@ void IOHIDKeyboard::dispatchKeyboardEvent(
 	{
 		case kHIDPage_KeyboardOrKeypad:
         case kHIDPage_AppleVendorKeyboard:
+            unsigned int keycode;
+            
             if (repeat != _repeat)
             {
                 _repeat = repeat;
                 setRepeatMode(_repeat);
             }
-            if ( usagePage == kHIDPage_KeyboardOrKeypad ) {
+            if ( usagePage == kHIDPage_KeyboardOrKeypad )
                 keycode = _usb_2_adb_keymap[alpha];
-            }
-            else {
+            else
                 keycode = _usb_apple_2_adb_keymap[alpha];
-            }
 
-            if ((usagePage == kHIDPage_AppleVendorKeyboard) && (usage == kHIDUsage_AppleVendorKeyboard_Function) && (vendorID == kIOUSBVendorIDAppleComputer)) {
+            if ((usagePage == kHIDPage_AppleVendorKeyboard) && (usage == kHIDUsage_AppleVendorKeyboard_Function) && (_provider->getVendorID() == kIOUSBVendorIDAppleComputer))
                 super::dispatchKeyboardEvent(0x3f, keyDown, timeStamp);
-            }
-            else {
+            else 
                 super::dispatchKeyboardEvent(keycode, keyDown, timeStamp);
-            }
             break;
-            
         case kHIDPage_AppleVendorTopCase:
-            if ((usage == kHIDUsage_AV_TopCase_KeyboardFn) && (vendorID == kIOUSBVendorIDAppleComputer))
+            if ((usage == kHIDUsage_AV_TopCase_KeyboardFn) && (_provider->getVendorID() == kIOUSBVendorIDAppleComputer))
                 super::dispatchKeyboardEvent(0x3f, keyDown, timeStamp);
 			break;
 	}
@@ -270,21 +265,19 @@ IOHIDKeyboard::_asyncLED(OSObject *target)
 void
 IOHIDKeyboard::Set_LED_States(UInt8 ledState)
 {
-    if (_provider) {
-        bool resync = _resyncLED;
+    bool				resync = _resyncLED;
+    
+    _resyncLED = FALSE;
+    
+    for (int i=0; i<2; i++)
+    {
+        UInt32 value = (ledState >> i) & 1;
         
-        _resyncLED = FALSE;
-        
-        for (int i=0; i<2; i++)
-        {
-            UInt32 value = (ledState >> i) & 1;
-            
-            if (resync)
-                _provider->setElementValue(kHIDPage_LEDs, i + kHIDUsage_LED_NumLock, value ? 0 : 1);
-            
-            _provider->setElementValue(kHIDPage_LEDs, i + kHIDUsage_LED_NumLock, value);
-        }    
-    }
+        if (resync)
+			_provider->setElementValue(kHIDPage_LEDs, i + kHIDUsage_LED_NumLock, value ? 0 : 1);
+		
+		_provider->setElementValue(kHIDPage_LEDs, i + kHIDUsage_LED_NumLock, value);
+    }    
 }
 
 //******************************************************************************
@@ -352,11 +345,9 @@ IOHIDKeyboard::getLEDStatus (void )
 {
     unsigned	ledState = 0;
     
-    if (_provider) {
-        for (int i=0; i<2; i++)
-        {
-            ledState |= (_provider->getElementValue(kHIDPage_LEDs, i + kHIDUsage_LED_NumLock)) << i;
-        }
+    for (int i=0; i<2; i++)
+    {
+		ledState |= (_provider->getElementValue(kHIDPage_LEDs, i + kHIDUsage_LED_NumLock)) << i;
     }
     return ledState;
 }
@@ -368,12 +359,13 @@ IOHIDKeyboard::getLEDStatus (void )
 UInt32 
 IOHIDKeyboard::deviceType ( void )
 {
-    UInt32      id = kgestUSBUnknownANSIkd;
-    
-	// RY: If a _deviceType an IOHIKeyboard protected variable.  If it is
-    // non-zero, there is no need to obtain the handlerID again.  Just return
-    // the already set value.  This should prevent us from mistakenly changing
-    // changing a deviceType(keyboardType) value back to an unknow value after
+    OSNumber 	*xml_handlerID;
+    UInt32      id;	
+
+	// RY: If a _deviceType an IOHIKeyboard protected variable.  If it is 
+    // non-zero, there is no need to obtain the handlerID again.  Just return 
+    // the already set value.  This should prevent us from mistakenly changing 
+    // changing a deviceType(keyboardType) value back to an unknow value after 
     // it has been set via MacBuddy or the keyboardPref.
     if ( _deviceType )
     {
@@ -381,13 +373,13 @@ IOHIDKeyboard::deviceType ( void )
     }
     //Info.plist key is <integer>, not <string>
     else {
-        OSNumber *xml_handlerID = _provider ? (OSNumber*)_provider->copyProperty("alt_handler_id") : NULL;
+        xml_handlerID = (OSNumber*)_provider->copyProperty("alt_handler_id");
         if ( OSDynamicCast(OSNumber, xml_handlerID) ) {
-            id = xml_handlerID->unsigned32BitValue();
-        }
+        id = xml_handlerID->unsigned32BitValue();
+    }
         else {
-            id = handlerID();
-        }
+        id = handlerID();
+    }
         OSSafeReleaseNULL(xml_handlerID);
     }
     
@@ -395,12 +387,12 @@ IOHIDKeyboard::deviceType ( void )
     // This should really be done in the keymaps.
     switch ( id )
     {
-        case kgestUSBCosmoISOKbd:
-        case kgestUSBAndyISOKbd:
-        case kgestQ6ISOKbd:
-        case kgestQ30ISOKbd:
+        case kgestUSBCosmoISOKbd: 
+        case kgestUSBAndyISOKbd: 
+        case kgestQ6ISOKbd: 
+        case kgestQ30ISOKbd: 
         case kgestM89ISOKbd:
-        case kgestUSBGenericISOkd:
+        case kgestUSBGenericISOkd: 
             _usb_2_adb_keymap[0x35] = 0x0a;
             _usb_2_adb_keymap[0x64] = 0x32;
             break;
@@ -409,8 +401,9 @@ IOHIDKeyboard::deviceType ( void )
             _usb_2_adb_keymap[0x64] = 0x0a;
             break;
     }
-    
+
     return id;
+
 }
 
 // ************************************************************************
@@ -435,79 +428,78 @@ IOHIDKeyboard::interfaceID ( void )
 UInt32
 IOHIDKeyboard::handlerID ( void )
 {
+    UInt16 productID    = _provider->getProductID();
+    UInt16 vendorID     = _provider->getVendorID();
     UInt32 ret_id       = kgestUSBUnknownANSIkd;  //Default for all unknown USB keyboards is 2
-    
-    if (_provider) {
-        UInt16 productID    = _provider->getProductID();
-        UInt16 vendorID     = _provider->getVendorID();
-        if (vendorID == kIOUSBVendorIDAppleComputer)
+
+    //New feature for hardware identification using Gestalt.h values
+    if (vendorID == kIOUSBVendorIDAppleComputer)
+    {
+        switch (productID)
         {
-            switch (productID)
-            {
-                case kprodUSBCosmoANSIKbd:  //Cosmo ANSI is 0x201
+            case kprodUSBCosmoANSIKbd:  //Cosmo ANSI is 0x201
                     ret_id = kgestUSBCosmoANSIKbd; //0xc6
                     break;
-                case kprodUSBCosmoISOKbd:  //Cosmo ISO
+            case kprodUSBCosmoISOKbd:  //Cosmo ISO
                     ret_id = kgestUSBCosmoISOKbd; //0xc7
                     break;
-                case kprodUSBCosmoJISKbd:  //Cosmo JIS
+            case kprodUSBCosmoJISKbd:  //Cosmo JIS
                     ret_id = kgestUSBCosmoJISKbd;  //0xc8
                     break;
-                case kprodUSBAndyANSIKbd:  //Andy ANSI is 0x204
+            case kprodUSBAndyANSIKbd:  //Andy ANSI is 0x204
                     ret_id = kgestUSBAndyANSIKbd; //0xcc
                     break;
-                case kprodUSBAndyISOKbd:  //Andy ISO
+            case kprodUSBAndyISOKbd:  //Andy ISO
                     ret_id = kgestUSBAndyISOKbd; //0xcd
                     break;
-                case kprodUSBAndyJISKbd:  //Andy JIS is 0x206
+            case kprodUSBAndyJISKbd:  //Andy JIS is 0x206
                     ret_id = kgestUSBAndyJISKbd; //0xce
                     break;
-                case kprodQ6ANSIKbd:  //Q6 ANSI
+            case kprodQ6ANSIKbd:  //Q6 ANSI
                     ret_id = kgestQ6ANSIKbd;
                     break;
-                case kprodQ6ISOKbd:  //Q6 ISO
+            case kprodQ6ISOKbd:  //Q6 ISO
                     ret_id = kgestQ6ISOKbd;
                     break;
-                case kprodQ6JISKbd:  //Q6 JIS
+            case kprodQ6JISKbd:  //Q6 JIS
                     ret_id = kgestQ6JISKbd;
                     break;
-                case kprodQ30ANSIKbd:  //Q30 ANSI
+            case kprodQ30ANSIKbd:  //Q30 ANSI
                     ret_id = kgestQ30ANSIKbd;
                     break;
-                case kprodQ30ISOKbd:  //Q30 ISO
+            case kprodQ30ISOKbd:  //Q30 ISO
                     ret_id = kgestQ30ISOKbd;
                     break;
-                case kprodQ30JISKbd:  //Q30 JIS
+            case kprodQ30JISKbd:  //Q30 JIS
                     ret_id = kgestQ30JISKbd;
                     break;
-                case kprodFountainANSIKbd:  //Fountain ANSI
+            case kprodFountainANSIKbd:  //Fountain ANSI
                     ret_id = kgestFountainANSIKbd;
                     break;
-                case kprodFountainISOKbd:  //Fountain ISO
+            case kprodFountainISOKbd:  //Fountain ISO
                     ret_id = kgestFountainISOKbd;
                     break;
-                case kprodFountainJISKbd:  //Fountain JIS
+            case kprodFountainJISKbd:  //Fountain JIS
                     ret_id = kgestFountainJISKbd;
                     break;
-                case kprodSantaANSIKbd:  //Santa ANSI
+            case kprodSantaANSIKbd:  //Santa ANSI
                     ret_id = kgestSantaANSIKbd;
                     break;
-                case kprodSantaISOKbd:  //Santa ISO
+            case kprodSantaISOKbd:  //Santa ISO
                     ret_id = kgestSantaISOKbd;
                     break;
-                case kprodSantaJISKbd:  //Santa JIS
+            case kprodSantaJISKbd:  //Santa JIS
                     ret_id = kgestSantaJISKbd;
                     break;
                     
-                    
-                default:  // No Gestalt.h values, but still is Apple keyboard,
-                          //   so return a generic Cosmo ANSI
-                    ret_id = kgestUSBCosmoANSIKbd;
+            
+            default:  // No Gestalt.h values, but still is Apple keyboard,
+                    //   so return a generic Cosmo ANSI
+                    ret_id = kgestUSBCosmoANSIKbd;  
                     break;
-            }
         }
     }
-    
+
     return ret_id;  //non-Apple USB keyboards should all return "2"
 }
 

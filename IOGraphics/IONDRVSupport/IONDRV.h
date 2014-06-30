@@ -40,36 +40,30 @@
 #define kAAPLDisableMSIKey      "AAPL,DisableMSI"
 #endif
 
-#define MAKE_REG_ENTRY(regEntryID,obj)                          \
-        (regEntryID)->opaque[ 0 ] = (void *) obj;                       \
-        (regEntryID)->opaque[ 1 ] = (void *) ~(uintptr_t)obj;           \
-        (regEntryID)->opaque[ 2 ] = (void *) 0x53696d65;                \
-        (regEntryID)->opaque[ 3 ] = (void *) 0x52756c7a;
+#define MAKE_REG_ENTRY(regEntryID, obj)                          	   \
+        (regEntryID)->opaque[0] = (void *) (((uintptr_t)obj)  - ((uintptr_t)gIOFramebufferKey)); \
+        (regEntryID)->opaque[1] = (void *) ~(((uintptr_t)obj) - ((uintptr_t)gIOFramebufferKey)); \
+        (regEntryID)->opaque[2] = (void *) 0x53696d65;                  \
+        (regEntryID)->opaque[3] = (void *) 0x52756c7a;
 
-#define REG_ENTRY_TO_OBJ(regEntryID,obj)                                \
-        if( (uintptr_t)((obj = ((IORegistryEntry **)regEntryID)[ 0 ]))  \
-         != ~((uintptr_t *)regEntryID)[ 1 ] )                           \
-            return( -2538);
+#define REG_ENTRY_TO_OBJ_RET(regEntryID, obj, ret)                      \
+        uintptr_t __obj;												\
+        if ((__obj = ((uintptr_t *)regEntryID)[0])  			        \
+             != ~((uintptr_t *)regEntryID)[1])        	return (ret);	\
+        obj = (IORegistryEntry *)(__obj + (uintptr_t)gIOFramebufferKey);
 
-#define REG_ENTRY_TO_OBJ_RET(regEntryID,obj,ret)                        \
-        if( (uintptr_t)((obj = ((IORegistryEntry **)regEntryID)[ 0 ]))  \
-         != ~((uintptr_t *)regEntryID)[ 1 ] )                           \
-            return( ret);
+#define REG_ENTRY_TO_OBJ(regEntryID, obj) 	REG_ENTRY_TO_OBJ_RET((regEntryID), (obj), -2538)
 
 #define REG_ENTRY_TO_PT(regEntryID,obj)                                 \
         IORegistryEntry * obj;                                          \
-        if( (uintptr_t)((obj = ((IORegistryEntry **)regEntryID)[ 0 ]))  \
-         != ~((uintptr_t *)regEntryID)[ 1 ] )                           \
-            return( -2538);
+		REG_ENTRY_TO_OBJ_RET((regEntryID), (obj), -2538)
 
-#define REG_ENTRY_TO_SERVICE(regEntryID,type,obj)                       \
+#define REG_ENTRY_TO_SERVICE(regEntryID, type, obj)                     \
         IORegistryEntry * regEntry;                                     \
         type            * obj;                                          \
-        if( (uintptr_t)((regEntry = ((IORegistryEntry **)regEntryID)[ 0 ])) \
-         != ~((uintptr_t *)regEntryID)[ 1 ] )                           \
-            return( -2538);                                             \
-        if( 0 == (obj = OSDynamicCast( type, regEntry)))                \
-            return( -2542);
+		REG_ENTRY_TO_OBJ(regEntryID, regEntry);							\
+        if (0 == (obj = OSDynamicCast(type, regEntry)))                 \
+            return (-2542);
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 

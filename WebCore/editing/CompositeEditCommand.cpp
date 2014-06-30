@@ -209,7 +209,7 @@ void CompositeEditCommand::apply()
     Frame* frame = document()->frame();
     ASSERT(frame);
     {
-        EventQueueScope scope;
+        EventQueueScope eventQueueScope;
 #if ENABLE(DELETION_UI)
         DeleteButtonControllerDisableScope deleteButtonControllerDisableScope(frame);
 #endif

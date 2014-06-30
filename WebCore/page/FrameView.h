@@ -40,9 +40,7 @@ namespace WebCore {
 
 class AXObjectCache;
 class Element;
-class Event;
 class FloatSize;
-class FrameActionScheduler;
 class KURL;
 class Node;
 class Page;
@@ -255,9 +253,6 @@ public:
 
     void restoreScrollbar();
 
-    void scheduleEvent(PassRefPtr<Event>, PassRefPtr<Node>);
-    void pauseScheduledEvents();
-    void resumeScheduledEvents();
     void postLayoutTimerFired(Timer<FrameView>*);
 
     bool wasScrolledByUser() const;
@@ -582,8 +577,6 @@ private:
 
     String m_mediaType;
     String m_mediaTypeWhenNotPrinting;
-
-    OwnPtr<FrameActionScheduler> m_actionScheduler;
 
     bool m_overflowStatusDirty;
     bool m_horizontalOverflow;

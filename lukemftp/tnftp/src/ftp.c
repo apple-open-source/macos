@@ -1795,10 +1795,14 @@ pswitch(int flag)
 	}
 	ip->connect = connected;
 	connected = op->connect;
-	if (hostname)
-		(void)strlcpy(ip->name, hostname, sizeof(ip->name));
-	else
+	if (hostname) {
+                if (hostname != ip->name) {
+                        (void)strlcpy(ip->name, hostname, sizeof(ip->name));
+                }
+        }
+	else {
 		ip->name[0] = '\0';
+        }
 	hostname = op->name;
 	ip->hctl = hisctladdr;
 	hisctladdr = op->hctl;

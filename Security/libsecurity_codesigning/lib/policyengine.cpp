@@ -78,6 +78,42 @@ PolicyEngine::PolicyEngine()
 PolicyEngine::~PolicyEngine()
 { }
 
+#define GKBIS_XPC_SERVICE_NAME "com.apple.gkbisd"
+#define GKBIS_REQUEST_KEY_PATH "path"
+#define GKBIS_REQUEST_KEY_DEFER "defer"
+#define GKBIS_REQUEST_KEY_QUARANTINED "quarantined"
+
+static void
+gkbis_invoke_collector(const char *path)
+{
+	dispatch_queue_t queue = dispatch_queue_create("gkbis_invoke_collector", NULL);
+	dispatch_group_t group = dispatch_group_create();
+	/* Set up a connection to gkbisd. */
+	xpc_connection_t connection = xpc_connection_create_mach_service(GKBIS_XPC_SERVICE_NAME,
+																	 queue, XPC_CONNECTION_MACH_SERVICE_PRIVILEGED);
+	xpc_connection_set_event_handler(connection, ^(xpc_object_t event) {
+	});
+	xpc_connection_resume(connection);
+
+	/* Construct and send the request. */
+	xpc_object_t message = xpc_dictionary_create(NULL, NULL, 0);
+	xpc_dictionary_set_string(message, GKBIS_REQUEST_KEY_PATH, path);
+    xpc_dictionary_set_bool(message, GKBIS_REQUEST_KEY_QUARANTINED, true);
+	xpc_dictionary_set_bool(message, GKBIS_REQUEST_KEY_DEFER, true);
+	xpc_connection_send_message(connection, message);
+	xpc_release(message);
+	/* Cancel the connection after the request has been sent. */
+	dispatch_group_enter(group);
+	xpc_connection_send_barrier(connection, ^{
+		xpc_connection_cancel(connection);
+		xpc_release(connection);
+		dispatch_group_leave(group);
+	});
+	/* Wait until the connection is canceled. */
+	dispatch_group_wait(group, DISPATCH_TIME_FOREVER);
+	dispatch_release(queue);
+	dispatch_release(group);
+}
 
 //
 // Top-level evaluation driver
@@ -89,6 +125,7 @@ void PolicyEngine::evaluate(CFURLRef path, AuthorityType type, SecAssessmentFlag
 
 	switch (type) {
 	case kAuthorityExecute:
+		gkbis_invoke_collector(cfString(path).c_str());
 		evaluateCode(path, kAuthorityExecute, flags, context, result, true);
 		break;
 	case kAuthorityInstall:

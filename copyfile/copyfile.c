@@ -2801,18 +2801,57 @@ swap_adhdr(apple_double_header_t *adh)
 }
 
 /*
+ * Endian swap a single attr_entry_t
+ */
+static void
+swap_attrhdr_entry(attr_entry_t *ae)
+{
+#if BYTE_ORDER == LITTLE_ENDIAN
+     ae->offset = SWAP32 (ae->offset);
+     ae->length = SWAP32 (ae->length);
+     ae->flags  = SWAP16 (ae->flags);
+#else
+     (void)ae;
+#endif
+}
+
+/*
+ * For a validated/endian swapped attr_header_t*
+ * ah, endian swap all of the entries.
+ */
+static void
+swap_attrhdr_entries(attr_header_t *ah)
+{
+#if BYTE_ORDER == LITTLE_ENDIAN
+     int i;
+     int count;
+     attr_entry_t *entry;
+     attr_entry_t *next;
+
+     /* If we're in copyfile_pack, num_args is native endian,
+      * if we're in _unpack, num_args is big endian. Use
+      * the magic number to test for  endianess.
+      */
+     count = (ah->magic == ATTR_HDR_MAGIC) ? ah->num_attrs : SWAP16(ah->num_attrs);
+
+     entry = (attr_entry_t *)(&ah[1]);
+     for (i = 0; i < count; i++) {
+          next = ATTR_NEXT(entry);	     
+          swap_attrhdr_entry(entry);
+          entry = next;
+     }
+#else
+    (void)ah;
+#endif
+}
+
+/*
  * Endian swap extended attributes header 
  */
 static void
 swap_attrhdr(attr_header_t *ah)
 {
 #if BYTE_ORDER == LITTLE_ENDIAN
-	attr_entry_t *ae;
-	int count;
-	int i;
-
-	count = (ah->magic == ATTR_HDR_MAGIC) ? ah->num_attrs : SWAP16(ah->num_attrs);
-
 	ah->magic       = SWAP32 (ah->magic);
 	ah->debug_tag   = SWAP32 (ah->debug_tag);
 	ah->total_size  = SWAP32 (ah->total_size);
@@ -2820,16 +2859,6 @@ swap_attrhdr(attr_header_t *ah)
 	ah->data_length = SWAP32 (ah->data_length);
 	ah->flags       = SWAP16 (ah->flags);
 	ah->num_attrs   = SWAP16 (ah->num_attrs);
-
-	ae = (attr_entry_t *)(&ah[1]);
-	for (i = 0; i < count; i++)
-	{
-		attr_entry_t *next = ATTR_NEXT(ae);
-		ae->offset = SWAP32 (ae->offset);
-		ae->length = SWAP32 (ae->length);
-		ae->flags  = SWAP16 (ae->flags);
-		ae = next;
-	}
 #else
 	(void)ah;
 #endif
@@ -2959,7 +2988,6 @@ static int copyfile_unpack(copyfile_state_t s)
 
 	for (i = 0; i < count; i++)
 	{
-
 	    /*
 	     * First we do some simple sanity checking.
 	     * +) See if entry is within the buffer's range;
@@ -3005,6 +3033,15 @@ static int copyfile_unpack(copyfile_state_t s)
 		s->err = EINVAL;
 		goto exit;
 	    }
+        
+        /*
+	     * Endian swap the entry we're looking at. Previously
+	     * we did this swap as part of swap_attrhdr, but that
+	     * allowed a maliciously constructed file to overrun
+	     * our allocation. Instead do the swap after we've verified
+	     * the entry struct is within the buffer's range.
+	     */
+	    swap_attrhdr_entry(entry);
 
 	    if (entry->namelen < 2) {
 		if (COPYFILE_VERBOSE & s->flags)
@@ -4042,6 +4079,7 @@ next:
 
     swap_adhdr(&filehdr->appledouble);
     swap_attrhdr(filehdr);
+    swap_attrhdr_entries(filehdr);
 
     if (pwrite(s->dst_fd, filehdr, datasize, 0) != datasize)
     {

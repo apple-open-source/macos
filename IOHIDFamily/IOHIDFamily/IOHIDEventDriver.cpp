@@ -156,18 +156,14 @@ bool IOHIDEventDriver::handleStart( IOService * provider )
     if ( !_interface )
         return false;
 
-    IOService * service = provider->getProvider();
+    IOService * service = this;
 
-    // Check to see if this is a product of an IOHIDevice or IOHIDDevice shim
-    while ( NULL != (service = service->getProvider()) )
-    {
-        if(service->metaCast("IOHIDevice") || service->metaCast("IOHIDDevice"))
-        {
+    // Check to see if this is a product of an IOHIDDeviceShim
+    while ( NULL != (service = service->getProvider()) ) {
+        if(service->metaCast("IOHIDDeviceShim")) {
             return false;
         }
     }
-
-
 
     if (!_interface->open(this, 0,  OSMemberFunctionCast(IOHIDInterface::InterruptReportAction, this, &IOHIDEventDriver::handleInterruptReport), NULL))
         return false;

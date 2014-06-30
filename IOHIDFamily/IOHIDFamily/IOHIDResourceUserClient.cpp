@@ -1,7 +1,7 @@
 /*
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 2012-2013 Apple, Inc.  All Rights Reserved.
+ * Copyright (c) 2012 Apple, Inc.  All Rights Reserved.
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -239,7 +239,7 @@ IOMemoryDescriptor * IOHIDResourceDeviceUserClient::createMemoryDescriptorFromIn
 //----------------------------------------------------------------------------------------------------
 IOService * IOHIDResourceDeviceUserClient::getService(void)
 {
-    return _owner ? _owner : NULL;
+    return _owner;
 }
 
 //----------------------------------------------------------------------------------------------------

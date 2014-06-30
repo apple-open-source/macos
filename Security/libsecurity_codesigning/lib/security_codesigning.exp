@@ -162,3 +162,12 @@ _kSecAssessmentAssessmentAuthorityOverride
 _kSecAssessmentAssessmentOriginalVerdict
 _kSecAssessmentAssessmentSource
 _kSecAssessmentAssessmentVerdict
+
+# gatekeeper logging
+
+_GKBIS_DS_Store_Present
+_GKBIS_Dot_underbar_Present
+_GKBIS_Num_localizations
+_GKBIS_Num_files
+_GKBIS_Num_dirs
+_GKBIS_Num_symlinks

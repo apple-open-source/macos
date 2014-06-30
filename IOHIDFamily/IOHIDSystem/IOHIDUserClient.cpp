@@ -1,7 +1,7 @@
 /*
  * @APPLE_LICENSE_HEADER_START@
  *
- * Copyright (c) 1998-2013 Apple Computer, Inc.  All Rights Reserved.
+ * Copyright (c) 1999-2009 Apple Computer, Inc.  All Rights Reserved.
  *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -19,6 +19,12 @@
  * limitations under the License.
  *
  * @APPLE_LICENSE_HEADER_END@
+ */
+/*
+ * Copyright (c) 1998 Apple Computer, Inc.  All rights reserved.
+ *
+ * HISTORY
+ *
  */
 
 
@@ -63,13 +69,13 @@ bool IOHIDUserClient::start( IOService * _owner )
 
 IOReturn IOHIDUserClient::clientClose( void )
 {
-    if (owner) {
-        owner->evClose();
-        owner->serverConnect = 0;
-        detach(owner);
-        owner = NULL;
-    }
-    
+    owner->evClose();
+#ifdef DEBUG
+    kprintf("%s: client token invalidated\n", getName());
+#endif
+    owner->serverConnect = 0;
+    detach( owner);
+
     return( kIOReturnSuccess);
 }
 
@@ -84,12 +90,10 @@ IOReturn IOHIDUserClient::registerNotificationPort(
 		UInt32		refCon __unused )
 {
     if( type != kIOHIDEventNotification)
-        return kIOReturnUnsupported;
-    if (!owner)
-        return kIOReturnOffline;
+	return( kIOReturnUnsupported);
 
     owner->setEventPort(port);
-    return kIOReturnSuccess;
+    return( kIOReturnSuccess);
 }
 
 IOReturn IOHIDUserClient::connectClient( IOUserClient * client )
@@ -97,19 +101,18 @@ IOReturn IOHIDUserClient::connectClient( IOUserClient * client )
     IOGBounds *         bounds;
     IOService *         provider;
     IOGraphicsDevice *	graphicsDevice;
-    
+
     provider = client->getProvider();
-    
+
     // avoiding OSDynamicCast & dependency on graphics family
     if( !provider || !provider->metaCast("IOGraphicsDevice"))
     	return( kIOReturnBadArgument );
-    
+
     graphicsDevice = (IOGraphicsDevice *) provider;
     graphicsDevice->getBoundingRect(&bounds);
-    
-    if (owner)
-        owner->registerScreen(graphicsDevice, bounds, bounds+1);
-    
+
+    owner->registerScreen(graphicsDevice, bounds, bounds+1);
+
     return( kIOReturnSuccess);
 }
 
@@ -118,18 +121,14 @@ IOReturn IOHIDUserClient::clientMemoryForType( UInt32 type,
 {
     if( type == kIOHIDGlobalMemory) {
         *flags = 0;
-        
-        if (owner && owner->globalMemory) {
+
+        if (owner->globalMemory)
             owner->globalMemory->retain();
-            *memory = owner->globalMemory;
-        }
-        else {
-            *memory = NULL;
-        }
+        *memory = owner->globalMemory;
     } else {
         return kIOReturnBadArgument;
     }
-    
+
     return kIOReturnSuccess;
 }
 
@@ -178,12 +177,12 @@ IOReturn IOHIDUserClient::setProperties( OSObject * properties )
         dict->removeObject(kIOHIDUseKeyswitchKey);
     }
 
-    return( owner ? owner->setProperties( properties ) : kIOReturnOffline );
+    return( owner->setProperties( properties ) );
 }
 
 IOReturn IOHIDUserClient::extGetUserHidActivityState(void* value,void*,void*,void*,void*,void*)
 {
-    IOReturn result = owner ? owner->extSetVirtualDisplayBounds(value, 0,0,0,0,0) : kIOReturnOffline;
+    IOReturn result = owner->extSetVirtualDisplayBounds(value, 0,0,0,0,0);
 
     return result;
 }
@@ -244,7 +243,7 @@ IOReturn IOHIDParamUserClient::extPostEvent(void*p1,void*p2,void*,void*,void*,vo
 {
     IOReturn result = clientHasPrivilege(current_task(), kIOClientPrivilegeLocalUser);
     if ( result == kIOReturnSuccess ) {
-        result = owner ? owner->extPostEvent(p1, p2, NULL, NULL, NULL, NULL) : kIOReturnOffline;
+        result = owner->extPostEvent(p1, p2, NULL, NULL, NULL, NULL);
     }
     return result;
 }
@@ -258,12 +257,12 @@ IOReturn IOHIDParamUserClient::setProperties( OSObject * properties )
         dict->removeObject(kIOHIDUseKeyswitchKey);
     }
 
-    return( owner ? owner->setProperties( properties ) : kIOReturnOffline );
+    return( owner->setProperties( properties ) );
 }
 
 IOReturn IOHIDParamUserClient::extGetUserHidActivityState(void* value,void*,void*,void*,void*,void*)
 {
-    IOReturn result = owner ? owner->extGetUserHidActivityState(value, 0,0,0,0,0) : kIOReturnOffline;
+    IOReturn result = owner->extGetUserHidActivityState(value, 0,0,0,0,0);
 
     return result;
 }
@@ -303,16 +302,14 @@ IOReturn IOHIDStackShotUserClient::clientClose( void )
         client = 0;
     }
 
-    if (owner)
-        detach(owner);
-    owner = NULL;
+    detach( owner);
 
     return( kIOReturnSuccess);
 }
 
 IOService * IOHIDStackShotUserClient::getService( void )
 {
-    return(owner);
+    return( owner );
 }
 
 
@@ -321,10 +318,9 @@ IOReturn IOHIDStackShotUserClient::registerNotificationPort(
 		UInt32		type,
 		UInt32		refCon __unused )
 {
-    if(type != kIOHIDStackShotNotification)
-        return kIOReturnUnsupported;
-    if (!owner)
-        return kIOReturnOffline;
+    if( type != kIOHIDStackShotNotification)
+	return( kIOReturnUnsupported);
+
     owner->setStackShotPort(port);
     return( kIOReturnSuccess);
 }
@@ -431,9 +427,7 @@ IOReturn IOHIDEventSystemUserClient::clientClose( void )
         client = 0;
     }
 
-    if (owner)
-        detach(owner);
-    owner = NULL;
+    detach( owner);
 
     return( kIOReturnSuccess);
 }
@@ -508,8 +502,6 @@ IOReturn IOHIDEventSystemUserClient::createEventQueue(void*p1,void*p2,void*p3,vo
 
     switch ( type ) {
         case kIOHIDEventQueueTypeKernel:
-            if (!owner)
-                return kIOReturnOffline;
             if ( !kernelQueue ) {
                 kernelQueue = IOHIDEventServiceQueue::withCapacity(size);
                 if ( kernelQueue ) {
@@ -566,7 +558,7 @@ IOReturn IOHIDEventSystemUserClient::destroyEventQueue(void*p1,void*p2,void*,voi
     switch ( type ) {
         case kIOHIDEventQueueTypeKernel:
 			kernelQueue->setState(false);
-			if (owner) owner->unregisterEventQueue(kernelQueue);
+			owner->unregisterEventQueue(kernelQueue);
 			kernelQueue->release();
 			kernelQueue = NULL;
 			break;

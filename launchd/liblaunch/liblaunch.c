@@ -788,6 +788,10 @@ launch_data_unpack(void *data, size_t data_size, int *fds, size_t fd_cnt, size_t
 	launch_data_t r = data + *data_offset;
 	size_t i, tmpcnt;
 
+	//Check for integer underflow
+	if (data_size < *data_offset)
+		return NULL;
+
 	if ((data_size - *data_offset) < sizeof(struct _launch_data))
 		return NULL;
 	*data_offset += sizeof(struct _launch_data);
@@ -796,6 +800,13 @@ launch_data_unpack(void *data, size_t data_size, int *fds, size_t fd_cnt, size_t
 	case LAUNCH_DATA_DICTIONARY:
 	case LAUNCH_DATA_ARRAY:
 		tmpcnt = big2wire(r->_array_cnt);
+
+		//Check for integer overflows
+		if (tmpcnt > SIZE_MAX / sizeof(uint64_t)) {
+			errno = EAGAIN;
+			return NULL;
+		}
+
 		if ((data_size - *data_offset) < (tmpcnt * sizeof(uint64_t))) {
 			errno = EAGAIN;
 			return NULL;

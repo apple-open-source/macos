@@ -6784,7 +6784,6 @@
     <ClCompile Include="..\page\FeatureObserver.cpp" />
     <ClCompile Include="..\page\FocusController.cpp" />
     <ClCompile Include="..\page\Frame.cpp" />
-    <ClCompile Include="..\page\FrameActionScheduler.cpp" />
     <ClCompile Include="..\page\FrameDestructionObserver.cpp" />
     <ClCompile Include="..\page\FrameTree.cpp" />
     <ClCompile Include="..\page\FrameView.cpp" />
@@ -7185,6 +7184,7 @@
     <ClCompile Include="..\platform\graphics\CrossfadeGeneratedImage.cpp" />
     <ClCompile Include="..\platform\graphics\FloatPoint.cpp" />
     <ClCompile Include="..\platform\graphics\FloatPoint3D.cpp" />
+    <ClCompile Include="..\platform\graphics\FloatPolygon.cpp" />
     <ClCompile Include="..\platform\graphics\FloatQuad.cpp" />
     <ClCompile Include="..\platform\graphics\FloatRect.cpp" />
     <ClCompile Include="..\platform\graphics\FloatSize.cpp" />
@@ -10614,6 +10614,7 @@
     <ClCompile Include="..\rendering\shapes\PolygonShape.cpp" />
     <ClCompile Include="..\rendering\shapes\RectangleShape.cpp" />
     <ClCompile Include="..\rendering\shapes\Shape.cpp" />
+    <ClCompile Include="..\rendering\shapes\ShapeInfo.cpp" />
     <ClCompile Include="..\rendering\shapes\ShapeInsideInfo.cpp" />
     <ClCompile Include="..\rendering\shapes\ShapeInterval.cpp" />
     <ClCompile Include="..\rendering\shapes\ShapeOutsideInfo.cpp" />
@@ -18604,7 +18605,6 @@
     <ClInclude Include="..\page\FocusController.h" />
     <ClInclude Include="..\page\FocusDirection.h" />
     <ClInclude Include="..\page\Frame.h" />
-    <ClInclude Include="..\page\FrameActionScheduler.h" />
     <ClInclude Include="..\page\FrameDestructionObserver.h" />
     <ClInclude Include="..\page\FrameTree.h" />
     <ClInclude Include="..\page\FrameView.h" />
@@ -18875,6 +18875,7 @@
     <ClInclude Include="..\platform\graphics\CrossfadeGeneratedImage.h" />
     <ClInclude Include="..\platform\graphics\FloatPoint.h" />
     <ClInclude Include="..\platform\graphics\FloatPoint3D.h" />
+    <ClInclude Include="..\platform\graphics\FloatPolygon.h" />
     <ClInclude Include="..\platform\graphics\FloatQuad.h" />
     <ClInclude Include="..\platform\graphics\FloatRect.h" />
     <ClInclude Include="..\platform\graphics\FloatSize.h" />
@@ -19563,6 +19564,7 @@
     <ClInclude Include="..\rendering\shapes\PolygonShape.h" />
     <ClInclude Include="..\rendering\shapes\RectangleShape.h" />
     <ClInclude Include="..\rendering\shapes\Shape.h" />
+    <ClInclude Include="..\rendering\shapes\ShapeInfo.h" />
     <ClInclude Include="..\rendering\shapes\ShapeInsideInfo.h" />
     <ClInclude Include="..\rendering\shapes\ShapeInterval.h" />
     <ClInclude Include="..\rendering\shapes\ShapeOutsideInfo.h" />
@@ -20478,6 +20480,7 @@
     <ClInclude Include="..\svg\properties\SVGAttributeToPropertyMap.h" />
     <ClInclude Include="..\svg\properties\SVGListProperty.h" />
     <ClInclude Include="..\svg\properties\SVGListPropertyTearOff.h" />
+    <ClInclude Include="..\svg\properties\SVGMatrixTearOff.h" />
     <ClInclude Include="..\svg\properties\SVGPathSegListPropertyTearOff.h" />
     <ClInclude Include="..\svg\properties\SVGProperty.h" />
     <ClInclude Include="..\svg\properties\SVGPropertyInfo.h" />
@@ -20485,7 +20488,6 @@
     <ClInclude Include="..\svg\properties\SVGPropertyTraits.h" />
     <ClInclude Include="..\svg\properties\SVGStaticListPropertyTearOff.h" />
     <ClInclude Include="..\svg\properties\SVGStaticPropertyTearOff.h" />
-    <ClInclude Include="..\svg\properties\SVGStaticPropertyWithParentTearOff.h" />
     <ClInclude Include="..\svg\properties\SVGTransformListPropertyTearOff.h" />
     <ClInclude Include="..\ForwardingHeaders\runtime\ArgList.h" />
     <ClInclude Include="..\ForwardingHeaders\runtime\Identifier.h" />

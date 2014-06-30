@@ -38,6 +38,7 @@ enum {
     kIOPCIRangeFlagSplay         = 0x00000008,
     kIOPCIRangeFlagRelocatable   = 0x00000010,
     kIOPCIRangeFlagReserve       = 0x00000020,
+    kIOPCIRangeFlagPermanent     = 0x00000040,
 };
 
 struct IOPCIRange

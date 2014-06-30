@@ -85,7 +85,7 @@ static struct {
     { OPENSSL_SERVER, 4000, 0, false}, //openssl s_server w/o client side auth
     { GNUTLS_SERVER, 5000, 1, false}, // gnutls-serv w/o client side auth
     { "www.mikestoolbox.org", 442, 2, false}, // mike's  w/o client side auth
-//    { "tls.secg.org", 40022, 3, false}, // secg ecc server w/o client side auth - This server generate DH params we dont support. 
+//    { "tls.secg.org", 40022, 3, false}, // secg ecc server w/o client side auth - This server generate DH params we dont support.
 
     { OPENSSL_SERVER, 4010, 0, true}, //openssl s_server w/ client side auth
     { GNUTLS_SERVER, 5010, 1, true}, // gnutls-serv w/ client side auth

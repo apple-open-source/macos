@@ -243,6 +243,7 @@ void SecStaticCode::resetValidity()
 	mEntitlements = NULL;
 	mResourceDict = NULL;
 	mDesignatedReq = NULL;
+	mCDHash = NULL;
 	mGotResourceBase = false;
 	mTrust = NULL;
 	mCertChain = NULL;

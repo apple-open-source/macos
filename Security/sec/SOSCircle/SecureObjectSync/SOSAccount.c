@@ -1994,25 +1994,23 @@ static bool sosAccountLeaveCircle(SOSAccountRef account, SOSCircleRef circle, CF
     SOSFullPeerInfoRef fpi = SOSAccountGetMyFullPeerInCircle(account, circle, NULL);
     if(!fpi) return false;
 	CFErrorRef localError = NULL;
-    SOSPeerInfoRef pi = SOSFullPeerInfoGetPeerInfo(fpi);
-	CFStringRef retire_key = SOSRetirementKeyCreateWithCircleAndPeer(circle, SOSPeerInfoGetPeerID(pi));
-	SOSPeerInfoRef retire_peer = NULL;
+	SOSPeerInfoRef retire_peer = SOSFullPeerInfoPromoteToRetiredAndCopy(fpi, &localError);;
+	CFStringRef retire_key = SOSRetirementKeyCreateWithCircleAndPeer(circle, SOSPeerInfoGetPeerID(retire_peer));
 	CFDataRef retire_value = NULL;
     bool retval = false;
     bool writeCircle = false;
     
     // Create a Retirement Ticket and store it in the retired_peers of the account.
-	retire_peer = SOSFullPeerInfoPromoteToRetiredAndCopy(fpi, &localError);
     require_action_quiet(retire_peer, errout, secerror("Create ticket failed for peer %@: %@", fpi, localError));
 	retire_value = SOSPeerInfoCopyEncodedData(retire_peer, NULL, &localError);
     require_action_quiet(retire_value, errout, secerror("Failed to encode retirement peer %@: %@", retire_peer, localError));
 
     // See if we need to repost the circle we could either be an applicant or a peer already in the circle
-    if(SOSCircleHasApplicant(circle, pi, NULL)) {
+    if(SOSCircleHasApplicant(circle, retire_peer, NULL)) {
 	    // Remove our application if we have one.
-	    SOSCircleWithdrawRequest(circle, pi, NULL);
+	    SOSCircleWithdrawRequest(circle, retire_peer, NULL);
         writeCircle = true;
-    } else if (SOSCircleHasPeer(circle, pi, NULL)) {
+    } else if (SOSCircleHasPeer(circle, retire_peer, NULL)) {
         if (SOSCircleUpdatePeerInfo(circle, retire_peer)) {
             CFErrorRef cleanupError = NULL;
             SOSAccountCleanupAfterPeer(account, RETIREMENT_FINALIZATION_SECONDS, circle, retire_peer, &cleanupError);

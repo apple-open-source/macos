@@ -199,8 +199,7 @@ KeychainDatabase::KeychainDatabase(const DLDbIdentifier &id, const DbBlob *blob,
     // check to see if we already know about this database
     DbIdentifier ident(id, blob->randomSignature);
 	Session &session = process().session();
-	StLock<Mutex> _(session);
-	if (KeychainDbCommon *dbcom =
+	if (RefPointer<KeychainDbCommon> dbcom =
 			session.findFirst<KeychainDbCommon, const DbIdentifier &>(&KeychainDbCommon::identifier, ident)) {
 		parent(*dbcom);
 		//@@@ arbitrate sequence number here, perhaps update common().mParams

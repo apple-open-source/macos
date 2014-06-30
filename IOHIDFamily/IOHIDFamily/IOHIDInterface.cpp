@@ -175,7 +175,6 @@ bool IOHIDInterface::start( IOService * provider )
 //====================================================================================================
 void IOHIDInterface::stop( IOService * provider )
 {
-    _owner = NULL;
     super::stop(provider);
 }
     
@@ -215,7 +214,7 @@ bool IOHIDInterface::open (
     if ( !super::open(client, options) )
         return false;
         
-    if ( !_owner || !_owner->IOService::open(client, options) )
+    if ( !_owner->IOService::open(client, options) )
     {
         super::close(client, options);
         return false;
@@ -233,14 +232,14 @@ void IOHIDInterface::close(
 								IOService *					client,
 								IOOptionBits				options)
 {
-    if (_owner)
-        _owner->close(client, options);
+    _owner->close(client, options);
     
     super::close(client, options);
     
     _interruptTarget = NULL;
     _interruptAction = NULL;
-    _interruptRefCon = NULL;
+    _interruptRefCon = NULL;    
+    
 }
 
 OSString * IOHIDInterface::getTransport ()
@@ -350,7 +349,7 @@ IOReturn IOHIDInterface::setReport (
                                 UInt32                      reportID,
                                 IOOptionBits                options)
 {
-    return _owner ? _owner->setReport(report, reportType, (reportID | (options << 8))) : kIOReturnOffline;
+    return _owner->setReport(report, reportType, (reportID | (options << 8)));
 }
 
 IOReturn IOHIDInterface::getReport ( 
@@ -359,7 +358,7 @@ IOReturn IOHIDInterface::getReport (
                                 UInt32                      reportID,
                                 IOOptionBits                options)
 {
-    return _owner ? _owner->getReport(report, reportType, (reportID | (options << 8))) : kIOReturnOffline;
+    return _owner->getReport(report, reportType, (reportID | (options << 8)));
 }
 
 

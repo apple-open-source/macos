@@ -1312,7 +1312,9 @@ static inline void constructBidiRunsForSegment(InlineBidiResolver& topResolver, 
         // tree to see which parent inline is the isolate. We could change enterIsolate
         // to take a RenderObject and do this logic there, but that would be a layering
         // violation for BidiResolver (which knows nothing about RenderObject).
-        RenderInline* isolatedInline = toRenderInline(containingIsolate(startObj, currentRoot));
+        RenderInline* isolatedInline = toRenderInline(highestContainingIsolateWithinRoot(startObj, currentRoot));
+        ASSERT(isolatedInline);
+
         InlineBidiResolver isolatedResolver;
         EUnicodeBidi unicodeBidi = isolatedInline->style()->unicodeBidi();
         TextDirection direction;
@@ -2206,6 +2208,11 @@ void RenderBlock::checkFloatsInCleanLine(RootInlineBox* line, Vector<FloatWithRe
     Vector<RenderBox*>* cleanLineFloats = line->floatsPtr();
     if (!cleanLineFloats)
         return;
+    
+    if (!floats.size()) {
+        encounteredNewFloat = true;
+        return;
+    }
 
     Vector<RenderBox*>::iterator end = cleanLineFloats->end();
     for (Vector<RenderBox*>::iterator it = cleanLineFloats->begin(); it != end; ++it) {

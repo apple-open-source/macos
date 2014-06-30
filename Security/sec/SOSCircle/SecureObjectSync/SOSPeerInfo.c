@@ -365,8 +365,20 @@ static Boolean SOSPeerInfoCompare(CFTypeRef lhs, CFTypeRef rhs) {
 
 
 CFComparisonResult SOSPeerInfoCompareByID(const void *val1, const void *val2, void *context) {
+    // The code below is necessary but not sufficient; not returning a CFComparisonResult
+    // It probably is OK to say that a NULL is <  <non-NULL>
+    if (val1 == NULL || val2 == NULL) {
+	    ptrdiff_t dv = val1 - val2;
+		return dv < 0 ? kCFCompareLessThan : dv == 0 ? kCFCompareEqualTo : kCFCompareGreaterThan;
+    }
+
 	CFStringRef v1 = SOSPeerInfoGetPeerID((SOSPeerInfoRef) val1);
 	CFStringRef v2 = SOSPeerInfoGetPeerID((SOSPeerInfoRef) val2);
+    if (v1 == NULL || v2 == NULL) {
+	    ptrdiff_t dv = (const void *)v1 - (const void *)v2;
+        return dv < 0 ? kCFCompareLessThan : dv == 0 ? kCFCompareEqualTo : kCFCompareGreaterThan;
+    }
+
     return CFStringCompare(v1, v2, 0);
 }
 
@@ -405,7 +417,7 @@ CFTypeRef SOSPeerInfoLookupGestaltValue(SOSPeerInfoRef pi, CFStringRef key) {
 }
 
 CFStringRef SOSPeerInfoGetPeerID(SOSPeerInfoRef pi) {
-    return pi->id;
+    return pi ? pi->id : NULL;
 }
 
 CFIndex SOSPeerInfoGetVersion(SOSPeerInfoRef pi) {

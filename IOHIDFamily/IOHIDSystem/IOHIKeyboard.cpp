@@ -1064,14 +1064,13 @@ void IOHIKeyboard::_keyboardEvent( IOHIKeyboard * self,
       /* repeat */           bool       repeat,
       /* atTime */           AbsoluteTime ts)
 {
-    if (!self || !self->_keyboardEventAction || !self->_keyboardEventTarget) {
-        // nothing to be done
-    }
-    else {
-        // this is skanky
-        KeyboardEventCallback	keCallback = (KeyboardEventCallback)self->_keyboardEventAction;
+    KeyboardEventCallback	keCallback;
+    keCallback = (KeyboardEventCallback)self->_keyboardEventAction;
+    
+    if ( !keCallback )
+        return;
         
-        (*keCallback)(self->_keyboardEventTarget,
+    (*keCallback)(  self->_keyboardEventTarget,
                     eventType,
                     flags,
                     key,
@@ -1084,7 +1083,6 @@ void IOHIKeyboard::_keyboardEvent( IOHIKeyboard * self,
                     ts,
                     self,
                     0);
-    }
 }
 
 void IOHIKeyboard::_keyboardSpecialEvent( 	
@@ -1097,14 +1095,13 @@ void IOHIKeyboard::_keyboardSpecialEvent(
         /* repeat */         bool       repeat,
         /* atTime */         AbsoluteTime ts)
 {
-    if (!self || !self->_keyboardSpecialEventAction || !self->_keyboardEventTarget) {
-        // nothing to be done
-    }
-    else {
-        // this is skanky
-        KeyboardSpecialEventCallback kseCallback = (KeyboardSpecialEventCallback)self->_keyboardSpecialEventAction;
+    KeyboardSpecialEventCallback kseCallback;
+    kseCallback = (KeyboardSpecialEventCallback)self->_keyboardSpecialEventAction;
+    
+    if ( !kseCallback )
+        return;
         
-        (*kseCallback)(self->_keyboardEventTarget,
+    (*kseCallback)( self->_keyboardEventTarget,
                     eventType,
                     flags,
                     key,
@@ -1114,24 +1111,21 @@ void IOHIKeyboard::_keyboardSpecialEvent(
                     ts,
                     self,
                     0);
-    }
 }
         
 void IOHIKeyboard::_updateEventFlags( IOHIKeyboard * self,
 				unsigned flags)
 {
-    if (!self || !self->_keyboardSpecialEventAction || !self->_keyboardEventTarget) {
-        // nothing to be done
-    }
-    else {
-        // this is skanky
-        UpdateEventFlagsCallback uefCallback = (UpdateEventFlagsCallback)self->_updateEventFlagsAction;
+    UpdateEventFlagsCallback uefCallback;
+    uefCallback = (UpdateEventFlagsCallback)self->_updateEventFlagsAction;
+    
+    if ( !uefCallback )
+        return;
         
-        (*uefCallback)(self->_updateEventFlagsTarget,
+    (*uefCallback)( self->_updateEventFlagsTarget,
                     flags,
                     self,
                     0);
-    }
 }
 
 /******************************************************************************/

@@ -306,7 +306,7 @@ static int SSLRecordReadInternal(SSLRecordContextRef ref, SSLRecord *rec)
     rec->protocolVersion = (SSLProtocolVersion)SSLDecodeInt(charPtr, 2);
     charPtr += 2;
 
-    if(rec->protocolVersion == DTLS_Version_1_0)
+    if(ctx->isDTLS)
     {
         sslUint64 seqNum;
         SSLDecodeUInt64(charPtr, 8, &seqNum);

@@ -279,6 +279,7 @@ static CFIndex CFArrayRemoveAllPassing(CFMutableArrayRef array, bool (^test)(con
 
 static CFIndex CFArrayRemoveAllWithMatchingID(CFMutableArrayRef array, SOSPeerInfoRef peerInfo) {
     CFStringRef peer_id = SOSPeerInfoGetPeerID(peerInfo);
+    if (!peer_id) return 0;
     
     return CFArrayRemoveAllPassing(array,  ^ bool (const void *element) {
         SOSPeerInfoRef peer = (SOSPeerInfoRef) element;

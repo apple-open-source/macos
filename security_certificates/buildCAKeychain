@@ -1,6 +1,6 @@
 #! /bin/csh -f
 #
-# Build SystemCACertificates.keychain from all the certs in cwd/certs. 
+# Build SystemCACertificates.keychain from all the certs in cwd/certs.
 # Creates this file in ./BuiltKeychains/.
 #
 set CWD=`pwd`
@@ -11,6 +11,9 @@ if((! -e "$CA_CERT_DIR") || (! -e "$KC_DIR")) then
    echo "You do not seem to be in a current security_certificates directory. Aborting."
    exit(1)
 endif
+
+# this option is essential to process filenames containing a wildcard
+set nonomatch
 
 set CA_CERT_KC=SystemCACertificates.keychain
 set CA_CERT_KC_PATH="$KC_DIR/$CA_CERT_KC"
@@ -25,7 +28,7 @@ $SECURITY create-keychain -p $CA_CERT_KC "$CA_CERT_KC_PATH" || exit(1)
 
 echo Adding intermediate certs to $CA_CERT_KC... "($CA_CERT_KC_PATH)"
 echo Intermediates from "$CA_CERT_DIR"
- 
+
 cd "$CA_CERT_DIR" || exit(1)
 
 foreach root (*)

@@ -347,6 +347,11 @@ launchd_log_forward(uid_t forward_uid, gid_t forward_gid, vm_offset_t inval, mac
 			break;
 		}
 
+		if (lm_walk->obj_sz < sizeof(struct logmsg_s)) {
+			launchd_syslog(LOG_WARNING, "Received bytes %llu are less than expected bytes %lu.", lm_walk->obj_sz, sizeof(struct logmsg_s));
+			break;
+		}
+
 		if (!(lm = malloc(lm_walk->obj_sz))) {
 			launchd_syslog(LOG_WARNING, "Failed to allocate %llu bytes for log message with %u bytes left in forwarded data. Ignoring remaining messages.", lm_walk->obj_sz, data_left);
 			break;

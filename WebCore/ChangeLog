@@ -1,3 +1,1182 @@
+2014-05-30  Dana Burkart  <dburkart@apple.com>
+
+        Supplementary build fix for <rdar://problem/16848509>, borrowed from <rdar://problem/16701806>.
+
+        * WebCore.exp.in:
+
+2014-05-29  Jeffrey Pfau  <jpfau@apple.com>
+
+        Build fix for Mavericks
+
+        * WebCore.exp.in:
+
+2014-05-29  Jeffrey Pfau  <jpfau@apple.com>
+
+        Build fix
+
+        * WebCore.exp.in:
+
+2014-05-27  Jeffrey Pfau  <jpfau@apple.com>
+
+        Workaround for <rdar://problem/16848509>
+
+        Reviewed by David Kilzer.
+
+        * platform/network/mac/ResourceRequestMac.mm:
+        (WebCore::ResourceRequest::doUpdatePlatformRequest):
+
+2014-05-27  Lucas Forschler  <lforschler@apple.com>
+
+        Fix for <rdar://problem/17020210>
+        Fix by Jon Honeycutt.
+        
+        * rendering/RenderLayer.cpp:
+        (WebCore::RenderLayer::filterNeedsRepaint):
+
+2014-05-23  Lucas Forschler  <lforschler@apple.com>
+
+    Rollout r169219
+
+2014-05-23  Dana Burkart  <dburkart@apple.com>
+
+        Merge r165862
+
+        2014-03-18  Jeffrey Pfau  <jpfau@apple.com>
+
+                Unify <media> element callback registration and unregistration
+                https://bugs.webkit.org/show_bug.cgi?id=130417
+
+                Reviewed by Eric Carlson.
+
+                * html/HTMLMediaElement.cpp:
+                (WebCore::HTMLMediaElement::HTMLMediaElement):
+                (WebCore::HTMLMediaElement::~HTMLMediaElement):
+                (WebCore::HTMLMediaElement::registerWithDocument):
+                (WebCore::HTMLMediaElement::unregisterWithDocument):
+                (WebCore::HTMLMediaElement::didMoveToNewDocument):
+                * html/HTMLMediaElement.h:
+
+2014-05-23  Dana Burkart  <dburkart@apple.com>
+
+        Merge r160847
+
+    2013-12-19  Ryosuke Niwa  <rniwa@webkit.org>
+
+            overflowchanged event could cause a crash
+            https://bugs.webkit.org/show_bug.cgi?id=125978
+
+            Reviewed by Tim Horton.
+
+            Made the event asynchrnous by re-using Document's event queuing ability. Also removed
+            the infrastructure to queue up events in FrameView.
+
+            Test: fast/events/overflowchanged-inside-selection-collapse-crash.html
+
+            * dom/Document.cpp:
+            (WebCore::Document::recalcStyle):
+            (WebCore::Document::enqueueOverflowEvent):
+            * dom/Document.h:
+            * page/FrameView.cpp:
+            (WebCore::FrameView::FrameView):
+            (WebCore::FrameView::~FrameView):
+            (WebCore::FrameView::layout):
+            (WebCore::FrameView::performPostLayoutTasks):
+            (WebCore::FrameView::updateOverflowStatus):
+            * page/FrameView.h:
+            * rendering/RenderBlock.cpp:
+            (WebCore::OverflowEventDispatcher::~OverflowEventDispatcher):
+            * rendering/RenderLayer.cpp:
+            (WebCore::RenderLayer::scrollRectToVisible):
+            * rendering/RenderMarquee.cpp:
+            (WebCore::RenderMarquee::start):
+
+2014-05-22  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r168915
+
+    2014-05-15  Daniel Bates  <dabates@apple.com>
+
+            SVG element may reference arbitrary DOM element before running its insertion logic
+            https://bugs.webkit.org/show_bug.cgi?id=132757
+            <rdar://problem/15703817>
+
+            Reviewed by Ryosuke Niwa.
+
+            Fixes an issue where an SVG element may reference an arbitrary DOM element e before e finished being
+            inserted in the tree.
+
+            Currently when an SVG element A is inserted into a document we use document.getElementById() to find the
+            element B it references (if any). If A is inserted before B and B has the same id as a later element in
+            the document then A can find B before B is notified that its been inserted into the document (i.e. before
+            Element::insertedFrom() is called on B). Instead, A should call document.getElementById() only after
+            cessation of the insertion operation that inserted it to ensure that all inserted nodes (including B)
+            processed their insertion-specific logic.
+
+            Tests: svg/custom/reparent-animate-element.html
+                   svg/custom/reparent-feimage-element.html
+                   svg/custom/reparent-mpath-element.html
+                   svg/custom/reparent-textpath-element.html
+                   svg/custom/reparent-tref-element.html
+                   svg/custom/reparent-use-element.html
+
+            * svg/SVGFEImageElement.cpp:
+            (WebCore::SVGFEImageElement::insertedInto): Return InsertionShouldCallDidNotifySubtreeInsertions so that
+            we are called back to resolve our target element (i.e. call SVGFEImageElement::buildPendingResources())
+            after the subtree we're in is inserted.
+            (WebCore::SVGFEImageElement::didNotifySubtreeInsertions): Added; turns around and calls SVGFEImageElement::buildPendingResources().
+            * svg/SVGFEImageElement.h:
+            * svg/SVGMPathElement.cpp:
+            (WebCore::SVGMPathElement::insertedInto): Return InsertionShouldCallDidNotifySubtreeInsertions so that
+            we are called back to resolve our target element (i.e. call SVGMPathElement::buildPendingResources())
+            after the subtree we're in is inserted.
+            (WebCore::SVGMPathElement::didNotifySubtreeInsertions): Added; turns around and calls SVGMPathElement::buildPendingResources().
+            * svg/SVGMPathElement.h:
+            * svg/SVGTRefElement.cpp:
+            (WebCore::SVGTRefElement::insertedInto): Return InsertionShouldCallDidNotifySubtreeInsertions so that
+            we are called back to resolve our target element (i.e. call SVGTRefElement::buildPendingResources())
+            after the subtree we're in is inserted.
+            (WebCore::SVGTRefElement::didNotifySubtreeInsertions): Added; turns around and calls SVGTRefElement::buildPendingResources().
+            * svg/SVGTRefElement.h:
+            * svg/SVGTextPathElement.cpp:
+            (WebCore::SVGTextPathElement::insertedInto): Return InsertionShouldCallDidNotifySubtreeInsertions so that
+            we are called back to resolve our target element (i.e. call SVGTextPathElement::buildPendingResources())
+            after the subtree we're in is inserted.
+            (WebCore::SVGTextPathElement::didNotifySubtreeInsertions): Added; turns around and calls SVGTextPathElement::buildPendingResources().
+            * svg/SVGTextPathElement.h:
+            * svg/SVGUseElement.cpp:
+            (WebCore::SVGUseElement::insertedInto): Return InsertionShouldCallDidNotifySubtreeInsertions so that
+            we are called back to resolve our target element (i.e. call SVGUseElement::buildPendingResources()) after its subtree is
+            inserted.
+            (WebCore::SVGUseElement::didNotifySubtreeInsertions): Added; turns around and calls SVGUseElement::buildPendingResources().
+            * svg/SVGUseElement.h:
+            * svg/animation/SVGSMILElement.cpp:
+            (WebCore::SVGSMILElement::insertedInto): Return InsertionShouldCallDidNotifySubtreeInsertions so that
+            we are called back to resolve our target element (i.e. call SVGSMILElement::buildPendingResources())
+            after the subtree we're in is inserted.
+            (WebCore::SVGSMILElement::didNotifySubtreeInsertions): Added; turns around and calls SVGSMILElement::buildPendingResources().
+            * svg/animation/SVGSMILElement.h:
+
+2014-05-22  Dana Burkart  <dburkart@apple.com>
+
+        Merge r169007
+
+    2014-05-17  Maciej Stachowiak  <mjs@apple.com>
+
+            Don't attempt to update id or name for nodes that are already removed
+            https://bugs.webkit.org/show_bug.cgi?id=133041
+
+            Reviewed by Sam Weinig.
+
+            Tests: fast/dom/remove-element-with-id-that-was-inserted-on-DOMNodeRemoved.html
+                   fast/dom/remove-element-with-name-that-was-inserted-on-DOMNodeRemoved.html
+
+            * dom/Element.cpp:
+            (WebCore::Element::removedFrom): Skip updating ids and names for an element not
+            in a treescope, as we already do for elements not in a document.
+
+2014-05-22  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r168636
+
+    2014-05-12  Martin Hock  <mhock@apple.com>
+
+            Disallow drag and drop of non-displayable resources.
+            https://bugs.webkit.org/show_bug.cgi?id=132745
+            <rdar://problem/10562662>
+
+            Reviewed by Alexey Proskuryakov.
+
+            Test: http/tests/security/drag-drop-local-file.html
+
+            * page/DragController.cpp:
+            (WebCore::DragController::startDrag):
+
+2014-05-22  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r166741
+
+    2014-04-02  Simon Fraser  <simon.fraser@apple.com>
+
+            Harden FilterOperation type casting
+            https://bugs.webkit.org/show_bug.cgi?id=131142
+
+            Reviewed by Sam Weinig.
+
+            DefaultFilterOperation had an error-prone behavior where it set the base class
+            OperationType to the type of some other filter class, but overrode isDefault(). 
+            This made it very easy to write incorrect code that casted incorrectly based on type().
+
+            Fix by making adding a DEFAULT filter operation type, and storing the represented
+            type on DefaultFilterOperation().
+
+            Also remove the OperationType argument for constructors of FilterOperations that
+            can only be of one type, to avoid possible mistakes.
+
+            Make the type cast macros a bit more normal, and use them in a few places.
+
+            Fixed PlatformCAFiltersMac to handle the default filter case more cleanly.
+
+            * WebCore.exp.in:
+            * css/CSSComputedStyleDeclaration.cpp:
+            (WebCore::ComputedStyleExtractor::valueForFilter):
+            * css/StyleResolver.cpp:
+            (WebCore::StyleResolver::createFilterOperations):
+            * platform/graphics/ca/PlatformCAFilters.h:
+            * platform/graphics/ca/mac/PlatformCAFiltersMac.mm:
+            (PlatformCAFilters::filterValueForOperation):
+            (PlatformCAFilters::colorMatrixValueForFilter):
+            * platform/graphics/filters/FilterOperation.cpp:
+            (WebCore::DefaultFilterOperation::operator==):
+            (WebCore::ReferenceFilterOperation::ReferenceFilterOperation):
+            (WebCore::ReferenceFilterOperation::operator==):
+            (WebCore::BlurFilterOperation::operator==):
+            (WebCore::BlurFilterOperation::blend):
+            (WebCore::DropShadowFilterOperation::operator==):
+            (WebCore::DropShadowFilterOperation::blend):
+            * platform/graphics/filters/FilterOperation.h:
+            (WebCore::FilterOperation::blend):
+            (WebCore::FilterOperation::type):
+            (WebCore::FilterOperation::isBasicColorMatrixFilterOperation):
+            (WebCore::FilterOperation::isBasicComponentTransferFilterOperation):
+            (WebCore::FilterOperation::isSameType):
+            (WebCore::DefaultFilterOperation::create):
+            (WebCore::DefaultFilterOperation::representedType):
+            (WebCore::DefaultFilterOperation::DefaultFilterOperation):
+            (WebCore::ReferenceFilterOperation::create):
+            (WebCore::BlurFilterOperation::create):
+            (WebCore::BlurFilterOperation::BlurFilterOperation):
+            (WebCore::DropShadowFilterOperation::create):
+            (WebCore::DropShadowFilterOperation::DropShadowFilterOperation):
+            (WebCore::FilterOperation::isDefault): Deleted.
+            * platform/graphics/filters/FilterOperations.cpp:
+            (WebCore::FilterOperations::outsets):
+            * rendering/FilterEffectRenderer.cpp:
+            (WebCore::FilterEffectRenderer::build):
+            * rendering/RenderLayerFilterInfo.cpp:
+            (WebCore::RenderLayer::FilterInfo::updateReferenceFilterClients):
+
+2014-05-22  Dana Burkart  <dburkart@apple.com>
+
+        Merge r167851
+
+    2014-04-26  Darin Adler  <darin@apple.com>
+
+            Frame and page lifetime fixes in WebCore::createWindow
+            https://bugs.webkit.org/show_bug.cgi?id=132089
+
+            Reviewed by Sam Weinig.
+
+            Speculative fix because I was unable to reproduce the crash that was
+            reported with the test case attached to this bug.
+
+            * loader/FrameLoader.cpp:
+            (WebCore::createWindow): Changed code to remove the assumption that calls
+            out will not destroy the page or frame. Use RefPtr for the frame, and
+            added early exits if frame->page() becomes null at any point before we
+            use a page pointer.
+
+2014-05-22  Dana Burkart  <dburkart@apple.com>
+
+        Merge r168641
+
+    2014-05-09  Jon Honeycutt  <jhoneycutt@apple.com>
+
+            REGRESSION (r167818): editing/inserting/typing-space-to-trigger-smart-link.html fails on WebKit1 bots
+
+            <https://bugs.webkit.org/show_bug.cgi?id=132207>
+            <rdar://problem/16730393>
+
+            Reverts the previous workaround in favor of a more specific fix for the
+            null dereference.
+
+            Reviewed by Darin Adler.
+
+            * editing/ApplyStyleCommand.cpp:
+            (WebCore::ApplyStyleCommand::applyInlineStyleToNodeRange):
+            Check whether the run's start and end are still in the document, as
+            removeConflictingInlineStyleFromRun() may have removed them.
+
+            * editing/CompositeEditCommand.cpp:
+            (WebCore::CompositeEditCommand::apply):
+            Reverted previous workaround.
+            (WebCore::ApplyEditCommand::ReentrancyGuard::isRecursiveCall): Deleted.
+            (WebCore::ApplyEditCommand::ReentrancyGuard::Scope::Scope): Deleted.
+            (WebCore::ApplyEditCommand::ReentrancyGuard::Scope::~Scope): Deleted.
+
+2014-05-22  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r167635
+
+    2014-04-21  Dan Bernstein  <mitz@apple.com>
+
+            WebCore part of <rdar://problem/16631323> Page::setDefersLoading doesn’t do anything when using the Network process
+            https://bugs.webkit.org/show_bug.cgi?id=131939
+
+            Reviewed by David Kilzer.
+
+            * WebCore.exp.in: Exported WebCore::ResourceHandle::setDefersLoading.
+
+            * loader/ResourceLoadScheduler.cpp:
+            (WebCore::ResourceLoadScheduler::setDefersLoading): Added a no-op implementation.
+            * loader/ResourceLoadScheduler.h: Declared new virtual member function setDefersLoading.
+
+            * loader/ResourceLoader.cpp:
+            (WebCore::ResourceLoader::setDefersLoading): Added a call to the above function.
+
+2014-05-22  Dana Burkart  <dburkart@apple.com>
+
+        Merge r167818
+
+    2014-04-23  Jon Honeycutt  <jhoneycutt@apple.com>
+
+            Crash applying editing commands from iframe onload event
+
+            <https://bugs.webkit.org/show_bug.cgi?id=132103>
+            <rdar://problem/15696351>
+
+            This patch merges the Chromium bug workaround from
+            <http://src.chromium.org/viewvc/blink?revision=162080&view=revision>,
+            which prevents reentrancy in CompositeEditCommand::apply().
+
+            Reviewed by Darin Adler.
+
+            Test: editing/apply-style-iframe-crash.html
+
+            * editing/CompositeEditCommand.cpp:
+            (WebCore::HTMLNames::ReentrancyGuard::isRecursiveCall):
+            (WebCore::HTMLNames::ReentrancyGuard::Scope::Scope):
+            (WebCore::HTMLNames::ReentrancyGuard::Scope::~Scope):
+            (WebCore::CompositeEditCommand::apply):
+            If this is a recursive call, return early.
+
+2014-05-22  Dana Burkart  <dburkart@apple.com>
+
+        Merge r167264
+
+    2014-04-14  Jer Noble  <jer.noble@apple.com>
+
+            Use after free in WebCore::CachedResourceHandleBase::~CachedResourceHandleBase / WebCore::removeDetachedChildrenInContainer
+            https://bugs.webkit.org/show_bug.cgi?id=131169
+
+            Reviewed by Eric Carlson.
+
+            Invalidate the WebCoreAVFResourceLoader owned by MediaPlayerPrivateAVFoundationObjC
+            in its destructor, to prevent a private function being called in response to the
+            WebCoreAVFResourceLoader being stopped.
+
+            * platform/graphics/avfoundation/objc/MediaPlayerPrivateAVFoundationObjC.mm:
+            (WebCore::MediaPlayerPrivateAVFoundationObjC::~MediaPlayerPrivateAVFoundationObjC):
+            * platform/graphics/avfoundation/objc/WebCoreAVFResourceLoader.h:
+            * platform/graphics/avfoundation/objc/WebCoreAVFResourceLoader.mm:
+            (WebCore::WebCoreAVFResourceLoader::invalidate):
+
+2014-05-22  Dana Burkart  <dburkart@apple.com>
+
+        Merge r166628
+
+    2014-04-13  Darin Adler  <darin@apple.com>
+
+            userVisibleString should not try to "encode" host names
+            https://bugs.webkit.org/show_bug.cgi?id=131587
+            rdar://problem/14686849
+
+            Reviewed by Alexey Proskuryakov.
+
+            * WebCore.exp.in: Updated for WebCoreNSURLExtras argument type changes.
+
+            * platform/mac/WebCoreNSURLExtras.h: Removed unneeded code to make this
+            Objective-C++ header compile in plain C++ files, which we never need to do.
+            Added missing argument name, baseURL, and changed mysterious CFIndex arguments
+            to the correct type, CFURLComponentType.
+
+            * platform/mac/WebCoreNSURLExtras.mm:
+            (WebCore::isLookalikeCharacter): Removed the inline keyword from this, and added
+            more lookalike characters from the Mozilla list referenced here.
+            (WebCore::URLByTruncatingOneCharacterBeforeComponent): Updated argument type.
+            (WebCore::dataForURLComponentType): Ditto.
+            (WebCore::userVisibleString): Only call mapHostNames if host name decoding is
+            needed; no encoding here.
+
+2014-05-22  Dana Burkart  <dburkart@apple.com>
+
+        Merge r166628
+
+    2014-04-01  Jon Honeycutt  <jhoneycutt@apple.com>
+
+            Crash in WebCore::RenderLayer::FilterInfo::updateReferenceFilterClients
+
+            <https://bugs.webkit.org/show_bug.cgi?id=121887>
+            <rdar://problem/15073043>
+
+            Reviewed by Dean Jackson.
+
+            Test: svg/filters/first-letter-crash.html
+
+            * rendering/FilterEffectRenderer.cpp:
+            (WebCore::FilterEffectRenderer::buildReferenceFilter):
+            Added a null check to prevent crashes for anonymous RenderObjects.
+
+            * rendering/RenderLayer.cpp:
+            (WebCore::RenderLayer::filterNeedsRepaint):
+            Get the enclosing element, if there is one, and recalculate its style.
+            We use the enclosing element so that we recalculate style for the
+            ancestor of an anonymous RenderElement.
+            (WebCore::RenderLayer::enclosingElement):
+            Remove an assertion; we may now reach this condition if loading a
+            cached SVG document results in RenderLayer::filterNeedsRepaint() being
+            called before the object has been inserted into the render tree.
+
+            * rendering/RenderLayerFilterInfo.cpp:
+            (WebCore::RenderLayer::FilterInfo::notifyFinished):
+            Tell the RenderLayer that the filter needs repainting.
+            (WebCore::RenderLayer::FilterInfo::updateReferenceFilterClients):
+            Get the Element from the renderer rather than asking the renderer's
+            Element, which will be null for anonymous RenderObjects.
+
+            * rendering/RenderLayerFilterInfo.h:
+            Removed declaration for the old workaround function, layerElement().
+
+2014-05-22  Dana Burkart  <dburkart@apple.com>
+
+        Merge r165206
+
+    2014-03-05  Jon Honeycutt  <jhoneycutt@apple.com>
+
+            Invalid cast in WebCore::RenderLayer::FilterInfo::updateReferenceFilterClients()
+
+            <https://bugs.webkit.org/show_bug.cgi?id=121887>
+            <rdar://problem/15073043>
+
+            Clang appears to be optimizing out a branch in RenderObject::node()
+            when compiling RenderLayer::FilterInfo::updateReferenceFilterClients().
+            We'll work around this by factoring out the code in question into a
+            separate member function marked NEVER_INLINE.
+
+            No test possible due to <https://bugs.webkit.org/show_bug.cgi?id=129757>.
+
+            Reviewed by David Kilzer.
+
+            * rendering/RenderLayerFilterInfo.cpp:
+            (WebCore::RenderLayer::FilterInfo::layerElement):
+            Code moved from updateReferenceFilterClients(). Returns the Element*
+            for m_layer.
+            (WebCore::RenderLayer::FilterInfo::updateReferenceFilterClients):
+            Use layerElement().
+
+            * rendering/RenderLayerFilterInfo.h:
+            Declared layerElement().
+
+2014-05-22  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r164950
+
+    2014-03-02  Dean Jackson  <dino@apple.com>
+
+            Add protected casting to FilterOperation classes.
+            https://bugs.webkit.org/show_bug.cgi?id=124062
+
+            Reviewed by Sam Weinig.
+
+            Use the type cast macro generators to produce some toFilterOperation-style
+            functions, and then use them in our PlatformCA filter code.
+
+            Test: css3/filters/animation-from-initial-values-with-color-matrix.html
+
+            * platform/graphics/ca/mac/PlatformCAFiltersMac.mm: Use the toFilterOperation methods, in
+            some cases removing the unnecessary double cast.
+            (PlatformCAFilters::filterValueForOperation):
+            (PlatformCAFilters::colorMatrixValueForFilter):
+            * platform/graphics/filters/FilterOperation.cpp:
+            (WebCore::BasicColorMatrixFilterOperation::blend):
+            (WebCore::BasicColorMatrixFilterOperation::operator==): Move this to the .cpp file so it can use the casting methods.
+            (WebCore::BasicComponentTransferFilterOperation::blend):
+            (WebCore::BasicComponentTransferFilterOperation::operator==): Ditto.
+            * platform/graphics/filters/FilterOperation.h: Add the casting macros.
+
+2014-05-22  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r157816
+
+    2013-10-22  Tim Horton  <timothy_horton@apple.com>
+
+            GammaFilterOperation seems to be dead code
+            https://bugs.webkit.org/show_bug.cgi?id=123173
+
+            Reviewed by Simon Fraser.
+
+            * platform/graphics/filters/FilterOperation.cpp:
+            * platform/graphics/filters/FilterOperation.h:
+            Remove dead code.
+
+2014-05-22  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r155315
+
+    2013-09-08  Andreas Kling  <akling@apple.com>
+
+            FrameView::scheduleEvent() is over-engineered.
+            <https://webkit.org/b/121004>
+
+            Reviewed by Antti Koivisto.
+
+            Remove gratuitous FrameActionScheduler class that was really only being used
+            to defer the occassional "overflowchanged" event until layout had finished.
+
+            * CMakeLists.txt:
+            * GNUmakefile.list.am:
+            * Target.pri:
+            * WebCore.vcxproj/WebCore.vcxproj:
+            * WebCore.vcxproj/WebCore.vcxproj.filters:
+            * WebCore.xcodeproj/project.pbxproj:
+            * page/FrameActionScheduler.cpp:
+            * page/FrameActionScheduler.h:
+
+                Removed FrameActionScheduler.
+
+            * page/FrameView.h:
+            * page/FrameView.cpp:
+            (WebCore::FrameView::FrameView):
+            (WebCore::FrameView::~FrameView):
+            (WebCore::FrameView::layout):
+            (WebCore::FrameView::ScheduledEvent::ScheduledEvent):
+            (WebCore::FrameView::scheduleEvent):
+            (WebCore::FrameView::pauseScheduledEvents):
+            (WebCore::FrameView::resumeScheduledEvents):
+            (WebCore::FrameView::performPostLayoutTasks):
+            (WebCore::FrameView::updateOverflowStatus):
+
+                Replaced it with a Vector<ScheduledEvent> and a suppression counter.
+                A ScheduledEvent is just a { Node, Event } pair.
+
+2014-05-19  Lucas Forschler  <lforschler@apple.com>
+
+        erge r169098
+
+    2013-09-19  Bear Travis  <betravis@adobe.com>
+
+            CSS_SHAPES not supported on AppleWin port
+            https://bugs.webkit.org/show_bug.cgi?id=118810
+
+            Reviewed by Brent Fulgham.
+
+            Enabling fast/shapes on windows.
+
+            * WebCore.vcxproj/WebCore.vcxproj: Add missing shape includes.
+            * WebCore.vcxproj/WebCoreCommon.props: Include shapes source folder.
+            * WebCore.vcxproj/copyForwardingHeaders.cmd: Copy shapes headers.
+            * css/CSSPropertyNames.in: Tweak to ensure shapes properties are regenerated.
+
+2014-05-08  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Rollout r168034.
+
+2014-05-07  Lucas Forschler  <lforschler@apple.com>
+
+    Rollout r168104
+
+2014-05-05  Andy Estes  <aestes@apple.com>
+
+        Fix the Mountain Lion build.
+
+        Some versions of Clang on Mountain Lion do not set __cplusplus to 201103L when compiling with -std=gnu++11,
+        which causes CF_ENUMs to be weakly-typed. Detect this case and export the correct symbols.
+
+        On Lion, CFURLComponentType is not defined using CF_ENUM, so it will always be a weakly-typed enum.
+
+        * WebCore.exp.in:
+
+2014-05-03  Babak Shafiei  <bshafiei@apple.com>
+
+        Follow-up fix for the merge of r167480.
+        
+        Rubber stamped by Tim Horton.
+
+        * platform/KURL.cpp:
+        (WebCore::KURL::host): Return empty string instead of null string.
+
+2014-05-02  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r166420.
+
+    2014-03-28  Myles C. Maxfield  <mmaxfield@apple.com>
+    
+            Clear SVGInlineTextBox fragments when the text changes.
+            https://bugs.webkit.org/show_bug.cgi?id=130879
+    
+            Reviewed by Darin Adler.
+    
+            Ported from Blink: https://src.chromium.org/viewvc/blink?revision=150456&view=revision
+    
+            This patch modifies SVGInlineTextBox::dirtyLineBoxes to clear all
+            following text boxes when invoked. Typically this method is called
+            when the underlying text string changes, and that change needs to
+            be propagated to all the boxes that use the text beyond the point
+            where the text is first modified.
+            
+            Also cleans up final function keywords for SVGRootInlineBox.
+    
+            Test: svg/custom/unicode-in-tspan-multi-svg-crash.html
+    
+            * rendering/InlineTextBox.h: Added (non-recursive) dirtyOwnLineBoxes() function
+            (WebCore::InlineTextBox::dirtyOwnLineBoxes): Calls dirtyLineBoxes()
+            * rendering/svg/SVGInlineTextBox.h: Added (non-recursive) dirtyOwnLineBoxes() function
+            (WebCore::SVGInlineTextBox::dirtyOwnLineBoxes):
+            * rendering/svg/SVGInlineTextBox.cpp:
+            (WebCore::SVGInlineTextBox::dirtyOwnLineBoxes): Non-recursive part of dirtyLineBoxes()
+            (WebCore::SVGInlineTextBox::dirtyLineBoxes): Calls dirtyOwnLineBoxes() in a loop
+            * rendering/svg/SVGRootInlineBox.h:
+    
+2014-05-02  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r165053.
+
+    2014-03-03  David Kilzer  <ddkilzer@apple.com>
+    
+            SVGPropertyTearOffs should detachChildren before deleting its value.
+            <http://webkit.org/b/129618>
+            <rdar://problem/15661617>
+    
+            Reviewed by Maciej Stachowiak.
+    
+            Merged from Blink (patch by kouhei@chromium.org):
+            https://src.chromium.org/viewvc/blink?revision=158563&view=revision
+            http://crbug.com/296276
+    
+            Test: svg/transforms/svg-matrix-tearoff-crash.html
+    
+            NOTE: The test does not reproduce a crash on WebKit using
+            JavaScriptCore.
+    
+            * svg/properties/SVGPropertyTearOff.h:
+            (WebCore::SVGPropertyTearOff::setValue):
+            (WebCore::SVGPropertyTearOff::~SVGPropertyTearOff):
+            - Call detachChildren() if m_value is a copy.  The original
+              Blink patch did not modify the destructor code path, although
+              that seems obvious via code inspection.
+    
+2014-05-01  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r164917.
+
+    2014-03-01  David Kilzer  <ddkilzer@apple.com>
+    
+            Fix lifetime handling of SVGPropertyTearOffs
+            <http://webkit.org/b/129211>
+            <rdar://problem/15696025>
+    
+            Reviewed by Maciej Stachowiak.
+    
+            Merged from Blink (patch by Ojan Vafai):
+            https://src.chromium.org/viewvc/blink?revision=157801&view=revision
+            http://crbug.com/288771
+    
+                -Replace SVGStaticPropertyWithParentTearOff with SVGMatrixTearOff
+                since it's only used in that one place. This means we can get rid
+                of the templatizing and the method pointer.
+                -Change SVGPropertyTearOff to keep track of it's child tearoffs
+                and call detachWrapper on its child tearoffs when it's destroyed
+                or when it's wrapper is detached.
+                -Have SVGPropertyTearOff hold WeakPtrs to the child tearoffs
+                to avoid having a cycle.
+    
+            Test: svg/transforms/svg-matrix-tearoff-crash.html
+    
+            * GNUmakefile.list.am:
+            * WebCore.vcxproj/WebCore.vcxproj:
+            * WebCore.vcxproj/WebCore.vcxproj.filters:
+            * WebCore.xcodeproj/project.pbxproj:
+            * bindings/scripts/CodeGeneratorJS.pm:
+            (NativeToJSValue):
+            * svg/properties/SVGMatrixTearOff.h: Renamed from Source/WebCore/svg/properties/SVGStaticPropertyWithParentTearOff.h.
+            (WebCore::SVGMatrixTearOff::create):
+            (WebCore::SVGMatrixTearOff::commitChange):
+            (WebCore::SVGMatrixTearOff::SVGMatrixTearOff):
+            * svg/properties/SVGPropertyTearOff.h:
+            (WebCore::SVGPropertyTearOff::addChild):
+            (WebCore::SVGPropertyTearOff::detachChildren):
+    
+2014-05-01  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r167295.
+
+    2014-04-14  Jon Honeycutt  <jhoneycutt@apple.com>
+    
+            Assertion failure under FEImage::determineAbsolutePaintRect()
+    
+            <https://bugs.webkit.org/show_bug.cgi?id=131660>
+            <rdar://problem/15669294>
+    
+            This patch merges Chromium r149536 (see
+            <https://chromiumcodereview.appspot.com/14701012>), which moves
+            m_absoluteTransform out of SVGFilter and into the base Filter class, so
+            that it isn't necessary to cast a Filter to SVGFilter to get the
+            absolute transform.
+    
+            Reviewed by Geoffrey Garen.
+    
+            Test: svg/filters/feImage-filter-assertion.html
+    
+            * platform/graphics/filters/Filter.h:
+            (WebCore::Filter::Filter):
+            Changed to take the absolute transform.
+            (WebCore::Filter::absoluteTransform):
+            Moved from SVGFilter.
+            (WebCore::Filter::mapAbsolutePointToLocalPoint):
+            Ditto.
+    
+            * rendering/FilterEffectRenderer.cpp:
+            (WebCore::FilterEffectRenderer::FilterEffectRenderer):
+            Pass a default AffineTransform() to the Filter base class.
+    
+            * svg/graphics/filters/SVGFEImage.cpp:
+            (WebCore::FEImage::determineAbsolutePaintRect):
+            Use the Filter without casting it to SVGFilter.
+            (WebCore::FEImage::platformApplySoftware):
+            Ditto.
+    
+            * svg/graphics/filters/SVGFilter.cpp:
+            (WebCore::SVGFilter::SVGFilter):
+            Pass the transform to the base class, and remove initialization of a
+            removed member var.
+    
+            * svg/graphics/filters/SVGFilter.h:
+            Member var moved to Filter.h.
+    
+2014-05-01  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r166736.
+
+    2014-04-03  David Hyatt  <hyatt@apple.com>
+    
+            Continuations casting issue.
+            https://bugs.webkit.org/show_bug.cgi?id=130057
+            <rdar://problem/16283406>
+    
+            Reviewed by Simon Fraser.
+    
+            The code to update relative positioned anonymous block continuations should not
+            have assumed that all siblings were RenderBlocks. Make the code smarter and
+            make it bail when it hits something that isn't part of the block continuation
+            chain.
+    
+            Added fast/block/continuation-crash.html
+    
+            * rendering/RenderInline.cpp:
+            (WebCore::updateStyleOfAnonymousBlockContinuations):
+    
+2014-05-01  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r167480.
+
+    2014-04-17  Darin Adler  <darin@apple.com>
+    
+            origin spoofing possible (HTTP Origin, postMessage event.origin) due to inappropriate URL escape sequence decoding
+            https://bugs.webkit.org/show_bug.cgi?id=131837
+            rdar://problem/15211936
+    
+            Reviewed by Anders Carlsson and Dave Hyatt.
+    
+            Tests: fast/dom/DOMURL/parsing.html
+                   fast/dom/HTMLAnchorElement/anchor-element-href-parsing.html
+    
+            * platform/URL.cpp:
+            (WebCore::URL::host): Removed unnecessary call to decodeURLEscapeSequences, which caused
+            problems and was not needed.
+    
+2014-05-01  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r167524.
+
+    2014-04-18  Jon Honeycutt  <jhoneycutt@apple.com>
+    
+            Harden RenderInline::inlineElementContinuation()
+    
+            <https://bugs.webkit.org/show_bug.cgi?id=131858>
+    
+            Reviewed by Sam Weinig.
+    
+            No new tests, as there are no known cases of this happening.
+    
+            * rendering/RenderInline.cpp:
+            (WebCore::RenderInline::inlineElementContinuation):
+            Return nullptr if the continuation is neither a RenderInline nor a
+            RenderBlock.
+    
+2014-05-01  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r167672.
+
+    2014-04-22  Brent Fulgham  <bfulgham@apple.com>
+    
+            Check (rather than assume) element is a RenderTableSection before using it
+            https://bugs.webkit.org/show_bug.cgi?id=121858
+    
+            Reviewed by David Kilzer.
+    
+            Test: fast/table/table-insert-object-before-td-crash.html
+    
+            * rendering/RenderTable.cpp:
+            (WebCore::RenderTable::addChild): Check that lastBox is a table section before
+            using the node as if it was one.
+    
+2014-05-01  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r167569 (committing on behalf of Dana Burkart.)
+
+    2014-04-19  Alexey Proskuryakov  <ap@apple.com>
+
+            Crashes in HTMLFormElement::submit.
+            https://bugs.webkit.org/show_bug.cgi?id=131910
+            <rdar://problem/15661790>
+
+            Based on a patch by Kent Tamura.
+
+            Reviewed by Anders Carlsson.
+
+            Tests: fast/forms/form-submission-crash-2.html
+                  fast/forms/form-submission-crash.html
+
+            Code that executes arbitrary JS needs to protect objects that it uses afterwards.
+
+            * html/HTMLFormElement.cpp:
+            (WebCore::HTMLFormElement::prepareForSubmission):
+            (WebCore::HTMLFormElement::submit):
+            * loader/FrameLoader.cpp:
+            (WebCore::FrameLoader::submitForm):
+
+2014-05-01  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r166650.
+
+    2014-04-02  David Kilzer  <ddkilzer@apple.com>
+    
+            Use outermost containing isolate when constructing bidi runs
+            <http://webkit.org/b/131107>
+            <rdar://problem/15690021>
+    
+            Reviewed by Darin Adler.
+    
+            Merged from Blink (patch by jww@chromium.org):
+            https://src.chromium.org/viewvc/blink?revision=157268&view=revision
+            http://crbug.com/279277
+    
+                Update containingIsolate to go back all the way to top
+                isolate from current root, rather than stopping at the first
+                isolate it finds. This works because the current root is
+                always updated with each isolate run.
+    
+            Tests: fast/text/international/unicode-bidi-isolate-nested-with-removes-not-adjacent.html
+                   fast/text/international/unicode-bidi-isolate-nested-with-removes.html
+    
+            * rendering/InlineIterator.h:
+            (WebCore::highestContainingIsolateWithinRoot):
+            * rendering/RenderBlockLineLayout.cpp:
+            (WebCore::constructBidiRunsForSegment):
+    
+2014-04-30  Lucas Forschler  <lforschler@apple.com>
+
+    Rollout r168020.
+    This causes build failures on Lion/ML.  
+
+2014-04-30  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r166049
+
+    2014-03-21  Andreas Kling  <akling@apple.com>
+
+            HTMLFrameOwnerElement should obey the SubframeLoadingDisabler when creating subframes
+            <rdar://problem/15675780>
+
+            Merge Blink r156744 by Adam Klein.
+
+            Test: fast/frames/set-iframe-src-in-pagehide-crash.html
+
+            * loader/SubframeLoader.cpp:
+            (WebCore::SubframeLoader::loadSubframe):
+
+2014-04-30  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r167278
+
+    2014-04-14  Jon Honeycutt  <jhoneycutt@apple.com>
+
+            Assertion failure !node || node->isElementNode() in
+            WebCore::RenderBlock::inlineElementContinuation
+
+            https://bugs.webkit.org/show_bug.cgi?id=108829
+            <rdar://problem/13666405>
+
+            I can't reproduce this assertion failure, but there seems to be an
+            invalid assumption in RenderBlock::inlineElementContinuation() that
+            anything with the "isInline()" bit set is a RenderInline.
+
+            No new test because the test case in the bug does not repro for me.
+
+            Reviewed by Brent Fulgham.
+
+            * rendering/RenderBlock.cpp:
+            (WebCore::RenderBlock::inlineElementContinuation):
+            Dave Hyatt says that this function should only return RenderInline
+            objects (not non-RenderInline inline objects), so update the checks
+            from isInline() to isRenderInline() before casting with
+            toRenderInline().
+
+            * rendering/RenderInline.cpp:
+            (WebCore::RenderInline::inlineElementContinuation):
+            Ditto.
+
+2014-04-30  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r167211
+
+    2014-04-13  Darin Adler  <darin@apple.com>
+
+            userVisibleString should not try to "encode" host names
+            https://bugs.webkit.org/show_bug.cgi?id=131587
+            rdar://problem/14686849
+
+            Reviewed by Alexey Proskuryakov.
+
+            * WebCore.exp.in: Updated for WebCoreNSURLExtras argument type changes.
+
+            * platform/mac/WebCoreNSURLExtras.h: Removed unneeded code to make this
+            Objective-C++ header compile in plain C++ files, which we never need to do.
+            Added missing argument name, baseURL, and changed mysterious CFIndex arguments
+            to the correct type, CFURLComponentType.
+
+            * platform/mac/WebCoreNSURLExtras.mm:
+            (WebCore::isLookalikeCharacter): Removed the inline keyword from this, and added
+            more lookalike characters from the Mozilla list referenced here.
+            (WebCore::URLByTruncatingOneCharacterBeforeComponent): Updated argument type.
+            (WebCore::dataForURLComponentType): Ditto.
+            (WebCore::userVisibleString): Only call mapHostNames if host name decoding is
+            needed; no encoding here.
+
+2014-04-30  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r167167
+
+    2014-04-11  Jon Honeycutt  <jhoneycutt@apple.com>
+
+            Assertion failure changing select element size during focus event
+            dispatch
+            <https://bugs.webkit.org/show_bug.cgi?id=131566>
+            <rdar://problem/16400735>
+
+            Reviewed by Andy Estes.
+
+            Test: fast/forms/select-change-size-during-focus.html
+
+            * html/HTMLSelectElement.cpp:
+            (WebCore::HTMLSelectElement::listBoxDefaultEventHandler):
+            Adopt the fix from Chromium r171216; check that the renderer is still
+            of the expected type, and return early if it is not.
+
+2014-04-30  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r167135
+
+    2014-04-10  Chris Fleizach  <cfleizach@apple.com>
+
+            Heap-use-after-free in WebCore::SpeechSynthesisUtterance::startTime
+            https://bugs.webkit.org/show_bug.cgi?id=131482
+
+            Reviewed by David Kilzer.
+
+            Hold onto the utterance until it has time to fire, in case other references have been removed.
+
+            Merged from Blink r171077 by <dmazzoni@chromium.org>
+
+            Test: platform/mac/fast/speechsynthesis/speech-synthesis-gc-utterance-crash.html
+
+            * Modules/speech/SpeechSynthesis.cpp:
+            (WebCore::SpeechSynthesis::handleSpeakingCompleted):
+
+2014-04-30  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r167093
+
+    2014-04-08  Jon Honeycutt  <jhoneycutt@apple.com>
+
+            Assertion failure in WebCore::FlexBoxIterator::next()
+            <https://bugs.webkit.org/show_bug.cgi?id=117176>
+            <rdar://problem/14054549>
+
+            Code added in r115687 began removing anonymous wrappers when children
+            become inline. However, there are some objects, like
+            RenderDeprecatedFlexBox, whose children should always be blocks.
+
+            Reviewed by Tim Horton.
+
+            * rendering/RenderBlock.h:
+            (WebCore::RenderBlock::canCollapseAnonymousBlockChild):
+            Made public.
+
+            * rendering/RenderObject.cpp:
+            (WebCore::RenderObject::removeAnonymousWrappersForInlinesIfNecessary):
+            Return early if we can't collapse anonymous block children.
+
+2014-04-30  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r167092
+
+    2014-04-07  Jon Honeycutt  <jhoneycutt@apple.com>
+
+            Assertion failure, !node || node->isElementNode(), in
+            WebCore::RenderBlock::clone()
+            <https://bugs.webkit.org/show_bug.cgi?id=110489>
+            <rdar://problem/13666425>
+
+            Reviewed by Antti Koivisto.
+
+            We're ending up in RenderBlock::splitBlocks() with |this| ==
+            |fromBlock|.  We then try to climb the ancestor block chain from
+            this->parent() to |fromBlock|, but this->parent() is already above
+            |fromBlock|, so we end up climbing up to the RenderView and trying to
+            clone it, causing the assertion failure.
+
+            Adopt Chromium's mitigation for this from
+            <https://codereview.chromium.org/13852041>. This is not intended as a
+            fix for the underlying issue.
+
+            Also, fix another issue that occurs with this fuzzed test case that's
+            not handled by the Chromium fix.
+
+            * rendering/RenderBlock.cpp:
+            (WebCore::RenderBlock::splitBlocks):
+            Ensure while we're in the loop that |curr| is a descendant of
+            |fromBlock|. From the Chromium patch:
+
+                We need to check in every iteration of the loop because
+                moveChildrenTo could have moved |curr|. This is a mitigation and
+                not really a fix against a class of tree craziness.
+
+            Finally, before moving children from |fromBlock| to |toBlock|, ensure
+            that the children are children of |fromBlock|. If we never entered the
+            loop, they will be siblings of |fromBlock|, not children.
+
+2014-04-30  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r166601
+
+    2014-04-01  Daniel Bates  <dabates@apple.com>
+
+            RenderQuote must destroy remaining text renderer before first letter renderer
+            https://bugs.webkit.org/show_bug.cgi?id=78023
+            <rdar://problem/10830009>
+
+            Reviewed by Brent Fulgham.
+
+            Merged from Blink (patch by Abhishek Arya):
+            https://src.chromium.org/viewvc/blink?view=rev&revision=151270
+
+            Following the fix for <https://bugs.webkit.org/show_bug.cgi?id=114586>, a
+            RenderQuote may have child render objects for the first letter of its text
+            and everything following the first letter so as to support the CSS first-
+            letter property. The latter renderer is responsible for destroying the former
+            on destruction. It's sufficient to reverse the destruction of the children of
+            RenderQuote to ensure that we destroy the remaining text renderer before we
+            destroy the first letter renderer.
+
+            Test: fast/css-generated-content/quote-first-letter-crash.html
+
+            * rendering/RenderQuote.cpp:
+            (WebCore::RenderQuote::updateText):
+
+2014-04-30  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r166457
+
+    2014-03-29  David Kilzer  <ddkilzer@apple.com>
+
+            Preserve selection end positions in directionOfSelection
+            <http://webkit.org/b/104813>
+            <rdar://problem/13666417>
+
+            Reviewed by Brent Fulgham.
+
+            Merged from Blink (patch by kenrb@chromium.org):
+            https://src.chromium.org/viewvc/blink?revision=150621&view=revision
+            http://crbug.com/164263
+
+                VisibleSelection::visibleStart() and VisibleSelection::visibleEnd()
+                can both cause layouts, which has the potential to invalidate any
+                rendertree-based objects. This was causing a problem in
+                FrameSelection::directionOfSelection(), where a reference to a
+                lineBox was being held across a call to visibleEnd().
+
+                This patch ensures that the any layout is completed before linebox
+                references are retrieved.
+
+            Test: editing/selection/layout-during-move-selection-crash.html
+
+            * editing/FrameSelection.cpp:
+            (WebCore::FrameSelection::directionOfSelection):
+
+2014-04-30  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r166428
+
+    2014-03-28  Radu Stavila  <stavila@adobe.com>
+
+            In some situations, partial layouts of floating elements produce incorrect results.
+            https://bugs.webkit.org/show_bug.cgi?id=122668
+
+            Reviewed by David Hyatt.
+
+            When performing partial layout of float elements and checking if other float
+            elements are encountered, incorrect results were obtained by not checking
+            the size of the existing floats vector.
+
+            Test: fast/block/float/floats-in-clean-line-crash.html
+
+            * rendering/RenderBlockLineLayout.cpp:
+            (WebCore::RenderBlockFlow::checkFloatsInCleanLine):
+
+2014-04-30  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r166236
+
+    2014-03-25  David Kilzer  <ddkilzer@apple.com>
+
+            Hold a reference to firstSuccessfulSubmitButton in HTMLFormElement::submit
+            <http://webkit.org/b/130713>
+            <rdar://problem/15661876>
+
+            Reviewed by Darin Adler.
+
+            Merged from Blink (patch by Ian Beer):
+            http://crbug.com/303657
+            https://src.chromium.org/viewvc/blink?view=rev&revision=158938
+
+            Test: fast/forms/form-submission-crash-successful-submit-button.html
+
+            * html/HTMLFormElement.cpp:
+            (WebCore::HTMLFormElement::submit):
+
+2014-03-26  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r160010.
+
+    2013-12-03  László Langó  <lango@inf.u-szeged.hu>
+
+            ASSERTION FAILED: !value || (value->isPrimitiveValue()) in WebCore::StyleProperties::getLayeredShorthandValue.
+            https://bugs.webkit.org/show_bug.cgi?id=125146
+
+            Reviewed by Darin Adler.
+
+            Do not presume that |yValue| is primitive if |value| is implicit in StylePropertySerializer.
+            An implicit y-value can become explicit if specified as a separate longhand.
+            At the same time, its new value can be non-primitive.
+
+            Backported from Blink:
+            http://src.chromium.org/viewvc/blink?view=rev&rev=153678
+
+            Test: fast/css/webkit-mask-crash-implicit.html
+
+            * css/StyleProperties.cpp:
+            (WebCore::StyleProperties::getLayeredShorthandValue):
+
 2014-03-26  Matthew Hanson  <matthew_hanson@apple.com>
 
         Remove extraneous ! from merge of r166304.

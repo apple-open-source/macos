@@ -2341,7 +2341,7 @@ void CLASS::cardbusProbeRanges(IOPCIConfigEntry * bridge, uint32_t resetMask)
     // Maximal bus range.
 
     range = bridge->ranges[kIOPCIRangeBridgeBusNumber];
-    range->flags    |= kIOPCIRangeFlagNoCollapse;
+    range->flags    |= kIOPCIRangeFlagNoCollapse | kIOPCIRangeFlagPermanent;
 
     // 4K register space
 
@@ -2353,12 +2353,12 @@ void CLASS::cardbusProbeRanges(IOPCIConfigEntry * bridge, uint32_t resetMask)
 
     range = IOPCIRangeAlloc();
     IOPCIRangeInit(range, kIOPCIResourceTypeIO, 0, kPCIBridgeIOAlignment, kPCIBridgeIOAlignment);
-    range->flags     = kIOPCIRangeFlagNoCollapse;
+    range->flags     = kIOPCIRangeFlagNoCollapse | kIOPCIRangeFlagPermanent;
     bridge->ranges[kIOPCIRangeBridgeIO] = range;
 
     range = IOPCIRangeAlloc();
     IOPCIRangeInit(range, kIOPCIResourceTypeMemory, 0, kPCIBridgeMemoryAlignment, kPCIBridgeMemoryAlignment);
-    range->flags     = kIOPCIRangeFlagNoCollapse;
+    range->flags     = kIOPCIRangeFlagNoCollapse | kIOPCIRangeFlagPermanent;
     bridge->ranges[kIOPCIRangeBridgeMemory] = range;
 }
 
@@ -2845,7 +2845,8 @@ bool CLASS::bridgeTotalResources(IOPCIConfigEntry * bridge, uint32_t typeMask)
 			 && !totalSize[type])            totalSize[type] = minBridgeAlignments[type];
             totalSize[type] = IOPCIScalarAlign(totalSize[type], minBridgeAlignments[type]);
 
-			if (totalSize[type] != range->totalSize)
+			if (totalSize[type] != range->totalSize 
+			    && !(kIOPCIRangeFlagPermanent & range->flags))
 			{
 				DLOG("  %s: 0x%llx: size change 0x%llx -> 0x%llx\n",
 					  gPCIResourceTypeName[type], 

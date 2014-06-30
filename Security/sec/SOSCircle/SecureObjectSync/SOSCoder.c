@@ -164,7 +164,7 @@ SOSCoderRef SOSCoderCreateFromData(CFDataRef exportedData, CFErrorRef *error) {
     require(ccder_decode_tag(&tag, der, der_end),fail);
 
     switch (tag) {
-        case CCDER_OCTET_STRING: 
+        case CCDER_OCTET_STRING:
         {
             der = der_decode_data(kCFAllocatorDefault, 0, &otr_data, error, der, der_end);
             p->waitingForDataPacket = false;

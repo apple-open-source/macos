@@ -2,7 +2,7 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  *
- * Copyright (c) 1999-2013 Apple Computer, Inc.        All Rights Reserved.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.        All Rights Reserved.
  *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -318,12 +318,6 @@ ABORT_START:
     return false;
 }
 
-void IOHIDLibUserClient::stop(IOService *provider)
-{
-    fNub = NULL;
-    super::stop(provider);
-}
-
 bool IOHIDLibUserClient::resourceNotification(void * refcon __unused, IOService *service __unused, IONotifier *notifier __unused)
 {
     #pragma ignore(notifier)
@@ -525,8 +519,6 @@ IOReturn IOHIDLibUserClient::open(IOOptionBits options)
     if (ret != kIOReturnSuccess)
         return ret;
 
-    if (!fNub)
-        return kIOReturnOffline;
     if (!fNub->open(this, options))
         return kIOReturnExclusiveAccess;
         
@@ -546,15 +538,14 @@ IOReturn IOHIDLibUserClient::_close(IOHIDLibUserClient * target, void * referenc
 
 IOReturn IOHIDLibUserClient::close()
 {
-    if (fNub)
-        fNub->close(this, fCachedOptionBits);
-    
+    fNub->close(this, fCachedOptionBits);
+
     setValid(false);
     
     fCachedOptionBits = 0;
-    
+
     // @@@ gvdl: release fWakePort leak them for the time being
-    
+
     return kIOReturnSuccess;
 }
 
@@ -570,7 +561,10 @@ IOHIDLibUserClient::didTerminate( IOService * provider, IOOptionBits options, bo
 
 void IOHIDLibUserClient::free()
 {
-    OSSafeReleaseNULL(fQueueMap);
+    if (fQueueMap) {
+        fQueueMap->release();
+        fQueueMap = 0;
+    }
         
     if (fNub) {
         fNub = 0;
@@ -591,7 +585,10 @@ void IOHIDLibUserClient::free()
         fGate = 0;
     }
     
-    OSSafeReleaseNULL(fWL);
+    if ( fWL ) {
+        fWL->release();
+        fWL = 0;
+    }
     
     if ( fValidMessage ) {
         IOFree(fValidMessage, sizeof (struct _notifyMsg));

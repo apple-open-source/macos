@@ -32,6 +32,17 @@
 #include <security_utilities/unix++.h>
 #include <security_utilities/cfmunge.h>
 
+// These are pretty nasty, but are a quick safe fix
+// to pass information down to the gatekeeper collection tool
+extern "C" {
+    int GKBIS_DS_Store_Present;
+	int GKBIS_Dot_underbar_Present;
+	int GKBIS_Num_localizations;
+	int GKBIS_Num_files;
+	int GKBIS_Num_dirs;
+	int GKBIS_Num_symlinks;
+}
+
 namespace Security {
 namespace CodeSigning {
 
@@ -93,6 +104,16 @@ void ResourceBuilder::addRule(CFTypeRef key, CFTypeRef value)
 	addRule(new Rule(pattern, weight, flags));
 }
 
+static bool findStringEndingNoCase(const char *path, const char * end)
+{
+    size_t len_path = strlen(path);
+    size_t len_end = strlen(end);
+    
+    if (len_path >= len_end) {
+        return strcasecmp(path + (len_path - len_end), end) == 0;
+    } else
+        return false;
+}
 
 //
 // Locate the next non-ignored file, look up its rule, and return it.
@@ -101,11 +122,23 @@ void ResourceBuilder::addRule(CFTypeRef key, CFTypeRef value)
 void ResourceBuilder::scan(Scanner next)
 {
 	bool first = true;
+    
 	while (FTSENT *ent = fts_read(mFTS)) {
 		const char *relpath = ent->fts_path + mRoot.size() + 1;	// skip prefix + "/"
 		switch (ent->fts_info) {
 		case FTS_F:
 			secdebug("rdirenum", "file %s", ent->fts_path);
+			GKBIS_Num_files++;
+                
+			// These are checks for the gatekeeper collection
+			static const char underbar[] = "._";
+			if (strncasecmp(ent->fts_name, underbar, strlen(underbar)) == 0)
+				GKBIS_Dot_underbar_Present++;
+
+			static const char ds_store[] = ".DS_Store";
+			if (strcasecmp(ent->fts_name, ds_store) == 0)
+				GKBIS_DS_Store_Present++;
+
 			if (Rule *rule = findRule(relpath))
 				if (!(rule->flags & (omitted | exclusion)))
 					next(ent, rule->flags, relpath, rule);
@@ -113,12 +146,16 @@ void ResourceBuilder::scan(Scanner next)
 		case FTS_SL:
 			// symlinks cannot ever be nested code, so quietly convert to resource file
 			secdebug("rdirenum", "symlink %s", ent->fts_path);
+			GKBIS_Num_symlinks++;
+                
 			if (Rule *rule = findRule(relpath))
 				if (!(rule->flags & (omitted | exclusion)))
 					next(ent, rule->flags & ~nested, relpath, rule);
 			break;
 		case FTS_D:
 			secdebug("rdirenum", "entering %s", ent->fts_path);
+			GKBIS_Num_dirs++;
+
 			if (!first) {	// skip root directory (relpath invalid)
 				if (Rule *rule = findRule(relpath)) {
 					if (rule->flags & nested) {
@@ -132,7 +169,11 @@ void ResourceBuilder::scan(Scanner next)
 					// else treat as normal directory and descend into it
 				}
 			}
+			// Report the number of localizations
+			if (findStringEndingNoCase(ent->fts_name, ".lproj"))
+				GKBIS_Num_localizations++;
 			first = false;
+
 			break;
 		case FTS_DP:
 			secdebug("rdirenum", "leaving %s", ent->fts_path);

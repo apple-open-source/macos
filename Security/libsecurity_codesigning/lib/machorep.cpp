@@ -247,12 +247,13 @@ string MachORep::format()
 //
 void MachORep::flush()
 {
+	size_t offset = mExecutable->offset();
 	delete mExecutable;
 	mExecutable = NULL;
 	::free(mSigningData);
 	mSigningData = NULL;
 	SingleDiskRep::flush();
-	mExecutable = new Universal(fd());
+	mExecutable = new Universal(fd(), offset);
 }
 
 

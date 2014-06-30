@@ -117,9 +117,7 @@ void RenderLayerFilterInfo::setRenderer(PassRefPtr<FilterEffectRenderer> rendere
 #if ENABLE(SVG)
 void RenderLayerFilterInfo::notifyFinished(CachedResource*)
 {
-    RenderObject* renderer = m_layer->renderer();
-    renderer->node()->setNeedsStyleRecalc(SyntheticStyleChange);
-    renderer->repaint();
+    m_layer->filterNeedsRepaint();
 }
 
 void RenderLayerFilterInfo::updateReferenceFilterClients(const FilterOperations& operations)
@@ -129,7 +127,7 @@ void RenderLayerFilterInfo::updateReferenceFilterClients(const FilterOperations&
         RefPtr<FilterOperation> filterOperation = operations.operations().at(i);
         if (filterOperation->getOperationType() != FilterOperation::REFERENCE)
             continue;
-        ReferenceFilterOperation* referenceFilterOperation = static_cast<ReferenceFilterOperation*>(filterOperation.get());
+        ReferenceFilterOperation* referenceFilterOperation = toReferenceFilterOperation(filterOperation.get());
         CachedSVGDocumentReference* documentReference = referenceFilterOperation->cachedSVGDocumentReference();
         CachedSVGDocument* cachedSVGDocument = documentReference ? documentReference->document() : 0;
 
@@ -140,7 +138,8 @@ void RenderLayerFilterInfo::updateReferenceFilterClients(const FilterOperations&
         } else {
             // Reference is internal; add layer as a client so we can trigger
             // filter repaint on SVG attribute change.
-            Element* filter = m_layer->renderer()->node()->document()->getElementById(referenceFilterOperation->fragment());
+            Element* filter = m_layer->renderer()->document()->getElementById(referenceFilterOperation->fragment());
+
             if (!filter || !filter->renderer() || !filter->renderer()->isSVGResourceFilter())
                 continue;
             filter->renderer()->toRenderSVGResourceContainer()->addClientRenderLayer(m_layer);
