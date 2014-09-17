@@ -1,0 +1,16 @@
+diff -Nur openssl-0.9.8za/src/doc/crypto/bn.pod ./doc/crypto/bn.pod
+--- openssl-0.9.8za/src/doc/crypto/bn.pod	2014-06-05 00:22:48.000000000 -0700
++++ ./doc/crypto/bn.pod	2014-07-09 17:55:16.000000000 -0700
+@@ -143,9 +143,9 @@
+ 
+ =head1 DESCRIPTION
+ 
+-This library performs arithmetic operations on integers of arbitrary
+-size. It was written for use in public key cryptography, such as RSA
+-and Diffie-Hellman.
++The Big Number library is part of libcrypto.  It performs arithmetic operations
++on integers of arbitrary size. It was written for use in public key cryptography,
++such as RSA and Diffie-Hellman.
+ 
+ It uses dynamic memory allocation for storing its data structures.
+ That means that there is no limit on the size of the numbers

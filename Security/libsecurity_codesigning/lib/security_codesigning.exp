@@ -162,6 +162,8 @@ _kSecAssessmentAssessmentAuthorityOverride
 _kSecAssessmentAssessmentOriginalVerdict
 _kSecAssessmentAssessmentSource
 _kSecAssessmentAssessmentVerdict
+_kSecAssessmentAssessmentWeakSignature
+_kSecAssessmentAssessmentCodeSigningError
 
 # gatekeeper logging
 

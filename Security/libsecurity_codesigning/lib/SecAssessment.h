@@ -70,6 +70,8 @@ extern CFStringRef kSecAssessmentOperationTypeExecute;	// .. execute code
 extern CFStringRef kSecAssessmentOperationTypeInstall;	// .. install software
 extern CFStringRef kSecAssessmentOperationTypeOpenDocument; // .. LaunchServices-level document open
 
+extern CFStringRef kSecAssessmentContextQuarantineFlags;
+
 
 /*!
 	Operational flags for SecAssessment calls
@@ -84,6 +86,9 @@ extern CFStringRef kSecAssessmentOperationTypeOpenDocument; // .. LaunchServices
 		Any content already there is left undisturbed. Independent of kSecAssessmentFlagIgnoreCache.
 	@constant kSecAssessmentFlagEnforce Perform normal operations even if assessments have been
 		globally bypassed (which would usually approve anything).
+	@constant kSecAssessmentAllowWeak Allow signatures that contain known weaknesses, such as an
+		insecure resource envelope.
+	@constant kSecAssessmentIgnoreWhitelist Do not search the weak signature whitelist.
 	
 	Flags common to multiple calls are assigned from high-bit down. Flags for particular calls
 	are assigned low-bit up, and are documented with that call.
@@ -97,6 +102,8 @@ enum {
 	kSecAssessmentFlagIgnoreCache = 1 << 28,		// do not search cache
 	kSecAssessmentFlagNoCache = 1 << 27,			// do not populate cache
 	kSecAssessmentFlagEnforce = 1 << 26,			// force on (disable bypass switches)
+	kSecAssessmentFlagAllowWeak = 1 << 25,			// allow weak signatures
+	kSecAssessmentFlagIgnoreWhitelist = 1 << 24,	// do not search weak signature whitelist
 };
 
 
@@ -130,6 +137,8 @@ extern CFStringRef kSecAssessmentAssessmentOriginator;	// CFStringRef: describin
 extern CFStringRef kSecAssessmentAssessmentAuthority;	// CFDictionaryRef: authority used to arrive at result
 extern CFStringRef kSecAssessmentAssessmentSource;		// CFStringRef: primary source of authority
 extern CFStringRef kSecAssessmentAssessmentFromCache;	// present if result is from cache
+extern CFStringRef kSecAssessmentAssessmentWeakSignature; // present if result attributable to signature weakness
+extern CFStringRef kSecAssessmentAssessmentCodeSigningError; // error code returned by code signing API
 extern CFStringRef kSecAssessmentAssessmentAuthorityRow; // (internal)
 extern CFStringRef kSecAssessmentAssessmentAuthorityOverride; // (internal)
 extern CFStringRef kSecAssessmentAssessmentAuthorityOriginalVerdict; // (internal)

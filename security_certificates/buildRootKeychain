@@ -65,7 +65,7 @@ cd "$DISTRUSTED_CERT_DIR" || exit(1)
 
 foreach cert (*)
 	echo Processing $cert...
-	$SECURITY -q add-trusted-cert -i "$SETTINGS_FILE_PATH" -o "$SETTINGS_FILE_PATH" -k "$TEMP_CERT_KC_PATH" -r deny "$cert" || exit(1)
+	$SECURITY -q add-trusted-cert -i "$SETTINGS_FILE_PATH" -o "$SETTINGS_FILE_PATH" -k "$TEMP_CERT_KC_PATH" -r unspecified "$cert" || exit(1)
 end
 
 echo Explicitly revoking certs...

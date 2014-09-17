@@ -3025,6 +3025,16 @@ smb2fs_smb_cmpd_set_info(struct smb_share *share, struct smbnode *create_np,
     char *file_namep = NULL, *stream_namep = NULL;
     size_t file_name_len = 0, stream_name_len = 0;
 
+    if ((setinfo_info_type == SMB2_0_INFO_FILE) &&
+        (setinfo_file_info_class == FileDispositionInformation)) {
+        /* 
+         * <17346821> Must be a Delete. Set share_access to 
+         * NTCREATEX_SHARE_ACCESS_NONE so that we can attempt to delete the
+         * item right now.
+         */
+        share_access = NTCREATEX_SHARE_ACCESS_NONE;
+    }
+    
     *setinfo_ntstatus = 0;
     
     SMB_MALLOC(fap, 

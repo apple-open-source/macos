@@ -58,6 +58,18 @@ extern "C" {
  */
 OSStatus SecStaticCodeSetCallback(SecStaticCodeRef code, SecCSFlags flag, SecCodeCallback *olds, SecCodeCallback callback);
 
+	
+/*
+ 	@function SecStaticCodeSetValidationConditions
+ 	Set various parameters that modify the evaluation of a signature.
+ 	This is an internal affordance used by Gatekeeper to implement checkfix evaluation.
+ 	It is not meant to be a generally useful mechanism.
+ 
+ 	@param code A Code or StaticCode object whose validation should be modified.
+ 	@param conditions A dictionary containing one or more validation conditions. Must not be NULL.
+ */
+OSStatus SecStaticCodeSetValidationConditions(SecStaticCodeRef code, CFDictionaryRef conditions);
+
 
 #ifdef __cplusplus
 }

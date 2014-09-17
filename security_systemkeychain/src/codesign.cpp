@@ -67,9 +67,9 @@ const char *modifiedFiles = NULL;	// file to receive list of modified files
 const char *extractCerts = NULL;	// location for extracting signing chain certificates
 const char *sdkRoot = NULL;			// alternate root for looking up sub-components
 const char *featureCheck = NULL;	// feature support check
-SecCSFlags staticVerifyOptions = kSecCSCheckAllArchitectures; // option flags to static verifications
-SecCSFlags dynamicVerifyOptions = kSecCSDefaultFlags; // option flags to static verifications
-SecCSFlags signOptions = kSecCSDefaultFlags; // option flags to signing operations
+SecCSFlags staticVerifyOptions = kSecCSCheckAllArchitectures | kSecCSStrictValidate; // option flags to static verifications
+SecCSFlags dynamicVerifyOptions = kSecCSDefaultFlags; // option flags to dynamic verifications
+SecCSFlags signOptions = kSecCSSignStrictPreflight; // option flags to signing operations
 uint32_t digestAlgorithm = 0;		// digest algorithm to be used when signing
 CFDateRef signingTime;				// explicit signing time option
 size_t signatureSize = 0;			// override CMS blob estimate
@@ -149,7 +149,9 @@ enum {
 	optSignatureSize,
     optTimestamp,
     optTSANoCerts,
-    optTeamID
+    optTeamID,
+    optNoStrict,
+    optSealRoot,
 };
 
 const struct option options[] = {
@@ -204,6 +206,8 @@ const struct option options[] = {
 	{ "signing-time", required_argument,	NULL, optSigningTime },
 	{ "timestamp",	optional_argument,		NULL, optTimestamp },
 	{ "no-tsa-certs",	no_argument,		NULL, optTSANoCerts },
+	{ "no-strict",	no_argument,			NULL, optNoStrict },
+	{ "seal-root",	no_argument,			NULL, optSealRoot },
 	{ }
 };
 
@@ -349,7 +353,7 @@ int main(int argc, char *argv[])
 				signOptions |= kSecCSSignOpaque;	// no need for V2 signature for FMJ
 				break;
 			case optNoLegacy:
-				signOptions = kSecCSSignNoV1;
+				signOptions |= kSecCSSignNoV1;
 				break;
 			case optNoMachO:
 				noMachO = true;
@@ -393,6 +397,13 @@ int main(int argc, char *argv[])
 				break;
 			case optSigningTime:
 				signingTime = parseDate(optarg);
+				break;
+			case optNoStrict:
+				signOptions &= ~kSecCSSignStrictPreflight;
+				staticVerifyOptions &= ~kSecCSStrictValidate;
+				break;
+			case optSealRoot:
+				signOptions |= kSecCSSignBundleRoot;
 				break;
 				
 			case '?':

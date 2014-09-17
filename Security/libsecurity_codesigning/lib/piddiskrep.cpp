@@ -130,7 +130,7 @@ CFDataRef PidDiskRep::identification()
 }
 
 
-CFURLRef PidDiskRep::canonicalPath()
+CFURLRef PidDiskRep::copyCanonicalPath()
 {
         return mBundleURL.retain();
 }

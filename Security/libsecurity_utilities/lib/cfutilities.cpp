@@ -249,6 +249,28 @@ CFDataRef cfLoadFile(CFURLRef url)
 	}
 }
 
+CFDataRef cfLoadFile(int fd, size_t bytes)
+{
+	uint8_t *buffer = (uint8_t *) malloc(bytes);
+
+	if (buffer == NULL)
+		return NULL;
+
+	if (read(fd, buffer, bytes) != bytes) {
+		free(buffer);
+		return NULL;
+	}
+
+	CFDataRef result = CFDataCreateWithBytesNoCopy(kCFAllocatorMalloc, buffer, bytes, kCFAllocatorMalloc);
+
+	// If CFDataCreateWithBytesNoCopy fails, the buffer is not free()-ed
+	if (result == NULL) {
+		free(buffer);
+		return NULL;
+	}
+
+	return result;
+}
 
 //
 // CFArray creators

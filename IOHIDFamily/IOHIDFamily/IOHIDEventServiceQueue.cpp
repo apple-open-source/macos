@@ -74,7 +74,7 @@ Boolean IOHIDEventServiceQueue::enqueueEvent( IOHIDEvent * event )
     if ( tail >= head )
     {
         // Is there enough room at the end for the entry?
-        if ( (tail + entrySize) <= dataQueue->queueSize )
+        if ( (tail + entrySize) <= getQueueSize() )
         {
             entry = (IODataQueueEntry *)((UInt8 *)dataQueue->queue + tail);
 
@@ -83,7 +83,7 @@ Boolean IOHIDEventServiceQueue::enqueueEvent( IOHIDEvent * event )
 
             // The tail can be out of bound when the size of the new entry
             // exactly matches the available space at the end of the queue.
-            // The tail can range from 0 to dataQueue->queueSize inclusive.
+            // The tail can range from 0 to getQueueSize() inclusive.
 
             // RY: effectively performs a memory barrier
             OSAddAtomic(entrySize, (SInt32 *)&dataQueue->tail);
@@ -99,7 +99,7 @@ Boolean IOHIDEventServiceQueue::enqueueEvent( IOHIDEvent * event )
             // doing this. The user client checks for this and will look for the size
             // at the beginning if there isn't room for it at the end.
 
-            if ( ( dataQueue->queueSize - tail ) >= DATA_QUEUE_ENTRY_HEADER_SIZE )
+            if ( ( getQueueSize() - tail ) >= DATA_QUEUE_ENTRY_HEADER_SIZE )
             {
                 ((IODataQueueEntry *)((UInt8 *)dataQueue->queue + tail))->size = dataSize;
             }

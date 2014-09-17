@@ -45,7 +45,8 @@ namespace CodeSigning {
 //
 class SecCodeSigner::Signer {
 public:
-	Signer(SecCodeSigner &s, SecStaticCode *c) : state(s), code(c), requirements(NULL) { }
+	Signer(SecCodeSigner &s, SecStaticCode *c) : state(s), code(c), requirements(NULL)
+	{ strict = state.signingFlags() & kSecCSSignStrictPreflight; }
 	~Signer() { ::free((Requirements *)requirements); }
 
 	void sign(SecCSFlags flags);
@@ -56,7 +57,7 @@ public:
 	
 	CodeDirectory::HashAlgorithm digestAlgorithm() const { return state.mDigestAlgorithm; }
 	
-	std::string path() const { return cfString(rep->canonicalPath()); }
+	std::string path() const { return cfString(rep->copyCanonicalPath()); }
 	SecIdentityRef signingIdentity() const { return state.mSigner; }
 	std::string signingIdentifier() const { return identifier; }
 	
@@ -74,7 +75,7 @@ protected:
 	std::string uniqueName() const;				// derive unique string from rep
 
 protected:
-	void buildResources(std::string root, CFDictionaryRef rules);
+	void buildResources(std::string root, std::string relBase, CFDictionaryRef rules);
 	CFMutableDictionaryRef signNested(FTSENT *ent, const char *relpath);
 	CFDataRef hashFile(const char *path);
 
@@ -89,6 +90,7 @@ private:
 	const Requirements *requirements; // internal requirements ready-to-use
 	size_t pagesize;				// size of main executable pages
 	CFAbsoluteTime signingTime;		// signing time for CMS signature (0 => none)
+	bool strict;					// strict validation
 };
 
 

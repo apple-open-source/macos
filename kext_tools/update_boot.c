@@ -307,11 +307,12 @@ getExitValueFor(errval)
 #define MDS_DIR "/.Spotlight-V100"
 #define FSEVENTS_BULWARK "/.fseventsd/no_log"
 #define FSEVENTS_DIR "/.fseventsd"
+#define NETBOOT_SHADOW "/.com.apple.NetBootX/shadowfile"
 static int
 sanitizeBoot(struct updatingVol *up)
 {
-    int rval = 0;
-    int fd = -1;
+    int lastErrno = 0;              // best effort
+    int fd;
     struct statfs sfs;
     char bloatp[PATH_MAX], blockp[PATH_MAX];
     Boolean blockMissing = true;
@@ -323,22 +324,30 @@ sanitizeBoot(struct updatingVol *up)
     // X if the size similar to a user's data volume, don't scrub
     if ((fstatfs(up->curbootfd, &sfs) == 0) &&
             (sfs.f_blocks * sfs.f_bsize > 1ULL<<32)) {
-        return rval;
+        goto finish;
     }
 
-    // make sure root is owned by root!
+    // ensure root ownership of the helper root (opened in mountBoot())
     if ((fstat(up->curbootfd, &sb) == 0) &&
-            (sb.st_uid != UID_ROOT || sb.st_gid != GID_WHEEL))
-        rval |= fchown(up->curbootfd, UID_ROOT, GID_WHEEL);
+            (sb.st_uid != UID_ROOT || sb.st_gid != GID_WHEEL)) {
+        if (fchown(up->curbootfd, UID_ROOT, GID_WHEEL) == -1) {
+            lastErrno = errno;
+        }
+    }
 
     // Time Machine
     makebootpath(bloatp, MOBILEBACKUPS_DIR);
     if (0 == (stat(bloatp, &sb))) {
-        fd = sdeepunlink(up->curbootfd, bloatp);
-        if (fd == -1) {
-            rval |= errno;
-        } else {
-            close(fd);
+        if (sdeepunlink(up->curbootfd, bloatp) == -1) {
+            lastErrno = errno;
+        }
+    } 
+
+    // NetBoot shadow file (see 11535905)
+    makebootpath(bloatp, NETBOOT_SHADOW);
+    if (0 == (stat(bloatp, &sb))) {
+        if (sdeepunlink(up->curbootfd, bloatp) == -1) {
+            lastErrno = errno;
         }
     } 
 
@@ -347,14 +356,16 @@ sanitizeBoot(struct updatingVol *up)
     if (-1 == stat(blockp, &sb) && errno == ENOENT) {
         fd = sopen(up->curbootfd, blockp, O_CREAT, kCacheFileMode);
         if (fd == -1) {
-            rval |= errno;
+            lastErrno = errno;
         } else {
             close(fd);
         }
     }
     makebootpath(bloatp, MDS_DIR);
     if (0 == (stat(bloatp, &sb))) {
-        rval |= sdeepunlink(up->curbootfd, bloatp);
+        if (sdeepunlink(up->curbootfd, bloatp) == -1) {
+            lastErrno = errno;
+        }
     } 
 
     // FSEvents has its antithesis inside its directory :P
@@ -364,7 +375,9 @@ sanitizeBoot(struct updatingVol *up)
     if (0 == (stat(bloatp, &sb))) {
         if (-1 == stat(blockp, &sb) && errno == ENOENT) {
             // no bulwark, so nuke the whole thing
-            rval |= sdeepunlink(up->curbootfd, bloatp);
+            if (sdeepunlink(up->curbootfd, bloatp) == -1) {
+                lastErrno = errno;
+            }
         } else {
             blockMissing = false;
         }
@@ -372,10 +385,12 @@ sanitizeBoot(struct updatingVol *up)
 
     if (blockMissing) {
         // then recreate the directory and the "stay away" file
-        rval |= sdeepmkdir(up->curbootfd, bloatp, kCacheDirMode);
+        if (sdeepmkdir(up->curbootfd, bloatp, kCacheDirMode) == -1) {
+            lastErrno = errno;
+        }
         fd = sopen(up->curbootfd, blockp, O_CREAT, kCacheFileMode);
         if (fd == -1) {
-            rval |= errno;
+            lastErrno = errno;
         } else {
             close(fd);
         }
@@ -384,10 +399,12 @@ sanitizeBoot(struct updatingVol *up)
     // no accumulated errors -> success
 
 finish:
-    if (rval)
-        OSKextLog(NULL,up->warnLogSpec,"Warning: trouble cleaning Apple_Boot");
+    if (lastErrno) {
+        OSKextLog(NULL, up->warnLogSpec, "sanitizeBoot(): Warning: %s",
+                  strerror(lastErrno));
+    }
 
-    return rval;
+    return lastErrno;
 }
 
 
@@ -646,7 +663,7 @@ checkRebuildAllCaches(struct bootCaches *caches, int oodLogSpec)
         if ((opres = rebuild_kext_boot_cache_file(caches, true /*wait*/,
                 caches->kext_boot_cache_file->rpath, caches->kernel))) {
             OSKextLog(NULL, kOSKextLogErrorLevel | kOSKextLogArchiveFlag,
-                      "Error %d rebuilding %s.", result,
+                      "Error %d rebuilding %s", result,
                       caches->kext_boot_cache_file->rpath);
                 result = opres; goto finish;
         }
@@ -663,7 +680,7 @@ checkRebuildAllCaches(struct bootCaches *caches, int oodLogSpec)
         OSKextLog(NULL,oodLogSpec,"rebuilding %s",caches->erpropcache->rpath);
         if ((opres = rebuild_csfde_cache(caches))) {
             OSKextLog(NULL, kOSKextLogErrorLevel | kOSKextLogArchiveFlag,
-                      "Error %d rebuilding %s.", result,
+                      "Error %d rebuilding %s", result,
                       caches->erpropcache->rpath);
             result = opres; goto finish;
         }
@@ -2303,6 +2320,8 @@ ucopyRPS(struct updatingVol *up)
         } else {
             // could deny zero-size cookies, busted Mach-O, etc here
             // scopyitem creates any intermediate directories
+            OSKextLog(NULL, kOSKextLogGeneralFlag|kOSKextLogDetailLevel,
+                      "copying %s to %s", srcpath, up->dstdir);
             bsderr=scopyitem(up->caches->cachefd,srcpath,up->curbootfd,dstpath);
             if (bsderr) {
                 // erpropcache, efiloccache are optional
@@ -2311,9 +2330,10 @@ ucopyRPS(struct updatingVol *up)
                         && bsderr == -1 && errno == ENOENT) {
                     ; // no-op to allow real CSFDE data to be written
                 } else {
-                    OSKextLog(NULL, up->errLogSpec, "Error copying %s to %s",
-                              srcpath, dstpath);
-                    rval = bsderr; goto finish;
+                    rval = bsderr == -1 ? errno : bsderr;
+                    OSKextLog(0,up->errLogSpec,"Error %d copying %s to %s: %s",
+                              rval, srcpath, dstpath, strerror(rval));
+                    goto finish;
                 }
             }
 
@@ -2349,9 +2369,10 @@ ucopyRPS(struct updatingVol *up)
             pathcat(dstpath, up->caches->efidefrsrcs->rpath);
             bsderr=scopyitem(up->caches->cachefd,srcpath,up->curbootfd,dstpath);
             if (bsderr) {
-                OSKextLog(NULL, up->errLogSpec, "Error copying %s to %s",
-                          srcpath, dstpath);
-                rval = bsderr; goto finish;
+                rval = bsderr == -1 ? errno : bsderr;
+                OSKextLog(NULL,up->errLogSpec,"Error %d copying %s to %s: %s",
+                          rval, srcpath, dstpath, strerror(rval));
+                goto finish;
             }
         }
     }
@@ -2387,9 +2408,9 @@ ucopyMisc(struct updatingVol *up)
             // file exists and is accessible
             if ((bsderr = scopyitem(up->caches->cachefd, srcpath,
                                     up->curbootfd, dstpath))) {
-                OSKextLog(NULL, up->errLogSpec, 
-                          "Error copying %s to %s: %s",
-                          srcpath, dstpath, strerror(bsderr));
+                if (bsderr == -1)  bsderr = errno;
+                OSKextLog(NULL, up->errLogSpec, "Error %d copying %s to %s: %s",
+                          bsderr, srcpath, dstpath, strerror(bsderr));
                 continue;
             }
         } else if (errno != ENOENT) {
@@ -2577,9 +2598,10 @@ ucopyBooters(struct updatingVol *up)
         }
         if ((bsderr = scopyitem(up->caches->cachefd, srcpath,
                                 up->curbootfd, up->ofdst))) {
+            rval = bsderr == -1 ? errno : bsderr;
             if (!(up->opts & kBRUHelpersOptional)) {
-                OSKextLog(NULL, up->errLogSpec, "%s - Error copying %s to %s",
-                          __FUNCTION__, srcpath, up->ofdst);
+                OSKextLog(NULL,up->errLogSpec,"Error %d copying %s to %s: %s",
+                          rval, srcpath, up->ofdst, strerror(rval));
             }
             goto finish;
         }
@@ -2605,8 +2627,9 @@ ucopyBooters(struct updatingVol *up)
         if ((bsderr = scopyitem(up->caches->cachefd, srcpath,
                                 up->curbootfd, up->efidst))) {
             if (!(up->opts & kBRUHelpersOptional)) {
-                OSKextLog(NULL, up->errLogSpec, "%s - Error copying %s to %s",
-                          __FUNCTION__, srcpath, up->efidst);
+                rval = bsderr == -1 ? errno : bsderr;
+                OSKextLog(NULL,up->errLogSpec,"Error %d copying %s to %s: %s",
+                          rval, srcpath, up->efidst, strerror(rval));
             }
             goto finish;
         }
@@ -3216,17 +3239,11 @@ finish:
             "Couldn't lock %s: %s (%x).", path,
             safe_mach_error_string(macherr), macherr);
         rval = macherr;
-    } else {
+    } else if (rval) {
         // dump rval
-        if (rval == -1) {
-            OSKextLog(NULL, kOSKextLogWarningLevel | kOSKextLogIPCFlag,
-                "Couldn't lock %s.", path);
-            rval = errno;
-        } else if (rval) {
-            // lckres == EAGAIN should get here
-            OSKextLog(NULL, kOSKextLogWarningLevel | kOSKextLogIPCFlag,
-                "Couldn't lock %s: %s", path, strerror(rval));
-        }
+        if (rval == -1)     rval = errno;
+        OSKextLog(NULL, kOSKextLogWarningLevel | kOSKextLogIPCFlag,
+            "Couldn't lock %s: %s", path, strerror(rval));
     }
 
     return rval;

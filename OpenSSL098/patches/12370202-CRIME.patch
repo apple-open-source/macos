@@ -1,0 +1,28 @@
+diff -Nur openssl-0.9.8za/src/ssl/ssl_ciph.c ./ssl/ssl_ciph.c
+--- openssl-0.9.8za/src/ssl/ssl_ciph.c	2014-07-09 18:03:07.000000000 -0700
++++ ./ssl/ssl_ciph.c	2014-07-09 17:55:16.000000000 -0700
+@@ -279,24 +279,6 @@
+ 
+ 			MemCheck_off();
+ 			ssl_comp_methods=sk_SSL_COMP_new(sk_comp_cmp);
+-			if (ssl_comp_methods != NULL)
+-				{
+-				comp=(SSL_COMP *)OPENSSL_malloc(sizeof(SSL_COMP));
+-				if (comp != NULL)
+-					{
+-					comp->method=COMP_zlib();
+-					if (comp->method
+-						&& comp->method->type == NID_undef)
+-						OPENSSL_free(comp);
+-					else
+-						{
+-						comp->id=SSL_COMP_ZLIB_IDX;
+-						comp->name=comp->method->name;
+-						sk_SSL_COMP_push(ssl_comp_methods,comp);
+-						}
+-					}
+-					sk_SSL_COMP_sort(ssl_comp_methods);
+-				}
+ 			MemCheck_on();
+ 			}
+ 		}

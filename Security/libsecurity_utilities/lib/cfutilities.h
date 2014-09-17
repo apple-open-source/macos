@@ -499,12 +499,23 @@ private:
 		void (T::*func)(CFTypeRef key, CFTypeRef value);
 		static void apply(CFTypeRef key, CFTypeRef value, void *context)
 		{ Applier *me = (Applier *)context; return ((me->object)->*(me->func))(key, value); }
-	};		
+	};
+	
+	template <class Key, class Value>
+	struct BlockApplier {
+		void (^action)(Key key, Value value);
+		static void apply(CFTypeRef key, CFTypeRef value, void* context)
+		{ BlockApplier *me = (BlockApplier *)context; return me->action(Key(key), Value(value)); }
+	};
 
 public:	
 	template <class T>
 	void apply(T *object, void (T::*func)(CFTypeRef key, CFTypeRef value))
 	{ Applier<T> app; app.object = object; app.func = func; return apply(app.apply, &app); }
+	
+	template <class Key = CFTypeRef, class Value = CFTypeRef>
+	void apply(void (^action)(Key key, Value value))
+	{ BlockApplier<Key, Value> app; app.action = action; return apply(app.apply, &app); }
 
 private:
 	OSStatus mDefaultError;
@@ -515,6 +526,7 @@ private:
 // CFURLAccess wrappers for specific purposes
 //
 CFDataRef cfLoadFile(CFURLRef url);
+CFDataRef cfLoadFile(int fd, size_t bytes);
 inline CFDataRef cfLoadFile(CFStringRef path) { return cfLoadFile(CFTempURL(path)); }
 inline CFDataRef cfLoadFile(const std::string &path) { return cfLoadFile(CFTempURL(path)); }
 inline CFDataRef cfLoadFile(const char *path) { return cfLoadFile(CFTempURL(path)); }

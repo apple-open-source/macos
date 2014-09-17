@@ -48,9 +48,10 @@ static void esp_do_check(const char *op, CFDictionaryRef dict)
 //
 struct _SecAssessment : private CFRuntimeBase {
 public:
-	_SecAssessment(CFURLRef p, AuthorityType typ, CFDictionaryRef r) : path(p), type(typ), result(r) { }
+	_SecAssessment(CFURLRef p, AuthorityType typ, CFDictionaryRef c, CFDictionaryRef r) : path(p), context(c), type(typ), result(r) { }
 	
 	CFCopyRef<CFURLRef> path;
+	CFCopyRef<CFDictionaryRef> context;
 	AuthorityType type;
 	CFRef<CFDictionaryRef> result;
 
@@ -106,6 +107,8 @@ CFStringRef kSecAssessmentOperationTypeExecute = CFSTR("operation:execute");
 CFStringRef kSecAssessmentOperationTypeInstall = CFSTR("operation:install");
 CFStringRef kSecAssessmentOperationTypeOpenDocument = CFSTR("operation:lsopen");
 
+CFStringRef kSecAssessmentContextQuarantineFlags = CFSTR("context:qtnflags");
+
 
 //
 // Read-only in-process access to the policy database
@@ -134,6 +137,8 @@ CFStringRef kSecAssessmentAssessmentAuthorityRow = CFSTR("assessment:authority:r
 CFStringRef kSecAssessmentAssessmentAuthorityOverride = CFSTR("assessment:authority:override");
 CFStringRef kSecAssessmentAssessmentAuthorityOriginalVerdict = CFSTR("assessment:authority:verdict");
 CFStringRef kSecAssessmentAssessmentFromCache = CFSTR("assessment:authority:cached");
+CFStringRef kSecAssessmentAssessmentWeakSignature = CFSTR("assessment:authority:weak");
+CFStringRef kSecAssessmentAssessmentCodeSigningError = CFSTR("assessment:cserror");
 
 CFStringRef kDisabledOverride = CFSTR("security disabled");
 
@@ -161,7 +166,7 @@ SecAssessmentRef SecAssessmentCreate(CFURLRef path,
 		// check the object cache first unless caller denied that or we need extended processing
 		if (!(flags & (kSecAssessmentFlagRequestOrigin | kSecAssessmentFlagIgnoreCache))) {
 			if (gDatabase().checkCache(path, type, flags, result))
-				return new SecAssessment(path, type, result.yield());
+				return new SecAssessment(path, type, context, result.yield());
 		}
 		
 		if (flags & kSecAssessmentFlagDirect) {
@@ -196,7 +201,7 @@ SecAssessmentRef SecAssessmentCreate(CFURLRef path,
 		__esp_notify_ns("cs-assessment-evaluate", (void *)(CFDictionaryRef)dict);
 	}
 
-	return new SecAssessment(path, type, result.yield());
+	return new SecAssessment(path, type, context, result.yield());
 
 	END_CSAPI_ERRORS1(NULL)
 }
@@ -268,7 +273,7 @@ static void traceResult(CFURLRef target, MessageTrace &trace, std::string &sanit
 	trace.add("signature3", "%s", sanitized.c_str());
 	trace.add("signature5", "%s", version.c_str());
 }
-	
+
 static void traceAssessment(SecAssessment &assessment, AuthorityType type, CFDictionaryRef result)
 {
 	if (CFDictionaryGetValue(result, CFSTR("assessment:remote")))
@@ -355,7 +360,9 @@ CFDictionaryRef SecAssessmentCopyResult(SecAssessmentRef assessmentRef,
 			result = adulterated.get();
 		}
 	}
-	traceAssessment(assessment, assessment.type, result);
+	bool trace = CFDictionaryContainsKey(assessment.context, kSecAssessmentContextQuarantineFlags);
+	if (trace)
+		traceAssessment(assessment, assessment.type, result);
 	return result.yield();
 
 	END_CSAPI_ERRORS1(NULL)

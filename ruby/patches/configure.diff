@@ -35,15 +35,6 @@
      { $as_echo "$as_me:${as_lineno-$LINENO}: result: $target_archs" >&5
  $as_echo "$target_archs" >&6; }
  
-@@ -8592,7 +8586,7 @@ $as_echo "#define HAVE_SYS_WAIT_H 1" >>c
- 
- fi
- 
--for ac_header in limits.h sys/file.h sys/ioctl.h sys/syscall.h\
-+for ac_header in net/if.h ifaddrs.h limits.h sys/file.h sys/ioctl.h sys/syscall.h\
- 		 fcntl.h sys/fcntl.h sys/select.h sys/time.h sys/times.h sys/param.h\
- 		 syscall.h pwd.h grp.h a.out.h utime.h direct.h sys/resource.h \
- 		 sys/mkdev.h sys/utime.h xti.h netinet/in_systm.h float.h ieeefp.h \
 @@ -8841,20 +8835,15 @@ else
  _ACEOF
  if ac_fn_c_try_compile "$LINENO"; then :

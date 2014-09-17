@@ -24,6 +24,7 @@
 #define _H_POLICYENGINE
 
 #include "SecAssessment.h"
+#include "opaquewhitelist.h"
 #include "policydb.h"
 #include <security_utilities/globalizer.h>
 #include <security_utilities/cfutilities.h>
@@ -63,7 +64,7 @@ public:
 	void recordFailure(CFDictionaryRef info);
 
 public:
-	static void addAuthority(SecAssessmentFlags flags, CFMutableDictionaryRef parent, const char *label, SQLite::int64 row = 0, CFTypeRef cacheInfo = NULL);
+	static void addAuthority(SecAssessmentFlags flags, CFMutableDictionaryRef parent, const char *label, SQLite::int64 row = 0, CFTypeRef cacheInfo = NULL, bool weak = false);
 	static void addToAuthority(CFMutableDictionaryRef parent, CFStringRef key, CFTypeRef value);
 
 private:
@@ -72,6 +73,7 @@ private:
 	void evaluateDocOpen(CFURLRef path, SecAssessmentFlags flags, CFDictionaryRef context, CFMutableDictionaryRef result);
 	
 	void evaluateCodeItem(SecStaticCodeRef code, CFURLRef path, AuthorityType type, SecAssessmentFlags flags, bool nested, CFMutableDictionaryRef result);
+	void adjustValidation(SecStaticCodeRef code);
 	bool temporarySigning(SecStaticCodeRef code, AuthorityType type, CFURLRef path, SecAssessmentFlags matchFlags);
 	void normalizeTarget(CFRef<CFTypeRef> &target, AuthorityType type, CFDictionary &context, std::string *signUnsigned);
 	
@@ -83,6 +85,9 @@ private:
 	void setOrigin(CFArrayRef chain, CFMutableDictionaryRef result);
 
 	void recordOutcome(SecStaticCodeRef code, bool allow, AuthorityType type, double expires, SQLite::int64 authority);
+
+private:
+	OpaqueWhitelist mOpaqueWhitelist;
 };
 
 

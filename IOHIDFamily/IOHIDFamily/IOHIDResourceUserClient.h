@@ -84,7 +84,7 @@ typedef struct {
 #if KERNEL
 
 #include <IOKit/IOUserClient.h>
-#include <IOKit/IODataQueue.h>
+#include <IOKit/IOSharedDataQueue.h>
 #include "IOHIDResource.h"
 #include "IOHIDUserDevice.h"
 
@@ -92,10 +92,10 @@ typedef struct {
 /*! @class IOHIDResourceDeviceUserClient : public IOUserClient
     @abstract 
 */
-/*! @class IOHIDResourceQueue : public IODataQueue
+/*! @class IOHIDResourceQueue : public IOSharedDataQueue
     @abstract 
 */
-class IOHIDResourceQueue: public IODataQueue
+class IOHIDResourceQueue: public IOSharedDataQueue
 {
     OSDeclareDefaultStructors( IOHIDResourceQueue )
     

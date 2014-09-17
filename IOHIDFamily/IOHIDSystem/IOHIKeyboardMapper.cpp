@@ -1368,8 +1368,8 @@ IOReturn IOHIKeyboardMapper::setParamProperties( OSDictionary * dict )
 			for ( unsigned i=0; i<count; i++)
 			{
 				OSDictionary *	pair			= OSDynamicCast(OSDictionary, array->getObject(i));
-				SInt32			src				= 0;
-				SInt32			dst				= 0;
+				UInt32			src				= 0;
+				UInt32			dst				= 0;
 
 				if ( !pair ) continue;
 
@@ -1413,8 +1413,10 @@ IOReturn IOHIKeyboardMapper::setParamProperties( OSDictionary * dict )
 					}
 				}
 
-				if ((src >= NX_MODIFIERKEY_ALPHALOCK) && (src <= NX_MODIFIERKEY_LAST_KEY))
-					_modifierSwap_Modifiers[src] = dst;
+				if ((src >= NX_MODIFIERKEY_ALPHALOCK) &&
+					(src <= NX_MODIFIERKEY_LAST_KEY) &&
+					((dst < NX_NUMMODIFIERS) || (dst == (UInt32) -1)) )
+						_modifierSwap_Modifiers[src] = dst;
 			}
 		}
 		else

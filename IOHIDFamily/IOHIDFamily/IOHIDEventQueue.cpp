@@ -31,8 +31,8 @@ enum {
     kHIDQueueDisabled   = 0x02
 };
     
-#define super IODataQueue
-OSDefineMetaClassAndStructors( IOHIDEventQueue, IODataQueue )
+#define super IOSharedDataQueue
+OSDefineMetaClassAndStructors( IOHIDEventQueue, super )
 
 //---------------------------------------------------------------------------
 // Factory methods.
@@ -136,7 +136,7 @@ void IOHIDEventQueue::start()
         
         // Free the existing queue data
         if (dataQueue) {
-            IOFreeAligned(dataQueue, round_page_32(dataQueue->queueSize + DATA_QUEUE_MEMORY_HEADER_SIZE));
+            IOFreeAligned(dataQueue, round_page_32(getQueueSize() + DATA_QUEUE_MEMORY_HEADER_SIZE));
         }
         
         if (_descriptor) {

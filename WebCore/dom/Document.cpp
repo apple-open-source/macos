@@ -1895,10 +1895,10 @@ void Document::updateLayout()
 // stylesheets are loaded. Doing a layout ignoring the pending stylesheets
 // lets us get reasonable answers. The long term solution to this problem is
 // to instead suspend JavaScript execution.
-void Document::updateLayoutIgnorePendingStylesheets()
+void Document::updateLayoutIgnorePendingStylesheets(Document::RunPostLayoutTasks runPostLayoutTasks)
 {
     bool oldIgnore = m_ignorePendingStylesheets;
-    
+
     if (!haveStylesheetsLoaded()) {
         m_ignorePendingStylesheets = true;
         // FIXME: We are willing to attempt to suppress painting with outdated style info only once.  Our assumption is that it would be
@@ -1919,6 +1919,9 @@ void Document::updateLayoutIgnorePendingStylesheets()
     }
 
     updateLayout();
+
+    if (runPostLayoutTasks == RunPostLayoutTasksSynchronously && view())
+        view()->flushAnyPendingPostLayoutTasks();
 
     m_ignorePendingStylesheets = oldIgnore;
 }
@@ -2884,13 +2887,12 @@ static bool isSeparator(UChar c)
 void Document::processArguments(const String& features, void* data, ArgumentsCallback callback)
 {
     // Tread lightly in this code -- it was specifically designed to mimic Win IE's parsing behavior.
-    int keyBegin, keyEnd;
-    int valueBegin, valueEnd;
+    unsigned keyBegin, keyEnd;
+    unsigned valueBegin, valueEnd;
 
-    int i = 0;
-    int length = features.length();
     String buffer = features.lower();
-    while (i < length) {
+    unsigned length = buffer.length();
+    for (unsigned i = 0; i < length; ) {
         // skip to first non-separator, but don't skip past the end of the string
         while (isSeparator(buffer[i])) {
             if (i >= length)
@@ -5652,9 +5654,7 @@ HTMLIFrameElement* Document::seamlessParentIFrame() const
     if (!shouldDisplaySeamlesslyWithParent())
         return 0;
 
-    HTMLFrameOwnerElement* ownerElement = this->ownerElement();
-    ASSERT(ownerElement->hasTagName(iframeTag));
-    return static_cast<HTMLIFrameElement*>(ownerElement);
+    return toHTMLIFrameElement(ownerElement());
 }
 
 bool Document::shouldDisplaySeamlesslyWithParent() const

@@ -47,15 +47,30 @@ namespace Security {
 namespace CodeSigning {
 
 
+static string removeTrailingSlash(string path)
+{
+	if (path.substr(path.length()-2, 2) == "/.")
+		return path.substr(0, path.length()-2);
+	else if (path.substr(path.length()-1, 1) == "/")
+		return path.substr(0, path.length()-1);
+	else
+		return path;
+}
+
 //
 // Construction and maintainance
 //
-ResourceBuilder::ResourceBuilder(const std::string &root, CFDictionaryRef rulesDict, CodeDirectory::HashAlgorithm hashType)
-	: mRoot(root), mHashType(hashType)
+ResourceBuilder::ResourceBuilder(const std::string &root, const std::string &relBase,
+	CFDictionaryRef rulesDict, CodeDirectory::HashAlgorithm hashType, bool strict, const MacOSErrorSet& toleratedErrors)
+	: mHashType(hashType),
+	  mCheckUnreadable(strict && toleratedErrors.find(errSecCSSignatureNotVerifiable) == toleratedErrors.end()),
+	  mCheckUnknownType(strict && toleratedErrors.find(errSecCSResourceNotSupported) == toleratedErrors.end())
 {
-	assert(!mRoot.empty());
-    if (mRoot.substr(mRoot.length()-2, 2) == "/.")  // produced by versioned bundle implicit "Current" case
-        mRoot = mRoot.substr(0, mRoot.length()-2);  // ... so take it off for this
+	assert(!root.empty());
+	mRoot = removeTrailingSlash(root);
+	mRelBase = removeTrailingSlash(relBase);
+	if (mRoot != mRelBase && mRelBase != mRoot + "/Contents")
+		MacOSError::throwMe(errSecCSInternalError);
 	const char * paths[2] = { mRoot.c_str(), NULL };
 	mFTS = fts_open((char * const *)paths, FTS_PHYSICAL | FTS_COMFOLLOW | FTS_NOCHDIR, NULL);
 	if (!mFTS)
@@ -125,6 +140,14 @@ void ResourceBuilder::scan(Scanner next)
     
 	while (FTSENT *ent = fts_read(mFTS)) {
 		const char *relpath = ent->fts_path + mRoot.size() + 1;	// skip prefix + "/"
+		std::string rp;
+		if (mRelBase != mRoot) {
+			assert(mRelBase == mRoot + "/Contents");
+			rp = "../" + string(relpath);
+			if (rp.substr(0, 12) == "../Contents/")
+				rp = rp.substr(12);
+			relpath = rp.c_str();
+		}
 		switch (ent->fts_info) {
 		case FTS_F:
 			secdebug("rdirenum", "file %s", ent->fts_path);
@@ -178,9 +201,16 @@ void ResourceBuilder::scan(Scanner next)
 		case FTS_DP:
 			secdebug("rdirenum", "leaving %s", ent->fts_path);
 			break;
+		case FTS_DNR:
+			secdebug("rdirenum", "cannot read directory %s", ent->fts_path);
+			if (mCheckUnreadable)
+				MacOSError::throwMe(errSecCSSignatureNotVerifiable);
+			break;
 		default:
 			secdebug("rdirenum", "type %d (errno %d): %s",
 				ent->fts_info, ent->fts_errno, ent->fts_path);
+			if (mCheckUnknownType)
+				MacOSError::throwMe(errSecCSResourceNotSupported);
 			break;
 		}
 	}

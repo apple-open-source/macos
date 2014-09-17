@@ -1,3 +1,167 @@
+Mon May  5 00:42:35 2014  SHIBATA Hiroshi  <shibata.hiroshi@gmail.com>
+
+	* ext/psych/yaml/config.h: ditto.
+
+	* ext/psych/yaml/scanner.c: ditto.
+
+	* ext/psych/yaml/yaml_private.h: ditto.
+
+Thu May  8 02:01:51 2014  Kenta Murata  <mrkn@mrkn.jp>
+
+	* ext/bigdecimal/bigdecimal.c (BigDecimal_initialize): Insert GC guard.
+
+	* ext/bigdecimal/bigdecimal.c (BigDecimal_global_new): ditto.
+
+Thu May  8 01:51:19 2014  Nobuyoshi Nakada  <nobu@ruby-lang.org>
+
+	* ext/openssl/ossl_pkey.c (ossl_pkey_verify): as EVP_VerifyFinal()
+	  finalizes only a copy of the digest context, the context must be
+	  cleaned up after initialization by EVP_MD_CTX_cleanup() or a
+	  memory leak will occur.  [ruby-core:62038] [Bug #9743]
+
+Wed Apr 30 16:39:43 2014  Nobuyoshi Nakada  <nobu@ruby-lang.org>
+
+	* ext/readline/extconf.rb (rl_hook_func_t): check pointer type.
+	  [ruby-dev:48089] [Bug #9702]
+
+Wed Apr 30 16:37:16 2014  NAKAMURA Usaku  <usa@ruby-lang.org>
+
+	* win32/win32.c (rb_w32_accept, open_ifs_socket, socketpair_internal):
+	  reset inherit flag of socket to avoid unintentional inheritance of
+	  socket.  note that the return value of SetHandleInformation() is not
+	  verified intentionally because old Windows may return an error.
+	  [Bug #9688] [ruby-core:61754]
+
+Wed Apr 30 16:33:57 2014  Eric Wong  <e@80x24.org>
+
+	* time.c (time_mload): freeze and preserve marshal-loaded time zone
+	* test/ruby/test_time.rb: add test for GC on loaded object
+	  [Bug #9652]
+
+Wed Apr 30 16:15:09 2014  Kohei Suzuki  <eagletmt@gmail.com>
+
+	* vm_method.c (rb_method_entry_get_without_cache): me->klass is 0
+	  for a method aliased in a module.  [ruby-core:61636] [Bug #9663]
+
+Wed Apr 30 16:15:09 2014  Nobuyoshi Nakada  <nobu@ruby-lang.org>
+
+	* vm_method.c (rb_method_entry_get_without_cache): get rid of
+	  infinite recursion at aliases in a subclass and a superclass.
+	  return actually defined class for other than singleton class.
+	  [ruby-core:60431] [Bug #9475]
+
+Wed Apr 30 16:09:18 2014  Nobuyoshi Nakada  <nobu@ruby-lang.org>
+
+	* vm_insnhelper.c (vm_callee_setup_arg): turn a macro into an
+	  inline function.
+
+Wed Apr 30 15:04:25 2014  Nobuyoshi Nakada  <nobu@ruby-lang.org>
+
+	* ext/readline/extconf.rb: fix typo, `$defs` not `$DEFS`.
+	  [ruby-core:61756] [Bug #9578]
+
+Mon Mar 31 00:57:39 2014  James Edward Gray II  <james@graysoftinc.com>
+
+	* lib/csv.rb: Fixed a broken regular expression that was causing
+	  CSV to miss escaping some special meaning characters when used
+	  in parsing.
+	  Reported by David Unric
+	  [ruby-core:54986] [Bug #8405]
+
+Mon Mar 31 00:48:12 2014  CHIKANAGA Tomoyuki  <nagachika@ruby-lang.org>
+
+	* test/ruby/envutil.rb (assert_no_memory_leak): increase default value
+	  of `limit` keyword argument.
+	  assert_no_memory_leak occasionally fails with limit=1.5.
+
+Mon Mar 31 00:15:45 2014  Shota Fukumori  <her@sorah.jp>
+
+	* vm_eval.c (eval_string_with_cref): Unify to use NIL_P.
+
+Mon Mar 31 00:15:45 2014  Shota Fukumori  <her@sorah.jp>
+
+	* vm_eval.c (eval_string_with_cref): Use file path even if scope is
+	  given. Related to [ruby-core:56099] [Bug #8662] and r42103.
+
+Mon Mar 31 00:02:04 2014  Nobuyoshi Nakada  <nobu@ruby-lang.org>
+
+	* parse.y (yycompile): store file name as String to keep the encoding.
+
+	* parse.y (rb_parser_compile_string_path, rb_parser_compile_file_path):
+	  new functions to pass file name as a String.
+
+	* parse.y (gettable_gen): return a copy of the original file name, not
+	  a copy in filesystem encoding.
+
+	* vm_eval.c (eval_string_with_cref): use Qundef instead of "(eval)".
+
+Sun Mar 30 23:49:21 2014  Nobuyoshi Nakada  <nobu@ruby-lang.org>
+
+	* ext/openssl/ossl.c (ossl_make_error): check NULL for unknown
+	  error reasons with old OpenSSL, and insert a colon iff formatted
+	  message is not empty.
+
+Thu Mar 20 21:13:18 2014  Eric Wong  <e@80x24.org>
+
+	* variable.c (rb_const_set): delete existing entry on redefinition
+	  [Bug #9645]
+	* test/ruby/test_const.rb (test_redefinition): test for leak
+
+Thu Mar 20 20:44:17 2014  Kazuki Tsujimoto  <kazuki@callcc.net>
+
+	* test/fiddle/test_c_struct_entry.rb,
+	  test/fiddle/test_c_union_entity.rb,
+	  test/fiddle/test_cparser.rb, test/fiddle/test_func.rb,
+	  test/fiddle/test_handle.rb, test/fiddle/test_import.rb,
+	  test/fiddle/test_pointer.rb: don't run test if the system
+	  don't support fiddle.
+
+Sun Mar 16 00:57:20 2014  Kazuki Tsujimoto  <kazuki@callcc.net>
+
+	* ext/.document: remove refinement from documentable directories.
+
+Mon Mar  3 01:43:30 2014  Charlie Somerville  <charliesome@ruby-lang.org>
+
+	* eval_error.c (warn_printf): use rb_vsprintf instead so ruby specific
+	  extensions like PRIsVALUE can be used in format strings
+	* eval_error.c (error_print): use warn_print_str (alias for
+	  rb_write_error_str) to print a string value instead of using
+	  RSTRING_PTR and RSTRING_LEN manually
+	* eval.c (setup_exception): use PRIsVALUE instead of %s and RSTRING_PTR
+
+Mon Mar  3 01:32:14 2014  Nobuyoshi Nakada  <nobu@ruby-lang.org>
+
+	* ext/readline/extconf.rb (rl_hook_func_t): define as Function for
+	  very old readline versions.  [ruby-core:61209] [Bug #9578]
+
+Mon Mar  3 01:32:14 2014  Tanaka Akira  <akr@fsij.org>
+
+	* ext/readline/readline.c (Init_readline): Use rl_hook_func_t instead
+	  of Function to support readline-6.3.  (rl_hook_func_t is available
+	  since readline-4.2.)
+	  Reported by Dmitry Medvinsky.  [ruby-core:61141] [Bug #9578]
+
+Mon Mar  3 01:25:28 2014  Nobuyoshi Nakada  <nobu@ruby-lang.org>
+
+	* eval.c (setup_exception): preserve errinfo across calling #to_s
+	  method on the exception.  [ruby-core:61091] [Bug #9568]
+
+Mon Mar  3 01:00:00 2014  Nobuyoshi Nakada  <nobu@ruby-lang.org>
+
+	* numeric.c (ruby_num_interval_step_size): check signs and get rid
+	  of implementation dependent behavior of negative division.
+	  [ruby-core:61106] [Bug #9570]
+
+Mon Mar  3 00:43:33 2014  CHIKANAGA Tomoyuki  <nagachika@ruby-lang.org>
+
+	(merged partially from r42781)
+	* test/ruby/test_numeric.rb (assert_step): introduce assert_step.
+
+Mon Mar  3 00:24:38 2014  Zachary Scott  <e@zzak.io>
+
+	* README.EXT.ja: [DOC] Fix typo "macro macro" @utenmiki [Fixes GH-551]
+	  https://github.com/ruby/ruby/pull/551
+
 Sat Feb 22 22:11:58 2014  NAKAMURA Usaku  <usa@ruby-lang.org>
 
 	* ext/io/console/console.c (console_dev): need read access for conout$

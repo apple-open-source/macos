@@ -49,7 +49,7 @@ public:
 	CFDataRef component(CodeDirectory::SpecialSlot slot);
 	CFDataRef identification();
 	std::string mainExecutablePath();
-	CFURLRef canonicalPath();
+	CFURLRef copyCanonicalPath();
 	size_t signingLimit();
 	std::string format();
 	UnixPlusPlus::FileDesc &fd();

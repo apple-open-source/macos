@@ -327,6 +327,7 @@ void Trust::evaluate(bool disableEV)
 	CFMutableArrayRef allPolicies = NULL;
 	uint32 numRevocationAdded = 0;
 	bool requirePerCert = (actionDataP->ActionFlags & CSSM_TP_ACTION_REQUIRE_REV_PER_CERT);
+	bool avoidRevChecks = (policySpecified(mPolicies, CSSMOID_APPLE_TP_EAP));
 
 	// If a new unified revocation policy was explicitly specified,
 	// convert into old-style individual OCSP and CRL policies.
@@ -350,13 +351,13 @@ void Trust::evaluate(bool disableEV)
 		allPolicies = NULL; // use only mPolicies
 		isEVCandidate = false;
 	}
-	else if (isEVCandidate || requirePerCert) {
+	else if ((isEVCandidate && !avoidRevChecks) || requirePerCert) {
 		// force revocation checking for this evaluation
 		secdebug("evTrust", "Trust::evaluate() forcing OCSP/CRL revocation check");
 		allPolicies = forceRevocationPolicies(numRevocationAdded,
 			context.allocator, requirePerCert);
 	}
-	else if(!(revocationPolicySpecified(mPolicies))) {
+	else if(!(revocationPolicySpecified(mPolicies)) && !avoidRevChecks) {
 		// none specified in mPolicies; try preferences
 		allPolicies = addPreferenceRevocationPolicies(numRevocationAdded,
 			context.allocator);

@@ -32,6 +32,7 @@
 #include <exception>
 #include <errno.h>
 #include <Security/SecBase.h>
+#include <set>
 #undef check
 
 
@@ -94,6 +95,8 @@ public:
     static void check(OSStatus status)	{ if (status != errSecSuccess) throwMe(status); }
     static void throwMe(int err) __attribute__((noreturn));
 };
+	
+typedef std::set<OSStatus> MacOSErrorSet;
 
 
 //

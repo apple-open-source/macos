@@ -117,7 +117,7 @@ public:
 	DiskRep *diskRep() { return mRep; }
 	bool isDetached() const { return mRep->base() != mRep; }
 	std::string mainExecutablePath() { return mRep->mainExecutablePath(); }
-	CFURLRef canonicalPath() const { return mRep->canonicalPath(); }
+	CFURLRef copyCanonicalPath() const { return mRep->copyCanonicalPath(); }
 	std::string identifier() { return codeDirectory()->identifier(); }
 	const char *teamID() { return codeDirectory()->teamID(); }
 	std::string format() const { return mRep->format(); }
@@ -131,13 +131,15 @@ public:
 	CFURLRef resourceBase();
 	CFDataRef resource(std::string path);
 	CFDataRef resource(std::string path, ValidationContext &ctx);
-	void validateResource(CFDictionaryRef files, std::string path, ValidationContext &ctx, SecCSFlags flags, uint32_t version);
+	void validateResource(CFDictionaryRef files, std::string path, bool isSymlink, ValidationContext &ctx, SecCSFlags flags, uint32_t version);
 	
 	bool flag(uint32_t tested);
 
 	SecCodeCallback monitor() const { return mMonitor; }
 	void setMonitor(SecCodeCallback monitor) { mMonitor = monitor; }
 	CFTypeRef reportEvent(CFStringRef stage, CFDictionaryRef info);
+	
+	void setValidationModifiers(CFDictionaryRef modifiers);
 	
 	void resetValidity();						// clear validation caches (if something may have changed)
 	
@@ -152,7 +154,7 @@ public:
 	void validateNonResourceComponents();
 	void validateResources(SecCSFlags flags);
 	void validateExecutable();
-	void validateNestedCode(CFURLRef path, const ResourceSeal &seal, SecCSFlags flags);
+	void validateNestedCode(CFURLRef path, const ResourceSeal &seal, SecCSFlags flags, bool isFramework);
 	
 	const Requirements *internalRequirements();
 	const Requirement *internalRequirement(SecRequirementType type);
@@ -182,12 +184,20 @@ protected:
 	CFTypeRef verificationPolicy(SecCSFlags flags);
 
 	static void checkOptionalResource(CFTypeRef key, CFTypeRef value, void *context);
+	bool hasWeakResourceRules(CFDictionaryRef rulesDict, CFArrayRef allowedOmissions);
 
 	void handleOtherArchitectures(void (^handle)(SecStaticCode* other));
 
 private:
+	void validateOtherVersions(CFURLRef path, SecCSFlags flags, SecRequirementRef req, SecStaticCode *code);
+
+private:
 	RefPointer<DiskRep> mRep;			// on-disk representation
 	CFRef<CFDataRef> mDetachedSig;		// currently applied explicit detached signature
+	
+	// private validation modifiers (only used by Gatekeeper checkfixes)
+	MacOSErrorSet mTolerateErrors;		// soft error conditions to ignore
+	CFRef<CFArrayRef> mAllowOmissions;	// additionally allowed resource omissions
 	
 	// master validation state
 	bool mValidated;					// core validation was attempted

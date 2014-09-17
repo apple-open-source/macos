@@ -58,6 +58,7 @@
 #if TARGET_IPHONE_SIMULATOR
 /*
  * Give the host more than enough token_ids, nothing should actually be using it except Libinfo.
+ * <rdar://problem/11352452>
  */
 #define INITIAL_TOKEN_ID (1 << 20)
 #else

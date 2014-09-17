@@ -91,7 +91,9 @@ OSStatus SecCodeSignerCreate(CFDictionaryRef parameters, SecCSFlags flags,
 		| kSecCSSignNestedCode
 		| kSecCSSignOpaque
 		| kSecCSSignV1
-		| kSecCSSignNoV1);
+		| kSecCSSignNoV1
+		| kSecCSSignBundleRoot
+		| kSecCSSignStrictPreflight);
 	SecPointer<SecCodeSigner> signer = new SecCodeSigner(flags);
 	signer->parameters(parameters);
 	CodeSigning::Required(signerRef) = signer->handle();

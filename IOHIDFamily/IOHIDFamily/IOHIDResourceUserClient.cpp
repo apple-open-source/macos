@@ -651,7 +651,7 @@ IOReturn IOHIDResourceDeviceUserClient::_terminateDevice(
 // IOHIDResourceQueue
 //====================================================================================================
 #include <IOKit/IODataQueueShared.h>
-OSDefineMetaClassAndStructors( IOHIDResourceQueue, IODataQueue )
+OSDefineMetaClassAndStructors( IOHIDResourceQueue, IOSharedDataQueue )
 
 IOHIDResourceQueue *IOHIDResourceQueue::withEntries(UInt32 numEntries, UInt32 entrySize)
 {
@@ -675,7 +675,7 @@ void IOHIDResourceQueue::free()
         _descriptor = 0;
     }
 
-    IODataQueue::free();
+    IOSharedDataQueue::free();
 }
 
 #define ALIGNED_DATA_SIZE(data_size,align_size) ((((data_size - 1) / align_size) + 1) * align_size)
@@ -693,7 +693,7 @@ Boolean IOHIDResourceQueue::enqueueReport(IOHIDResourceDataQueueHeader * header,
     if ( tail >= head )
     {
         // Is there enough room at the end for the entry?
-        if ( (tail + entrySize) <= dataQueue->queueSize )
+        if ( (tail + entrySize) <= getQueueSize() )
         {
             entry = (IODataQueueEntry *)((UInt8 *)dataQueue->queue + tail);
 
@@ -706,7 +706,7 @@ Boolean IOHIDResourceQueue::enqueueReport(IOHIDResourceDataQueueHeader * header,
 
             // The tail can be out of bound when the size of the new entry
             // exactly matches the available space at the end of the queue.
-            // The tail can range from 0 to dataQueue->queueSize inclusive.
+            // The tail can range from 0 to getQueueSize() inclusive.
 
             dataQueue->tail += entrySize;
         }
@@ -721,7 +721,7 @@ Boolean IOHIDResourceQueue::enqueueReport(IOHIDResourceDataQueueHeader * header,
             // doing this. The user client checks for this and will look for the size
             // at the beginning if there isn't room for it at the end.
 
-            if ( ( dataQueue->queueSize - tail ) >= DATA_QUEUE_ENTRY_HEADER_SIZE )
+            if ( ( getQueueSize() - tail ) >= DATA_QUEUE_ENTRY_HEADER_SIZE )
             {
                 ((IODataQueueEntry *)((UInt8 *)dataQueue->queue + tail))->size = dataSize;
             }
@@ -769,7 +769,7 @@ Boolean IOHIDResourceQueue::enqueueReport(IOHIDResourceDataQueueHeader * header,
 
 void IOHIDResourceQueue::setNotificationPort(mach_port_t port) 
 {
-    IODataQueue::setNotificationPort(port);
+    IOSharedDataQueue::setNotificationPort(port);
 
     if (dataQueue->head != dataQueue->tail)
         sendDataAvailableNotification();
@@ -778,7 +778,7 @@ void IOHIDResourceQueue::setNotificationPort(mach_port_t port)
 IOMemoryDescriptor * IOHIDResourceQueue::getMemoryDescriptor()
 {
     if (!_descriptor)
-        _descriptor = IODataQueue::getMemoryDescriptor();
+        _descriptor = IOSharedDataQueue::getMemoryDescriptor();
 
     return _descriptor;
 }

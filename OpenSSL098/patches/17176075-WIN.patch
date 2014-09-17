@@ -1,0 +1,50 @@
+diff -Nur openssl-0.9.8za/src/ms/test.bat ./ms/test.bat
+--- openssl-0.9.8za/src/ms/test.bat	2014-06-05 01:09:08.000000000 -0700
++++ ./ms/test.bat	2014-07-10 09:35:54.000000000 -0700
+@@ -15,10 +15,6 @@
+ destest
+ if errorlevel 1 goto done
+ 
+-echo ideatest
+-ideatest
+-if errorlevel 1 goto done
+-
+ echo bftest
+ bftest
+ if errorlevel 1 goto done
+@@ -188,3 +184,4 @@
+ echo problems.....
+ :end
+ PATH=%opath%
++if errorlevel 1 exit /b 1
+diff -Nur openssl-0.9.8za/src/util/mk1mf.pl ./util/mk1mf.pl
+--- openssl-0.9.8za/src/util/mk1mf.pl	2014-07-10 10:06:10.000000000 -0700
++++ ./util/mk1mf.pl	2014-07-09 18:39:16.000000000 -0700
+@@ -10,6 +10,8 @@
+ $ssl_version="";
+ $banner="\t\@echo Building OpenSSL";
+ 
++if ($ENV{"DEBUG_BUILD"}) { $debug = 1; } # APPLE-SPECIFIC hack to force debug build
++
+ my $no_static_engine = 0;
+ my $engines = "";
+ local $zlib_opt = 0;	# 0 = no zlib, 1 = static, 2 = dynamic
+@@ -647,6 +649,7 @@
+ 
+ $rules=<<"EOF";
+ all: banner \$(TMP_D) \$(BIN_D) \$(TEST_D) \$(LIB_D) \$(INCO_D) headers \$(FIPS_SHA1_EXE) lib exe $ex_build_targets
++all_noexe: banner \$(TMP_D) \$(BIN_D) \$(TEST_D) \$(LIB_D) \$(INCO_D) headers \$(FIPS_SHA1_EXE) lib $ex_build_targets   # APPLE-SPECIFIC - target to skip building openssl.exe to speed up build process
+ 
+ banner:
+ $banner
+diff -Nur openssl-0.9.8za/src/util/mkdef.pl ./util/mkdef.pl
+--- openssl-0.9.8za/src/util/mkdef.pl	2014-06-05 01:09:08.000000000 -0700
++++ ./util/mkdef.pl	2014-07-09 18:39:15.000000000 -0700
+@@ -1259,6 +1259,7 @@
+ 		  $description = "\@#$http_vendor:$version#\@$what; DLL for library $name.  Build for EMX -Zmtd";
+ 		}
+ 
++	if ($ENV{"DEBUG_BUILD"}) { $libname .= "_DEBUG"; } # APPLE-SPECIFIC hack to force debug build
+ 	print OUT <<"EOF";
+ ;
+ ; Definition file for the DLL version of the $name library from OpenSSL

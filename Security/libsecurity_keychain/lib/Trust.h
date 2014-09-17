@@ -102,6 +102,7 @@ public:
 	CFArrayRef evidence() const					{ return mEvidenceReturned; }
 	CFArrayRef policies() const					{ return mPolicies; }
 	CFArrayRef anchors() const					{ return mAnchors; }
+	CFArrayRef certificates() const				{ return mCerts; }
 	CFDateRef time() const						{ return mVerifyTime; }
 	AnchorPolicy anchorPolicy() const			{ return mAnchorPolicy; }
 	NetworkPolicy networkPolicy() const			{ return mNetworkPolicy; }

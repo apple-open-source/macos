@@ -25,7 +25,7 @@
 #ifndef _IOKIT_HID_IOHIDEVENTQUEUE_H
 #define _IOKIT_HID_IOHIDEVENTQUEUE_H
 
-#include <IOKit/IODataQueue.h>
+#include <IOKit/IOSharedDataQueue.h>
 #include <IOKit/IOLocks.h>
 #include "IOHIDKeys.h"
 #include "IOHIDElementPrivate.h"
@@ -35,11 +35,11 @@
 //---------------------------------------------------------------------------
 // IOHIDEventQueue class.
 //
-// IOHIDEventQueue is a subclass of IODataQueue. But this may change
+// IOHIDEventQueue is a subclass of IOSharedDataQueue. But this may change
 // if the HID Manager requires HID specific functionality for the
 // event queueing.
 
-class IOHIDEventQueue: public IODataQueue
+class IOHIDEventQueue: public IOSharedDataQueue
 {
     OSDeclareDefaultStructors( IOHIDEventQueue )
     

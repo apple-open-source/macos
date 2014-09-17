@@ -25,12 +25,20 @@
 // macho++ - Mach-O object file helpers
 //
 #include "macho++.h"
+#include <security_utilities/alloc.h>
 #include <security_utilities/memutils.h>
 #include <security_utilities/endian.h>
 #include <mach-o/dyld.h>
+#include <list>
+#include <algorithm>
+#include <iterator>
 
 namespace Security {
 
+/* Maximum number of archs a fat binary can have */
+static const int MAX_ARCH_COUNT = 100;
+/* Maximum power of 2 that a mach-o can be aligned by */
+static const int MAX_ALIGN = 30;
 
 //
 // Architecture values
@@ -132,6 +140,7 @@ void MachOBase::initHeader(const mach_header *header)
 		m64 = true;
 		break;
 	default:
+		secdebug("macho", "%p: unrecognized header magic (%x)", this, mHeader->magic);
 		UnixError::throwMe(ENOEXEC);
 	}
 }
@@ -164,8 +173,10 @@ size_t MachOBase::commandSize() const
 // (not relative to some intermediate container).
 //
 MachO::MachO(FileDesc fd, size_t offset, size_t length)
-	: FileDesc(fd), mOffset(offset), mLength(length ? length : (fd.fileSize() - offset))
+	: FileDesc(fd), mOffset(offset), mLength(length), mSuspicious(false)
 {
+	if (mOffset == 0)
+		mLength = fd.fileSize();
 	size_t size = fd.read(&mHeaderBuffer, sizeof(mHeaderBuffer), mOffset);
 	if (size != sizeof(mHeaderBuffer))
 		UnixError::throwMe(ENOEXEC);
@@ -177,6 +188,45 @@ MachO::MachO(FileDesc fd, size_t offset, size_t length)
 	if (fd.read(mCommandBuffer, cmdSize, this->headerSize() + mOffset) != cmdSize)
 		UnixError::throwMe(ENOEXEC);
 	this->initCommands(mCommandBuffer);
+	/* If we do not know the length, we cannot do a verification of the mach-o structure */
+	if (mLength != 0)
+		this->validateStructure();
+}
+
+void MachO::validateStructure()
+{
+	bool isValid = false;
+
+	/* There should be either an LC_SEGMENT, an LC_SEGMENT_64, or an LC_SYMTAB
+	 load_command and that + size must be equal to the end of the arch */
+	for (const struct load_command *cmd = loadCommands(); cmd != NULL; cmd = nextCommand(cmd)) {
+		uint32_t cmd_type = flip(cmd->cmd);
+		struct segment_command *seg = NULL;
+		struct segment_command_64 *seg64 = NULL;
+		struct symtab_command *symtab = NULL;
+
+		if (cmd_type ==  LC_SEGMENT) {
+			seg = (struct segment_command *)cmd;
+			if (strcmp(seg->segname, SEG_LINKEDIT) == 0) {
+				isValid = flip(seg->fileoff) + flip(seg->filesize) == this->length();
+				break;
+			}
+		} else if (cmd_type == LC_SEGMENT_64) {
+			seg64 = (struct segment_command_64 *)cmd;
+			if (strcmp(seg64->segname, SEG_LINKEDIT) == 0) {
+				isValid = flip(seg64->fileoff) + flip(seg64->filesize) == this->length();
+				break;
+			}
+		/* PPC binaries have a SYMTAB section */
+		} else if (cmd_type == LC_SYMTAB) {
+			symtab = (struct symtab_command *)cmd;
+			isValid = flip(symtab->stroff) + flip(symtab->strsize) == this->length();
+			break;
+		}
+	}
+
+	if (!isValid)
+		mSuspicious = true;
 }
 
 MachO::~MachO()
@@ -386,13 +436,12 @@ CFDataRef MachO::dataAt(size_t offset, size_t size)
 	return buffer;
 }
 
-
 //
 // Fat (aka universal) file wrappers.
 // The offset is relative to the start of the containing file.
 //
-Universal::Universal(FileDesc fd, size_t offset /* = 0 */)
-	: FileDesc(fd), mBase(offset)
+Universal::Universal(FileDesc fd, size_t offset /* = 0 */, size_t length /* = 0 */)
+	: FileDesc(fd), mBase(offset), mLength(length), mSuspicious(false)
 {
 	union {
 		fat_header header;		// if this is a fat file
@@ -434,6 +483,67 @@ Universal::Universal(FileDesc fd, size_t offset /* = 0 */)
 			}
 			secdebug("macho", "%p is a fat file with %d architectures",
 				this, mArchCount);
+
+			/* A Mach-O universal file has padding of no more than "page size"
+			 * between the header and slices. This padding must be zeroed out or the file
+			   is not valid */
+			std::list<struct fat_arch *> sortedList;
+			for (unsigned i = 0; i < mArchCount; i++)
+				sortedList.push_back(mArchList + i);
+
+			sortedList.sort(^ bool (const struct fat_arch *arch1, const struct fat_arch *arch2) { return arch1->offset < arch2->offset; });
+
+			const size_t universalHeaderEnd = mBase + sizeof(header) + (sizeof(fat_arch) * mArchCount);
+			size_t prevHeaderEnd = universalHeaderEnd;
+			size_t prevArchSize = 0, prevArchStart = 0;
+
+			for (auto iterator = sortedList.begin(); iterator != sortedList.end(); ++iterator) {
+				auto ret = mSizes.insert(std::pair<size_t, size_t>((*iterator)->offset, (*iterator)->size));
+				if (ret.second == false) {
+					::free(mArchList);
+					MacOSError::throwMe(errSecInternalError); // Something is wrong if the same size was encountered twice
+				}
+
+				size_t gapSize = (*iterator)->offset - prevHeaderEnd;
+
+				/* The size of the padding after the universal cannot be calculated to a fixed size */
+				if (prevHeaderEnd != universalHeaderEnd) {
+					if (((*iterator)->align > MAX_ALIGN) || gapSize >= (1 << (*iterator)->align)) {
+						mSuspicious = true;
+						break;
+					}
+				}
+
+				// validate gap bytes in tasty page-sized chunks
+				CssmAutoPtr<uint8_t> gapBytes(Allocator::standard().malloc<uint8_t>(PAGE_SIZE));
+				size_t off = 0;
+				while (off < gapSize) {
+					size_t want = min(gapSize - off, (size_t)PAGE_SIZE);
+					size_t got = fd.read(gapBytes, want, prevHeaderEnd + off);
+					off += got;
+					for (size_t x = 0; x < got; x++) {
+						if (gapBytes[x] != 0) {
+							mSuspicious = true;
+							break;
+						}
+					}
+					if (mSuspicious)
+						break;
+				}
+				if (off != gapSize)
+					mSuspicious = true;
+				if (mSuspicious)
+					break;
+
+				prevHeaderEnd = (*iterator)->offset + (*iterator)->size;
+				prevArchSize = (*iterator)->size;
+				prevArchStart = (*iterator)->offset;
+			}
+
+			/* If there is anything extra at the end of the file, reject this */
+			if (!mSuspicious && (prevArchStart + prevArchSize != fd.fileSize()))
+				mSuspicious = true;
+
 			break;
 		}
 	case MH_MAGIC:
@@ -460,6 +570,13 @@ Universal::~Universal()
 	::free(mArchList);
 }
 
+const size_t Universal::lengthOfSlice(size_t offset) const
+{
+	auto ret = mSizes.find(offset);
+	if (ret == mSizes.end())
+		MacOSError::throwMe(errSecInternalError);
+	return ret->second;
+}
 
 //
 // Get the "local" architecture from the fat file
@@ -470,7 +587,7 @@ MachO *Universal::architecture() const
 	if (isUniversal())
 		return findImage(bestNativeArch());
 	else
-		return new MachO(*this, mBase);
+		return new MachO(*this, mBase, mLength);
 }
 
 size_t Universal::archOffset() const
@@ -506,6 +623,15 @@ size_t Universal::archOffset(const Architecture &arch) const
 		UnixError::throwMe(ENOEXEC);
 }
 
+size_t Universal::archLength(const Architecture &arch) const
+{
+	if (isUniversal())
+		return mBase + findArch(arch)->size;
+	else if (mThinArch.matches(arch))
+		return this->fileSize();
+	else
+		UnixError::throwMe(ENOEXEC);
+}
 
 //
 // Get the architecture at a specified offset from the fat file.
@@ -573,11 +699,10 @@ Architecture Universal::bestNativeArch() const
 		return mThinArch;
 }
 
-
 //
 // List all architectures from the fat file's list.
 //
-void Universal::architectures(Architectures &archs)
+void Universal::architectures(Architectures &archs) const
 {
 	if (isUniversal()) {
 		for (unsigned n = 0; n < mArchCount; n++)
@@ -587,7 +712,6 @@ void Universal::architectures(Architectures &archs)
 		archs.insert(macho->architecture());
 	}
 }
-
 
 //
 // Quickly guess the Mach-O type of a file.
@@ -625,6 +749,23 @@ uint32_t Universal::typeOf(FileDesc fd)
 		}
 	}
     return 0;
+}
+
+//
+// Strict validation
+//
+bool Universal::isSuspicious() const
+{
+	if (mSuspicious)
+		return true;
+	Universal::Architectures archList;
+	architectures(archList);
+	for (Universal::Architectures::const_iterator it = archList.begin(); it != archList.end(); ++it) {
+		auto_ptr<MachO> macho(architecture(*it));
+		if (macho->isSuspicious())
+			return true;
+	}
+	return false;
 }
 
 

@@ -49,7 +49,8 @@ namespace CodeSigning {
 class ResourceBuilder {
 	NOCOPY(ResourceBuilder)
 public:
-	ResourceBuilder(const std::string &root, CFDictionaryRef rulesDict, CodeDirectory::HashAlgorithm hashType);
+	ResourceBuilder(const std::string &root, const std::string &relBase,
+		CFDictionaryRef rulesDict, CodeDirectory::HashAlgorithm hashType, bool strict, const MacOSErrorSet& toleratedErrors);
 	~ResourceBuilder();
 
 	enum {
@@ -93,12 +94,14 @@ protected:
 	void addRule(CFTypeRef key, CFTypeRef value);
 	
 private:
-	std::string mRoot;
+	std::string mRoot, mRelBase;
 	FTS *mFTS;
 	CFCopyRef<CFDictionaryRef> mRawRules;
 	typedef std::vector<Rule *> Rules;
 	Rules mRules;
 	CodeDirectory::HashAlgorithm mHashType;
+	bool mCheckUnreadable;
+	bool mCheckUnknownType;
 };
 
 

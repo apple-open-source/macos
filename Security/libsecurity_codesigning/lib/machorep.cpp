@@ -47,14 +47,15 @@ MachORep::MachORep(const char *path, const Context *ctx)
 {
 	if (ctx)
 		if (ctx->offset)
-			mExecutable = new Universal(fd(), (size_t)ctx->offset);
+			mExecutable = new Universal(fd(), (size_t)ctx->offset, ctx->size);
 		else if (ctx->arch) {
 			auto_ptr<Universal> full(new Universal(fd()));
-			mExecutable = new Universal(fd(), full->archOffset(ctx->arch));
+			mExecutable = new Universal(fd(), full->archOffset(ctx->arch), full->archLength(ctx->arch));
 		} else
 			mExecutable = new Universal(fd());
 	else
 		mExecutable = new Universal(fd());
+
 	assert(mExecutable);
 	CODESIGN_DISKREP_CREATE_MACHO(this, (char*)path, (void*)ctx);
 }
@@ -248,12 +249,13 @@ string MachORep::format()
 void MachORep::flush()
 {
 	size_t offset = mExecutable->offset();
+	size_t length = mExecutable->length();
 	delete mExecutable;
 	mExecutable = NULL;
 	::free(mSigningData);
 	mSigningData = NULL;
 	SingleDiskRep::flush();
-	mExecutable = new Universal(fd(), offset);
+	mExecutable = new Universal(fd(), offset, length);
 }
 
 
@@ -356,6 +358,16 @@ Requirement *MachORep::libraryRequirements(const Architecture *arch, const Signi
 size_t MachORep::pageSize(const SigningContext &)
 {
 	return segmentedPageSize;
+}
+
+
+//
+// Strict validation
+//
+void MachORep::strictValidate(const ToleratedErrors& tolerated)
+{
+	if (mExecutable->isSuspicious() && tolerated.find(errSecCSBadMainExecutable) == tolerated.end())
+		MacOSError::throwMe(errSecCSBadMainExecutable);
 }
 
 

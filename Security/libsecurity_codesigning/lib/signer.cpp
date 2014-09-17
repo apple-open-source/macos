@@ -117,6 +117,10 @@ void SecCodeSigner::Signer::remove(SecCSFlags flags)
 //
 void SecCodeSigner::Signer::prepare(SecCSFlags flags)
 {
+	// make sure the rep passes strict validation
+	if (strict)
+		rep->strictValidate(MacOSErrorSet());
+
 	// get the Info.plist out of the rep for some creative defaulting
 	CFRef<CFDictionaryRef> infoDict;
 	if (CFRef<CFDataRef> infoData = rep->component(cdInfoSlot))
@@ -232,9 +236,15 @@ void SecCodeSigner::Signer::prepare(SecCSFlags flags)
 		// finally, ask the DiskRep for its default
 		if (!resourceRules)
 			resourceRules.take(rep->defaultResourceRules(state));
-		
+
+		// resource root can optionally be the canonical bundle path,
+		// but sealed resource paths are always relative to rpath
+		string root = rpath;
+		if (state.signingFlags() & kSecCSSignBundleRoot)
+			root = cfStringRelease(rep->copyCanonicalPath());
+
 		// build the resource directory
-		buildResources(rpath, resourceRules);
+		buildResources(root, rpath, resourceRules);
 	}
 	
 	// screen and set the signing time
@@ -261,7 +271,7 @@ void SecCodeSigner::Signer::prepare(SecCSFlags flags)
 // Collect the resource seal for a program.
 // This includes both sealed resources and information about nested code.
 //
-void SecCodeSigner::Signer::buildResources(std::string root, CFDictionaryRef rulesDict)
+void SecCodeSigner::Signer::buildResources(std::string root, std::string relBase, CFDictionaryRef rulesDict)
 {
 	typedef ResourceBuilder::Rule Rule;
 	
@@ -284,7 +294,7 @@ void SecCodeSigner::Signer::buildResources(std::string root, CFDictionaryRef rul
 		}
 		// build the modern (V2) resource seal
 		__block CFRef<CFMutableDictionaryRef> files = makeCFMutableDictionary();
-		ResourceBuilder resourceBuilder(root, rules2, digestAlgorithm());
+		ResourceBuilder resourceBuilder(root, relBase, rules2, digestAlgorithm(), strict, MacOSErrorSet());
 		ResourceBuilder	&resources = resourceBuilder;	// (into block)
 		rep->adjustResources(resources);
 		resources.scan(^(FTSENT *ent, uint32_t ruleFlags, const char *relpath, Rule *rule) {
@@ -319,7 +329,7 @@ void SecCodeSigner::Signer::buildResources(std::string root, CFDictionaryRef rul
 	if (!(state.signingFlags() & kSecCSSignNoV1)) {
 		// build the legacy (V1) resource seal
 		__block CFRef<CFMutableDictionaryRef> files = makeCFMutableDictionary();
-		ResourceBuilder resourceBuilder(root, rules, digestAlgorithm());
+		ResourceBuilder resourceBuilder(root, relBase, rules, digestAlgorithm(), strict, MacOSErrorSet());
 		ResourceBuilder	&resources = resourceBuilder;
 		rep->adjustResources(resources);	// DiskRep-specific adjustments
 		resources.scan(^(FTSENT *ent, uint32_t ruleFlags, const char *relpath, Rule *rule) {

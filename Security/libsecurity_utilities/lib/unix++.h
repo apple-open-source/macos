@@ -231,6 +231,9 @@ public:
     // stdio interactions
     FILE *fdopen(const char *mode = NULL);	// fdopen(3)
 
+	// Is this a regular file? (not a symlink, fifo, etc.)
+	bool isPlainFile(const std::string &path);
+
 private:
     int mFd;				// UNIX file descriptor
 

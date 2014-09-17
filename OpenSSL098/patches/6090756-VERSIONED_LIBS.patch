@@ -1,0 +1,46 @@
+diff -Nur openssl-0.9.8za/src/crypto/dso/dso_dlfcn.c ./crypto/dso/dso_dlfcn.c
+--- openssl-0.9.8za/src/crypto/dso/dso_dlfcn.c	2014-06-05 01:09:08.000000000 -0700
++++ ./crypto/dso/dso_dlfcn.c	2014-07-09 17:55:16.000000000 -0700
+@@ -354,11 +354,21 @@
+ 	transform = (strstr(filename, "/") == NULL);
+ 	if(transform)
+ 		{
++#if __APPLE__
++		/* <rdar://problem/6090756> 098 Should load versioned libraries */
++
++		/* We will convert this to "%s.1.so" or "lib%s.1.so" */
++		rsize += 5;	/* The length of ".1.so" */
++		if ((DSO_flags(dso) & DSO_FLAG_NAME_TRANSLATION_EXT_ONLY) == 0)
++			rsize += DSO_extlen; /* The length of "lib" */
++		}
++#else
+ 		/* We will convert this to "%s.so" or "lib%s.so" etc */
+ 		rsize += DSO_extlen;	/* The length of ".so" */
+ 		if ((DSO_flags(dso) & DSO_FLAG_NAME_TRANSLATION_EXT_ONLY) == 0)
+ 			rsize += 3; /* The length of "lib" */
+ 		}
++#endif
+ 	translated = OPENSSL_malloc(rsize);
+ 	if(translated == NULL)
+ 		{
+@@ -368,11 +378,20 @@
+ 		}
+ 	if(transform)
+ 		{
++#if __APPLE__
++		/* <rdar://problem/6090756> 098 Should load versioned libraries */
++		if ((DSO_flags(dso) & DSO_FLAG_NAME_TRANSLATION_EXT_ONLY) == 0)
++			snprintf(translated, rsize, "lib%s.1.so", filename);
++		else
++			snprintf(translated, rsize, "%s.1.so", filename);
++		}
++#else
+ 		if ((DSO_flags(dso) & DSO_FLAG_NAME_TRANSLATION_EXT_ONLY) == 0)
+ 			sprintf(translated, "lib%s" DSO_ext, filename);
+ 		else
+ 			sprintf(translated, "%s" DSO_ext, filename);
+ 		}
++#endif
+ 	else
+ 		sprintf(translated, "%s", filename);
+ 	return(translated);

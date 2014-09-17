@@ -22,6 +22,7 @@
  */
 #include "bundlediskrep.h"
 #include "filediskrep.h"
+#include "dirscanner.h"
 #include <CoreFoundation/CFURLAccess.h>
 #include <CoreFoundation/CFBundlePriv.h>
 #include <security_utilities/cfmunge.h>
@@ -68,22 +69,36 @@ BundleDiskRep::~BundleDiskRep()
 void BundleDiskRep::setup(const Context *ctx)
 {
 	mInstallerPackage = false;	// default
-	
-	// deal with versioned bundles (aka Frameworks)
-	string version = resourcesRootPath()
-		+ "/Versions/"
+
+	// capture the path of the main executable before descending into a specific version
+	CFRef<CFURLRef> mainExecBefore = CFBundleCopyExecutableURL(mBundle);
+
+	// validate the bundle root; fish around for the desired framework version
+	string root = cfStringRelease(copyCanonicalPath());
+	string contents = root + "/Contents";
+	string version = root + "/Versions/"
 		+ ((ctx && ctx->version) ? ctx->version : "Current")
 		+ "/.";
-	if (::access(version.c_str(), F_OK) == 0) {		// versioned bundle
+	if (::access(contents.c_str(), F_OK) == 0) {	// not shallow
+		DirValidator val;
+		val.require("^Contents$", DirValidator::directory);	 // duh
+		val.allow("^(\\.LSOverride|\\.DS_Store|Icon\r|\\.SoftwareDepot\\.tracking)$", DirValidator::file | DirValidator::noexec);
+		try {
+			val.validate(root, errSecCSUnsealedAppRoot);
+		} catch (const MacOSError &err) {
+			recordStrictError(err.error);
+		}
+	} else if (::access(version.c_str(), F_OK) == 0) {	// versioned bundle
 		if (CFBundleRef versionBundle = CFBundleCreate(NULL, CFTempURL(version)))
 			mBundle.take(versionBundle);	// replace top bundle ref
 		else
 			MacOSError::throwMe(errSecCSStaticCodeNotFound);
+		validateFrameworkRoot(root);
 	} else {
 		if (ctx && ctx->version)	// explicitly specified
 			MacOSError::throwMe(errSecCSStaticCodeNotFound);
 	}
-	
+
 	CFDictionaryRef infoDict = CFBundleGetInfoDictionary(mBundle);
 	assert(infoDict);	// CFBundle will always make one up for us
 	CFTypeRef mainHTML = CFDictionaryGetValue(infoDict, CFSTR("MainHTML"));
@@ -92,8 +107,28 @@ void BundleDiskRep::setup(const Context *ctx)
 	// conventional executable bundle: CFBundle identifies an executable for us
 	if (CFRef<CFURLRef> mainExec = CFBundleCopyExecutableURL(mBundle))		// if CFBundle claims an executable...
 		if (mainHTML == NULL) {												// ... and it's not a widget
+
+			// Note that this check is skipped if there is a specific framework version checked.
+			// That's because you know what you are doing if you are looking at a specific version.
+			// This check is designed to stop someone who did a verification on an app root, from mistakenly
+			// verifying a framework
+			if (mainExecBefore && (!ctx || !ctx->version)) {
+				char main_exec_before[PATH_MAX];
+				char main_exec[PATH_MAX];
+				// The realpath call is important because alot of Framework bundles have a symlink
+				// to their "Current" version binary in the main bundle
+				if (realpath(cfString(mainExecBefore).c_str(), main_exec_before) == NULL ||
+					realpath(cfString(mainExec).c_str(), main_exec) == NULL)
+					MacOSError::throwMe(errSecCSInternalError);
+
+				if (strcmp(main_exec_before, main_exec) != 0)
+					recordStrictError(errSecCSAmbiguousBundleFormat);
+			}
+
 			mMainExecutableURL = mainExec;
 			mExecRep = DiskRep::bestFileGuess(this->mainExecutablePath(), ctx);
+			if (!mExecRep->fd().isPlainFile(this->mainExecutablePath()))
+				recordStrictError(errSecCSRegularFile);
 			mFormat = "bundle with " + mExecRep->format();
 			return;
 		}
@@ -107,6 +142,8 @@ void BundleDiskRep::setup(const Context *ctx)
 		if (!mMainExecutableURL)
 			MacOSError::throwMe(errSecCSBadBundleFormat);
 		mExecRep = new FileDiskRep(this->mainExecutablePath().c_str());
+		if (!mExecRep->fd().isPlainFile(this->mainExecutablePath()))
+			recordStrictError(errSecCSRegularFile);
 		mFormat = "widget bundle";
 		return;
 	}
@@ -116,6 +153,8 @@ void BundleDiskRep::setup(const Context *ctx)
 		// focus on the Info.plist (which we know exists) as the nominal "main executable" file
 		mMainExecutableURL = infoURL;
 		mExecRep = new FileDiskRep(this->mainExecutablePath().c_str());
+		if (!mExecRep->fd().isPlainFile(this->mainExecutablePath()))
+			recordStrictError(errSecCSRegularFile);
 		if (packageVersion) {
 			mInstallerPackage = true;
 			mFormat = "installer package bundle";
@@ -130,6 +169,8 @@ void BundleDiskRep::setup(const Context *ctx)
 	if (!distFile.empty()) {
 		mMainExecutableURL = makeCFURL(distFile);
 		mExecRep = new FileDiskRep(this->mainExecutablePath().c_str());
+		if (!mExecRep->fd().isPlainFile(this->mainExecutablePath()))
+			recordStrictError(errSecCSRegularFile);
 		mInstallerPackage = true;
 		mFormat = "installer package bundle";
 		return;
@@ -206,7 +247,7 @@ void BundleDiskRep::createMeta()
 	string meta = metaPath(BUNDLEDISKREP_DIRECTORY);
 	if (!mMetaExists) {
 		if (::mkdir(meta.c_str(), 0755) == 0) {
-			copyfile(cfString(canonicalPath(), true).c_str(), meta.c_str(), NULL, COPYFILE_SECURITY);
+			copyfile(cfStringRelease(copyCanonicalPath()).c_str(), meta.c_str(), NULL, COPYFILE_SECURITY);
 			mMetaPath = meta;
 			mMetaExists = true;
 		} else if (errno != EEXIST)
@@ -214,6 +255,31 @@ void BundleDiskRep::createMeta()
 	}
 }
 
+//
+// Load's a CFURL and makes sure that it is a regular file and not a symlink (or fifo, etc.)
+//
+CFDataRef BundleDiskRep::loadRegularFile(CFURLRef url)
+{
+	assert(url);
+
+	CFDataRef data = NULL;
+
+	std::string path(cfString(url));
+
+	AutoFileDesc fd(path);
+
+	if (!fd.isPlainFile(path))
+		recordStrictError(errSecCSRegularFile);
+
+	data = cfLoadFile(fd, fd.fileSize());
+
+	if (!data) {
+		secdebug(__PRETTY_FUNCTION__, "failed to load %s", cfString(url).c_str());
+		MacOSError::throwMe(errSecCSInternalError);
+	}
+
+	return data;
+}
 
 //
 // Load and return a component, by slot number.
@@ -228,7 +294,7 @@ CFDataRef BundleDiskRep::component(CodeDirectory::SpecialSlot slot)
 	// the Info.plist comes from the magic CFBundle-indicated place and ONLY from there
 	case cdInfoSlot:
 		if (CFRef<CFURLRef> info = _CFBundleCopyInfoPlistURL(mBundle))
-			return cfLoadFile(info);
+			return loadRegularFile(info);
 		else
 			return NULL;
 	// by default, we take components from the executable image or files
@@ -258,7 +324,7 @@ CFDataRef BundleDiskRep::identification()
 //
 // Various aspects of our DiskRep personality.
 //
-CFURLRef BundleDiskRep::canonicalPath()
+CFURLRef BundleDiskRep::copyCanonicalPath()
 {
 	if (CFURLRef url = CFBundleCopyBundleURL(mBundle))
 		return url;
@@ -361,10 +427,10 @@ string BundleDiskRep::recommendedIdentifier(const SigningContext &)
 			return cfString(identifier);
 	
 	// fall back to using the canonical path
-	return canonicalIdentifier(cfString(this->canonicalPath()));
+	return canonicalIdentifier(cfStringRelease(this->copyCanonicalPath()));
 }
 
-CFDictionaryRef BundleDiskRep::defaultResourceRules(const SigningContext &ctx)
+string BundleDiskRep::resourcesRelativePath()
 {
 	// figure out the resource directory base. Clean up some gunk inserted by CFBundle in frameworks
 	string rbase = this->resourcesRootPath();
@@ -384,6 +450,13 @@ CFDictionaryRef BundleDiskRep::defaultResourceRules(const SigningContext &ctx)
 		MacOSError::throwMe(errSecCSBadBundleFormat);
 	else
 		resources = resources.substr(rbase.length() + 1) + "/";	// differential path segment
+
+	return resources;
+}
+
+CFDictionaryRef BundleDiskRep::defaultResourceRules(const SigningContext &ctx)
+{
+	string resources = this->resourcesRelativePath();
 
 	// installer package rules
 	if (mInstallerPackage)
@@ -447,6 +520,20 @@ CFDictionaryRef BundleDiskRep::defaultResourceRules(const SigningContext &ctx)
 	);
 }
 
+
+CFArrayRef BundleDiskRep::allowedResourceOmissions()
+{
+	return cfmake<CFArrayRef>("["
+		"'^(.*/)?\\.DS_Store$'"
+		"'^Info\\.plist$'"
+		"'^PkgInfo$'"
+		"%s"
+		"]",
+		(string("^") + this->resourcesRelativePath() + ".*\\.lproj/locversion.plist$").c_str()
+	);
+}
+
+
 const Requirements *BundleDiskRep::defaultRequirements(const Architecture *arch, const SigningContext &ctx)
 {
 	return mExecRep->defaultRequirements(arch, ctx);
@@ -455,6 +542,61 @@ const Requirements *BundleDiskRep::defaultRequirements(const Architecture *arch,
 size_t BundleDiskRep::pageSize(const SigningContext &ctx)
 {
 	return mExecRep->pageSize(ctx);
+}
+
+
+//
+// Strict validation.
+// Takes an array of CFNumbers of errors to tolerate.
+//
+void BundleDiskRep::strictValidate(const ToleratedErrors& tolerated)
+{
+	std::vector<OSStatus> fatalErrors;
+	set_difference(mStrictErrors.begin(), mStrictErrors.end(), tolerated.begin(), tolerated.end(), back_inserter(fatalErrors));
+	if (!fatalErrors.empty())
+		MacOSError::throwMe(fatalErrors[0]);
+	mExecRep->strictValidate(tolerated);
+}
+
+void BundleDiskRep::recordStrictError(OSStatus error)
+{
+	mStrictErrors.insert(error);
+}
+
+
+//
+// Check framework root for unsafe symlinks and unsealed content.
+//
+void BundleDiskRep::validateFrameworkRoot(string root)
+{
+	// build regex element that matches either the "Current" symlink, or the name of the current version
+	string current = "Current";
+	char currentVersion[PATH_MAX];
+	ssize_t len = ::readlink((root + "/Versions/Current").c_str(), currentVersion, sizeof(currentVersion)-1);
+	if (len > 0) {
+		currentVersion[len] = '\0';
+		current = string("(Current|") + ResourceBuilder::escapeRE(currentVersion) + ")";
+	}
+
+	DirValidator val;
+	val.require("^Versions$", DirValidator::directory | DirValidator::descend);	// descend into Versions directory
+	val.require("^Versions/[^/]+$", DirValidator::directory);					// require at least one version
+	val.require("^Versions/Current$", DirValidator::symlink,					// require Current symlink...
+		"^(\\./)?(\\.\\.[^/]+|\\.?[^\\./][^/]*)$");								// ...must point to a version
+	val.allow("^(Versions/)?\\.DS_Store$", DirValidator::file | DirValidator::noexec); // allow .DS_Store files
+	val.allow("^[^/]+$", DirValidator::symlink, ^ string (const string &name, const string &target) {
+		// top-level symlinks must point to namesake in current version
+		return string("^(\\./)?Versions/") + current + "/" + ResourceBuilder::escapeRE(name) + "$";
+	});
+	// module.map must be regular non-executable file, or symlink to module.map in current version
+	val.allow("^module\\.map$", DirValidator::file | DirValidator::noexec | DirValidator::symlink,
+		string("^(\\./)?Versions/") + current + "/module\\.map$");
+
+	try {
+		val.validate(root, errSecCSUnsealedFrameworkRoot);
+	} catch (const MacOSError &err) {
+		recordStrictError(err.error);
+	}
 }
 
 

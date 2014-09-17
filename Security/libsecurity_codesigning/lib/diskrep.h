@@ -53,6 +53,8 @@ class DiskRep : public RefCount {
 public:
 	class SigningContext;
 	
+	typedef std::set<OSStatus> ToleratedErrors;
+	
 public:
 	DiskRep();
 	virtual ~DiskRep();
@@ -60,7 +62,7 @@ public:
 	virtual CFDataRef component(CodeDirectory::SpecialSlot slot) = 0; // fetch component
 	virtual CFDataRef identification() = 0;					// binary lookup identifier
 	virtual std::string mainExecutablePath() = 0;			// path to main executable
-	virtual CFURLRef canonicalPath() = 0;					// path to whole code
+	virtual CFURLRef copyCanonicalPath() = 0;					// path to whole code
 	virtual std::string resourcesRootPath();				// resource directory if any [none]
 	virtual void adjustResources(ResourceBuilder &builder);	// adjust resource rule set [no change]
 	virtual Universal *mainExecutableImage();				// Mach-O image if Mach-O based [null]
@@ -77,7 +79,10 @@ public:
 	virtual const Requirements *defaultRequirements(const Architecture *arch,
 		const SigningContext &ctx);							// default internal requirements [none]
 	virtual size_t pageSize(const SigningContext &ctx);		// default main executable page size [infinite, i.e. no paging]
-	
+
+	virtual void strictValidate(const ToleratedErrors& tolerated); // perform strict validation
+	virtual CFArrayRef allowedResourceOmissions();			// allowed (default) resource omission rules
+
 	bool mainExecutableIsMachO() { return mainExecutableImage() != NULL; }
 	
 	// shorthands
@@ -91,12 +96,13 @@ public:
 public:
 	// optional information that might be used to create a suitable DiskRep. All optional
 	struct Context {
-		Context() : arch(Architecture::none), version(NULL), offset(0), fileOnly(false), inMemory(NULL) { }
+		Context() : arch(Architecture::none), version(NULL), offset(0), fileOnly(false), inMemory(NULL), size(0) { }
 		Architecture arch;			// explicit architecture (choose amongst universal variants)
 		const char *version;		// bundle version (string)
 		off_t offset;				// explicit file offset
 		bool fileOnly;				// only consider single-file representations (no bundles etc.)
 		const void *inMemory;		// consider using in-memory copy at this address
+		size_t size;				// size of this mach-o slice
 	};
 
 	static DiskRep *bestGuess(const char *path, const Context *ctx = NULL); // canonical heuristic, any path
@@ -195,7 +201,7 @@ public:
 	// the rest of the virtual behavior devolves on the original DiskRep
 	CFDataRef identification()				{ return mOriginal->identification(); }
 	std::string mainExecutablePath()		{ return mOriginal->mainExecutablePath(); }
-	CFURLRef canonicalPath()				{ return mOriginal->canonicalPath(); }
+	CFURLRef copyCanonicalPath()			{ return mOriginal->copyCanonicalPath(); }
 	std::string resourcesRootPath()			{ return mOriginal->resourcesRootPath(); }
 	void adjustResources(ResourceBuilder &builder) { return mOriginal->adjustResources(builder); }
 	Universal *mainExecutableImage()		{ return mOriginal->mainExecutableImage(); }

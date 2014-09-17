@@ -61,7 +61,7 @@ CFDataRef SingleDiskRep::identification()
 //
 // Both the canonical and main executable path of a SingleDiskRep is, well, its path.
 //
-CFURLRef SingleDiskRep::canonicalPath()
+CFURLRef SingleDiskRep::copyCanonicalPath()
 {
 	return makeCFURL(mPath);
 }

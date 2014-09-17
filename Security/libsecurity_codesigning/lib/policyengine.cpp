@@ -78,42 +78,6 @@ PolicyEngine::PolicyEngine()
 PolicyEngine::~PolicyEngine()
 { }
 
-#define GKBIS_XPC_SERVICE_NAME "com.apple.gkbisd"
-#define GKBIS_REQUEST_KEY_PATH "path"
-#define GKBIS_REQUEST_KEY_DEFER "defer"
-#define GKBIS_REQUEST_KEY_QUARANTINED "quarantined"
-
-static void
-gkbis_invoke_collector(const char *path)
-{
-	dispatch_queue_t queue = dispatch_queue_create("gkbis_invoke_collector", NULL);
-	dispatch_group_t group = dispatch_group_create();
-	/* Set up a connection to gkbisd. */
-	xpc_connection_t connection = xpc_connection_create_mach_service(GKBIS_XPC_SERVICE_NAME,
-																	 queue, XPC_CONNECTION_MACH_SERVICE_PRIVILEGED);
-	xpc_connection_set_event_handler(connection, ^(xpc_object_t event) {
-	});
-	xpc_connection_resume(connection);
-
-	/* Construct and send the request. */
-	xpc_object_t message = xpc_dictionary_create(NULL, NULL, 0);
-	xpc_dictionary_set_string(message, GKBIS_REQUEST_KEY_PATH, path);
-    xpc_dictionary_set_bool(message, GKBIS_REQUEST_KEY_QUARANTINED, true);
-	xpc_dictionary_set_bool(message, GKBIS_REQUEST_KEY_DEFER, true);
-	xpc_connection_send_message(connection, message);
-	xpc_release(message);
-	/* Cancel the connection after the request has been sent. */
-	dispatch_group_enter(group);
-	xpc_connection_send_barrier(connection, ^{
-		xpc_connection_cancel(connection);
-		xpc_release(connection);
-		dispatch_group_leave(group);
-	});
-	/* Wait until the connection is canceled. */
-	dispatch_group_wait(group, DISPATCH_TIME_FOREVER);
-	dispatch_release(queue);
-	dispatch_release(group);
-}
 
 //
 // Top-level evaluation driver
@@ -125,7 +89,6 @@ void PolicyEngine::evaluate(CFURLRef path, AuthorityType type, SecAssessmentFlag
 
 	switch (type) {
 	case kAuthorityExecute:
-		gkbis_invoke_collector(cfString(path).c_str());
 		evaluateCode(path, kAuthorityExecute, flags, context, result, true);
 		break;
 	case kAuthorityInstall:
@@ -177,11 +140,13 @@ void PolicyEngine::evaluateCodeItem(SecStaticCodeRef code, CFURLRef path, Author
 		
 		CFRef<SecRequirementRef> requirement;
 		MacOSError::check(SecRequirementCreateWithString(CFTempString(reqString), kSecCSDefaultFlags, &requirement.aref()));
-		switch (OSStatus rc = SecStaticCodeCheckValidity(code, kSecCSDefaultFlags, requirement)) {
+		switch (OSStatus rc = SecStaticCodeCheckValidity(code, kSecCSBasicValidateOnly, requirement)) {
 		case errSecSuccess:
 			break;						// rule match; process below
 		case errSecCSReqFailed:
 			continue;					// rule does not apply
+		case errSecCSVetoed:
+			return;						// nested code has failed to pass
 		default:
 			MacOSError::throwMe(rc);	// general error; pass to caller
 		}
@@ -256,6 +221,13 @@ void PolicyEngine::evaluateCodeItem(SecStaticCodeRef code, CFURLRef path, Author
 		this->recordOutcome(code, false, type, this->julianNow() + NEGATIVE_HOLD, latentID);
 	cfadd(result, "{%O=%B}", kSecAssessmentAssessmentVerdict, false);
 	addAuthority(flags, result, latentLabel.c_str(), latentID);
+}
+	
+
+void PolicyEngine::adjustValidation(SecStaticCodeRef code)
+{
+	CFRef<CFDictionaryRef> conditions = mOpaqueWhitelist.validationConditionsFor(code);
+	SecStaticCodeSetValidationConditions(code, conditions);
 }
 
 
@@ -334,10 +306,11 @@ bool PolicyEngine::temporarySigning(SecStaticCodeRef code, AuthorityType type, C
 
 //
 // Executable code.
-// Read from disk, evaluate properly, cache as indicated. The whole thing, so far.
+// Read from disk, evaluate properly, cache as indicated.
 //
 void PolicyEngine::evaluateCode(CFURLRef path, AuthorityType type, SecAssessmentFlags flags, CFDictionaryRef context, CFMutableDictionaryRef result, bool handleUnsigned)
 {
+	// not really a Gatekeeper function... but reject all "hard quarantined" files because they were made from sandboxed sources without download privilege
 	FileQuarantine qtn(cfString(path).c_str());
 	if (qtn.flag(QTN_FLAG_HARD))
 		MacOSError::throwMe(errSecCSFileHardQuarantined);
@@ -345,7 +318,10 @@ void PolicyEngine::evaluateCode(CFURLRef path, AuthorityType type, SecAssessment
 	CFCopyRef<SecStaticCodeRef> code;
 	MacOSError::check(SecStaticCodeCreateWithPath(path, kSecCSDefaultFlags, &code.aref()));
 	
-	SecCSFlags validationFlags = kSecCSEnforceRevocationChecks;
+	SecCSFlags validationFlags = kSecCSEnforceRevocationChecks | kSecCSCheckAllArchitectures;
+	if (!(flags & kSecAssessmentFlagAllowWeak))
+		validationFlags |= kSecCSStrictValidate;
+	adjustValidation(code);
 	
 	// first, perform a shallow check
 	OSStatus rc = SecStaticCodeCheckValidity(code, validationFlags, NULL);
@@ -369,12 +345,18 @@ void PolicyEngine::evaluateCode(CFURLRef path, AuthorityType type, SecAssessment
 		}
 	}
 	
-	MacOSError::check(SecStaticCodeSetCallback(code, kSecCSDefaultFlags, NULL, ^CFTypeRef (SecStaticCodeRef item, CFStringRef stage, CFDictionaryRef info) {
-		SecStaticCodeSetCallback(item, kSecCSDefaultFlags, NULL, NULL);		// clear callback to avoid unwanted recursion
-		evaluateCodeItem(item, path, type, flags, item != code, result);
-		if (CFTypeRef verdict = CFDictionaryGetValue(result, kSecAssessmentAssessmentVerdict))
-			if (CFEqual(verdict, kCFBooleanFalse))
-				return makeCFNumber(OSStatus(errSecCSVetoed));	// (signal nested-code policy failure, picked up below)
+	MacOSError::check(SecStaticCodeSetCallback(code, kSecCSDefaultFlags, NULL, ^CFTypeRef (SecStaticCodeRef item, CFStringRef cfStage, CFDictionaryRef info) {
+		string stage = cfString(cfStage);
+		if (stage == "prepared") {
+			if (!CFEqual(item, code))	// genuine nested (not top) code
+				adjustValidation(item);
+		} else if (stage == "validated") {
+			SecStaticCodeSetCallback(item, kSecCSDefaultFlags, NULL, NULL);		// clear callback to avoid unwanted recursion
+			evaluateCodeItem(item, path, type, flags, item != code, result);
+			if (CFTypeRef verdict = CFDictionaryGetValue(result, kSecAssessmentAssessmentVerdict))
+				if (CFEqual(verdict, kCFBooleanFalse))
+					return makeCFNumber(OSStatus(errSecCSVetoed));	// (signal nested-code policy failure, picked up below)
+		}
 		return NULL;
 	}));
 	switch (rc = SecStaticCodeCheckValidity(code, validationFlags | kSecCSCheckNestedCode, NULL)) {
@@ -386,6 +368,42 @@ void PolicyEngine::evaluateCode(CFURLRef path, AuthorityType type, SecAssessment
 		return;
 	case errSecCSVetoed:		// nested code rejected by rule book; result was filled out there
 		return;
+	case errSecCSWeakResourceRules:
+	case errSecCSResourceNotSupported:
+	case errSecCSAmbiguousBundleFormat:
+	case errSecCSSignatureNotVerifiable:
+	case errSecCSRegularFile:
+	case errSecCSBadMainExecutable:
+	case errSecCSBadFrameworkVersion:
+	case errSecCSUnsealedAppRoot:
+	case errSecCSUnsealedFrameworkRoot:
+	{
+		// consult the whitelist
+		bool allow = false;
+		const char *label;
+		// we've bypassed evaluateCodeItem before we failed validation. Explicitly apply it now
+		SecStaticCodeSetCallback(code, kSecCSDefaultFlags, NULL, NULL);
+		evaluateCodeItem(code, path, type, flags | kSecAssessmentFlagNoCache, false, result);
+		if (CFTypeRef verdict = CFDictionaryGetValue(result, kSecAssessmentAssessmentVerdict)) {
+			// verdict rendered from a nested component - signature not acceptable to Gatekeeper
+			if (CFEqual(verdict, kCFBooleanFalse))	// nested code rejected by rule book; result was filled out there
+				return;
+			if (CFEqual(verdict, kCFBooleanTrue) && !(flags & kSecAssessmentFlagIgnoreWhitelist)) {
+				bool trace = CFDictionaryContainsKey(context, kSecAssessmentContextQuarantineFlags);
+				if (mOpaqueWhitelist.contains(code, rc, trace))
+					allow = true;
+			}
+		}
+		if (allow) {
+			label = "allowed cdhash";
+		} else {
+			CFDictionaryReplaceValue(result, kSecAssessmentAssessmentVerdict, kCFBooleanFalse);
+			label = "obsolete resource envelope";
+		}
+		cfadd(result, "{%O=%d}", kSecAssessmentAssessmentCodeSigningError, rc);
+		addAuthority(flags, result, label, 0, NULL, true);
+		return;
+	}
 	default:
 		MacOSError::throwMe(rc);
 	}
@@ -602,7 +620,7 @@ void PolicyEngine::evaluateDocOpen(CFURLRef path, SecAssessmentFlags flags, CFDi
 //
 // Result-creation helpers
 //
-void PolicyEngine::addAuthority(SecAssessmentFlags flags, CFMutableDictionaryRef parent, const char *label, SQLite::int64 row, CFTypeRef cacheInfo)
+void PolicyEngine::addAuthority(SecAssessmentFlags flags, CFMutableDictionaryRef parent, const char *label, SQLite::int64 row, CFTypeRef cacheInfo, bool weak)
 {
 	CFRef<CFMutableDictionaryRef> auth = makeCFMutableDictionary();
 	if (label && label[0])
@@ -613,7 +631,12 @@ void PolicyEngine::addAuthority(SecAssessmentFlags flags, CFMutableDictionaryRef
 		CFDictionaryAddValue(auth, kSecAssessmentAssessmentAuthorityOverride, kDisabledOverride);
 	if (cacheInfo)
 		CFDictionaryAddValue(auth, kSecAssessmentAssessmentFromCache, cacheInfo);
-	CFDictionaryAddValue(parent, kSecAssessmentAssessmentAuthority, auth);
+	if (weak) {
+		CFDictionaryAddValue(auth, kSecAssessmentAssessmentWeakSignature, kCFBooleanTrue);
+		CFDictionaryReplaceValue(parent, kSecAssessmentAssessmentAuthority, auth);
+	} else {
+		CFDictionaryAddValue(parent, kSecAssessmentAssessmentAuthority, auth);
+	}
 }
 
 void PolicyEngine::addToAuthority(CFMutableDictionaryRef parent, CFStringRef key, CFTypeRef value)
@@ -1034,6 +1057,11 @@ void PolicyEngine::normalizeTarget(CFRef<CFTypeRef> &target, AuthorityType type,
 			CFMutableDictionaryRef dict = makeCFMutableDictionary(context.get());
 			CFDictionaryAddValue(dict, kSecAssessmentUpdateKeyRemarks, CFTempString(cfString(path)));
 			context.take(dict);
+		}
+		CFStringRef edit = CFStringRef(context.get(kSecAssessmentContextKeyUpdate));
+		if (type == kAuthorityExecute && CFEqual(edit, kSecAssessmentUpdateOperationAdd)) {
+			// implicitly whitelist the code
+			mOpaqueWhitelist.add(code);
 		}
 	}
 }

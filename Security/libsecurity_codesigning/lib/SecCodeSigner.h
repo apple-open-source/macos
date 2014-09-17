@@ -190,6 +190,8 @@ enum {
 	kSecCSSignOpaque = 1 << 3,			// treat all files as resources (no nest scan, no flexibility)
 	kSecCSSignV1 = 1 << 4,				// sign ONLY in V1 form
 	kSecCSSignNoV1 = 1 << 5,			// do not include V1 form
+	kSecCSSignBundleRoot = 1 << 6,		// include files in bundle root
+	kSecCSSignStrictPreflight = 1 << 7, // fail signing operation if signature would fail strict validation
 };
 
 

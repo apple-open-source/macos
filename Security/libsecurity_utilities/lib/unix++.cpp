@@ -342,6 +342,16 @@ std::string FileDesc::getAttr(const std::string &name, int options /* = 0 */)
 		return string();
 }
 
+bool FileDesc::isPlainFile(const std::string &path)
+{
+	UnixStat st1, st2;
+	this->fstat(st1);
+	if (::lstat(path.c_str(), &st2))
+		UnixError::throwMe();
+
+	return (st1.st_ino == st2.st_ino && S_ISREG(st2.st_mode));
+}
+
 
 //
 // Stat support

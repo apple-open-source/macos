@@ -1,0 +1,14 @@
+install: build-dll build-static
+    echo Completed install
+
+install-static: build-static-legacy
+    echo Completed legacy install
+
+build-dll:
+	perl .\bin\buildWin32.pl x86 x64 debug release dll $(TEST)
+
+build-static:
+	perl .\bin\buildWin32.pl x86 x64 debug release static $(TEST)
+
+build-static-legacy:
+	perl .\bin\buildWin32.pl x86 x64 debug release static legacy $(TEST)

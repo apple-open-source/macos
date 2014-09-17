@@ -221,6 +221,17 @@ size_t DiskRep::pageSize(const SigningContext &)
 }
 
 
+void DiskRep::strictValidate(const ToleratedErrors&)
+{
+	// do nothing
+}
+
+CFArrayRef DiskRep::allowedResourceOmissions()
+{
+	return NULL;
+}
+
+
 //
 // Given some string (usually a pathname), derive a suggested signing identifier
 // in a canonical way (so there's some consistency).

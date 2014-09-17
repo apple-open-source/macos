@@ -34,6 +34,7 @@
 #include <security_utilities/endian.h>
 #include <security_utilities/unix++.h>
 #include <security_utilities/cfutilities.h>
+#include <map>
 
 namespace Security {
 
@@ -143,6 +144,9 @@ public:
 
 	void seek(size_t offset);	// relative to start of image
 	CFDataRef dataAt(size_t offset, size_t size);
+	void validateStructure();	// is the structure of the mach-o sane
+
+	bool isSuspicious() const { return mSuspicious; }
 
 private:
 	size_t mOffset;			// starting file offset
@@ -150,6 +154,8 @@ private:
 	
 	mach_header mHeaderBuffer; // read-in Mach-O header
 	load_command *mCommandBuffer; // read-in (malloc'ed) Mach-O load commands
+
+	bool mSuspicious;		// strict validation failed
 };
 
 
@@ -182,7 +188,7 @@ public:
 //
 class Universal : public UnixPlusPlus::FileDesc {
 public:
-	Universal(FileDesc fd, size_t offset = 0);
+	Universal(FileDesc fd, size_t offset = 0, size_t length = 0);
 	~Universal();
 	
 	// return a genuine MachO object for the given architecture
@@ -193,16 +199,21 @@ public:
 	// return (just) the starting offset of an architecture
 	size_t archOffset() const;			// native
 	size_t archOffset(const Architecture &arch) const; // given
+	size_t archLength(const Architecture &arch) const; // given
 	bool narrowed() const { return mBase != 0; }	// part of a fat file
 	
 	// return a set of architectures contained
 	typedef std::set<Architecture> Architectures;
-	void architectures(Architectures &archs);
+	void architectures(Architectures &archs) const;
 	
 	bool isUniversal() const { return mArchList != NULL; }
 	Architecture bestNativeArch() const;
+	const size_t lengthOfSlice(size_t offset) const;
 	
 	size_t offset() const { return mBase; }
+	size_t length() const { return mLength; }
+	
+	bool isSuspicious() const;
 	
 public:
 	static uint32_t typeOf(FileDesc fd);
@@ -216,6 +227,10 @@ private:
 	unsigned mArchCount;		// number of architectures (if fat)
 	Architecture mThinArch;		// single architecture (if thin)
 	size_t mBase;				// overriding offset in file (all types)
+	size_t mLength;				// length of the architecture if thin file
+	typedef std::map<size_t, size_t> OffsetsToLength;
+	OffsetsToLength mSizes; // the length for the slice at a given offset
+	bool mSuspicious;			// strict validation failed
 };
 
 

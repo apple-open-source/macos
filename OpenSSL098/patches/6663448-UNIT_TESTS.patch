@@ -1,0 +1,23 @@
+diff -Nur openssl-0.9.8za/src/util/opensslwrap.sh ./util/opensslwrap.sh
+--- openssl-0.9.8za/src/util/opensslwrap.sh	2014-06-05 00:22:48.000000000 -0700
++++ ./util/opensslwrap.sh	2014-07-09 17:55:16.000000000 -0700
+@@ -19,7 +19,7 @@
+ 		PATH="${HERE}..:$PATH"; export PATH
+ 	fi
+ 	exec "${OPENSSL}.exe" "$@"
+-elif [ -x "${OPENSSL}" -a -x "${HERE}shlib_wrap.sh" ]; then
++elif [ -x "${HERE}shlib_wrap.sh" ]; then
+ 	exec "${HERE}shlib_wrap.sh" "${OPENSSL}" "$@"
+ else
+ 	exec "${OPENSSL}" "$@"	# hope for the best...
+diff -Nur openssl-0.9.8za/src/util/shlib_wrap.sh ./util/shlib_wrap.sh
+--- openssl-0.9.8za/src/util/shlib_wrap.sh	2014-06-05 01:09:08.000000000 -0700
++++ ./util/shlib_wrap.sh	2014-07-09 17:55:16.000000000 -0700
+@@ -88,4 +88,6 @@
+ 	export LD_PRELOAD _RLD_LIST DYLD_INSERT_LIBRARIES
+ fi
+ 
+-exec "$@"
++PROG=$(echo "$1" | sed 's|.*/||' )
++shift
++exec "${TARGET_BUILD_DIR}/${PROG}" "$@"

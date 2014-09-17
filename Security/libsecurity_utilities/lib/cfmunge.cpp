@@ -127,10 +127,9 @@ CFTypeRef CFMake::make()
 		return makespecial();
 	case ']':
 	case '}':
-		assert(false);	// unexpected
 		return NULL;	// error
 	default:
-		if (isdigit(*format))
+		if (isdigit(*format) || *format == '-')
 			return makenumber();
 		else if (isalpha(*format))
 			return makestring();

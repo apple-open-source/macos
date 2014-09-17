@@ -54,7 +54,7 @@ CFDataRef KernelDiskRep::identification()
 }
 
 
-CFURLRef KernelDiskRep::canonicalPath()
+CFURLRef KernelDiskRep::copyCanonicalPath()
 {
 	return makeCFURL("/mach_kernel");
 }

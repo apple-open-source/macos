@@ -1,0 +1,12 @@
+diff -Nur openssl-0.9.8za/src/Configure ./Configure
+--- openssl-0.9.8za/src/Configure	2014-07-09 18:14:06.000000000 -0700
++++ ./Configure	2014-07-09 17:55:16.000000000 -0700
+@@ -1700,7 +1700,7 @@
+ 		# $foo is to become "$prefix/lib$multilib/engines";
+ 		# as Makefile.org and engines/Makefile are adapted for
+ 		# $multilib suffix.
+-		my $foo = "$prefix/lib/engines";
++		my $foo = "$prefix/lib/openssl/engines";
+ 		$foo =~ s/\\/\\\\/g;
+ 		print OUT "#define ENGINESDIR \"$foo\"\n";
+ 		}

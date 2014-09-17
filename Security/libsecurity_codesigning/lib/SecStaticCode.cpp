@@ -112,7 +112,8 @@ OSStatus SecStaticCodeCheckValidityWithErrors(SecStaticCodeRef staticCodeRef, Se
 		| kSecCSDoNotValidateResources
 		| kSecCSConsiderExpiration
 		| kSecCSEnforceRevocationChecks
-		| kSecCSCheckNestedCode);
+		| kSecCSCheckNestedCode
+		| kSecCSStrictValidate);
 
 	SecPointer<SecStaticCode> code = SecStaticCode::requiredStatic(staticCodeRef);
 	const SecRequirement *req = SecRequirement::optional(requirementRef);
@@ -141,7 +142,7 @@ OSStatus SecCodeCopyPath(SecStaticCodeRef staticCodeRef, SecCSFlags flags, CFURL
 	
 	checkFlags(flags);
 	SecPointer<SecStaticCode> staticCode = SecStaticCode::requiredStatic(staticCodeRef);
-	CodeSigning::Required(path) = staticCode->canonicalPath();
+	CodeSigning::Required(path) = staticCode->copyCanonicalPath();
 
 	END_CSAPI
 }
@@ -231,5 +232,17 @@ OSStatus SecStaticCodeSetCallback(SecStaticCodeRef codeRef, SecCSFlags flags, Se
 		*old = code->monitor();
 	code->setMonitor(monitor);
 
+	END_CSAPI
+}
+
+
+OSStatus SecStaticCodeSetValidationConditions(SecStaticCodeRef codeRef, CFDictionaryRef conditions)
+{
+	BEGIN_CSAPI
+	
+	checkFlags(0);
+	SecStaticCode *code = SecStaticCode::requiredStatic(codeRef);
+	code->setValidationModifiers(conditions);
+	
 	END_CSAPI
 }

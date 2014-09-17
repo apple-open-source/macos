@@ -1523,10 +1523,17 @@ kern_return_t __notify_server_regenerate
 	{
 		case NOTIFY_TYPE_MEMORY:
 		{
+			/* prev_slot must be between 0 and global.nslots */
+			if ((prev_slot < 0) || (prev_slot >= global.nslots))
+			{
+				*status = NOTIFY_STATUS_INVALID_REQUEST;
+				return KERN_SUCCESS;
+			}
+
 			kstatus = __notify_server_register_check_2(server, name, nameCnt, token, &size, new_slot, new_nid, status, audit);
 			if (*status == NOTIFY_STATUS_OK)
 			{
-				if ((*new_slot != UINT32_MAX) && (prev_slot != UINT32_MAX) && (global.last_shm_base != NULL))
+				if ((*new_slot != UINT32_MAX) && (global.last_shm_base != NULL))
 				{
 					global.shared_memory_base[*new_slot] = global.shared_memory_base[*new_slot] + global.last_shm_base[prev_slot] - 1;
 					global.last_shm_base[prev_slot] = 0;

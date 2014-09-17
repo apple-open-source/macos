@@ -875,16 +875,6 @@ extern OSStatus sslCopyPeerPubKey(
     check(pubKey);
     check(ctx->peerSecTrust);
 
-#if !TARGET_OS_IPHONE
-    /* This is not required on iOS, but still required on osx */
-    if (!ctx->enableCertVerify) {
-        OSStatus status;
-        SecTrustResultType result;
-        verify_noerr_action(status = SecTrustEvaluate(ctx->peerSecTrust, &result),
-            return status);
-	}
-#endif
-
     SecKeyRef key = SecTrustCopyPublicKey(ctx->peerSecTrust);
     if (!key) {
 		sslErrorLog("sslCopyPeerPubKey: %s, ctx->peerSecTrust=%p\n",

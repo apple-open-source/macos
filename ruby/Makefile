@@ -14,6 +14,8 @@ ToolType	= Commands
 GnuAfterInstall = post-install install-plist install-irbrc install-rails-placeholder
 GnuNoBuild	= YES
 
+# ruby_atomic.h
+Extra_CC_Flags = -DHAVE_GCC_SYNC_BUILTINS
 # don't expand CC -- keep it like this for rbconfig.rb
 Extra_Configure_Environment = CC="xcrun clang" CXX="xcrun clang++"
 comma := ,
@@ -25,13 +27,11 @@ Extra_Configure_Flags  = \
 	--with-sitedir=$(SITEDIR) \
 	--enable-shared \
 	--with-arch=$(subst $(space),$(comma),$(RC_ARCHS)) \
-	--with-bundled-md5 \
-	--with-bundled-sha1 \
-	--with-bundled-sha2 \
-	--with-bundled-rmd160 \
 	ac_cv_func_getcontext=no \
 	ac_cv_func_setcontext=no \
 	ac_cv_c_compiler_gnu=no \
+	ac_cv_header_net_if_h=yes \
+	av_cv_header_ifaddrs_h=yes \
 	rb_cv_pri_prefix_long_long=ll
 
 # It's a GNU Source project
@@ -44,7 +44,7 @@ EXTRAS_DIR = $(SRCROOT)/extras
 
 # Automatic Extract & Patch
 AEP_Project    = $(Project)
-AEP_Version    = 2.0.0-p451
+AEP_Version    = 2.0.0-p481
 AEP_ProjVers   = $(AEP_Project)-$(AEP_Version)
 AEP_Filename   = $(AEP_ProjVers).tar.bz2
 AEP_ExtractDir = $(AEP_ProjVers)
@@ -128,7 +128,7 @@ post-install:
 	done
 	(cd $(DSTROOT)$(FW_VERSION_DIR)$(USRLIBDIR); $(LN) -vsh ../../Ruby $$(readlink libruby.dylib))
 	# rdar://problem/8937160
-	$(CHMOD) -h 0755 $(DSTROOT)/$(FW_VERSION_DIR)$(USRLIBDIR)/libruby.dylib
+	find $(DSTROOT) -type l -print0 | xargs -0 -t chmod -h go-w
 	$(INSTALL_DIRECTORY) $(DSTROOT)/$(MANDIR)/man1
 	$(INSTALL_FILE) $(SRCROOT)/gem.1 $(DSTROOT)$(MANDIR)/man1
 	# nuke duplicates that are only different in case

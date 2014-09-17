@@ -2,13 +2,13 @@
 
   readline.c - GNU Readline module
 
-  $Author: shugo $
+  $Author: nagachika $
   created at: Wed Jan 20 13:59:32 JST 1999
 
   Copyright (C) 1997-2008  Shugo Maeda
   Copyright (C) 2008-2009  TAKAO Kouji
 
-  $Id: readline.c 39002 2013-02-01 05:37:29Z shugo $
+  $Id: readline.c 45252 2014-03-02 16:33:36Z nagachika $
 
   Contact:
    - TAKAO Kouji <kouji at takao7 dot net> (current maintainer)
@@ -1883,7 +1883,7 @@ Init_readline()
 
     rl_attempted_completion_function = readline_attempted_completion_function;
 #if defined(HAVE_RL_PRE_INPUT_HOOK)
-    rl_pre_input_hook = (Function *)readline_pre_input_hook;
+    rl_pre_input_hook = (rl_hook_func_t *)readline_pre_input_hook;
 #endif
 #ifdef HAVE_RL_CATCH_SIGNALS
     rl_catch_signals = 0;

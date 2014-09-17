@@ -1,0 +1,23 @@
+diff -Nur openssl-0.9.8za/src/util/pl/VC-32.pl ./util/pl/VC-32.pl
+--- openssl-0.9.8za/src/util/pl/VC-32.pl	2014-07-09 18:16:48.000000000 -0700
++++ ./util/pl/VC-32.pl	2014-07-09 17:55:16.000000000 -0700
+@@ -49,7 +49,8 @@
+     $base_cflags=' /W3 /Gs0 /GF /Gy /nologo -DWIN32_LEAN_AND_MEAN -DL_ENDIAN -DDSO_WIN32 -DOPENSSL_SYSNAME_WIN32 -DOPENSSL_SYSNAME_WINNT -DUNICODE -D_UNICODE';
+     $base_cflags.=' -D_CRT_SECURE_NO_DEPRECATE';	# shut up VC8
+     $base_cflags.=' -D_CRT_NONSTDC_NO_DEPRECATE';	# shut up VC8
+-    my $f = $shlib || $fips ?' /MD':' /MT';
++    # For reasons lost to time ("svn log -r13897 svn+ssh://svn.apple.com/svn/syncservices") we always link against the static lib version of MSVCR "to avoid deployment issues"
++    my $f = ' /MT';
+     $lib_cflag='/Zl' if (!$shlib);	# remove /DEFAULTLIBs from static lib
+     $opt_cflags=$f.' /Ox';
+     $dbg_cflags=$f.'d /Od -DDEBUG -D_DEBUG';
+@@ -114,7 +115,8 @@
+     $base_cflags=' /W3 /WX /Gs0 /GF /Gy /nologo -DOPENSSL_SYSNAME_WIN32 -DWIN32_LEAN_AND_MEAN -DL_ENDIAN -DDSO_WIN32';
+     $base_cflags.=' -D_CRT_SECURE_NO_DEPRECATE';	# shut up VC8
+     $base_cflags.=' -D_CRT_NONSTDC_NO_DEPRECATE';	# shut up VC8
+-    my $f = $shlib || $fips ?' /MD':' /MT';
++    # For reasons lost to time ("svn log -r13897 svn+ssh://svn.apple.com/svn/syncservices") we always link against the static lib version of MSVCR "to avoid deployment issues"
++    my $f = ' /MT';
+     $lib_cflag='/Zl' if (!$shlib);	# remove /DEFAULTLIBs from static lib
+     $opt_cflags=$f.' /Ox /O2 /Ob2';
+     $dbg_cflags=$f.'d /Od -DDEBUG -D_DEBUG';

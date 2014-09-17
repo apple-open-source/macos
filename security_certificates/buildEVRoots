@@ -7,7 +7,7 @@
 
 CWD=`/bin/pwd`
 ROOT_CERT_DIR="$CWD"/roots
-ALT_ROOT_CERT_DIR="$CWD"/roots_incoming
+ALT_ROOT_CERT_DIR="$CWD"/removed
 KC_DIR="$CWD"/BuiltKeychains
 
 # Set USE_PUBKEY to a non-zero value to generate public key hashes;
@@ -80,9 +80,9 @@ for OID in `cat "$EVROOTS_CONFIG"`; do
 		fi
 		# should prune duplicates first; for now, just ignore errors
 		"$SECURITY" \
-		-q add-certificates \
-		-k "$EVROOTS_KC_PATH" \
-		"$CERT_TO_ADD"
+			-q add-certificates \
+			-k "$EVROOTS_KC_PATH" \
+			"$CERT_TO_ADD" 2>/dev/null
 	done
 	IFS=$'\x0A'$'\x0D'
 done
@@ -108,8 +108,12 @@ for OID in `cat "$EVROOTS_CONFIG"`; do
 		if [ "$CERTFILE" = "" ]; then continue; fi
 		CERT_TO_HASH="$ROOT_CERT_DIR/$CERTFILE"
 		if [ ! -e "$CERT_TO_HASH" ]; then
-	                printf "... Could not find file to hash: \"%s\"\n" "$CERT_TO_HASH"
+			printf "... Warning: \"%s\" has been removed, but its hash is still in EV map\n" "$CERTFILE"
 			CERT_TO_HASH="$ALT_ROOT_CERT_DIR/$CERTFILE"
+		fi
+		if [ ! -e "$CERT_TO_HASH" ]; then
+			printf "... Could not find file to hash: \"%s\"\n" "$CERT_TO_HASH"
+			continue
 		fi
 		
 		if [ "$USE_PUBKEY" -ne 0 ]; then

@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>OpenSourceImportDate</key>
+	<string>2014-07-08</string>
+	<key>OpenSourceLicense</key>
+	<string>openssl</string>
+	<key>OpenSourceLicenseFile</key>
+	<string>OpenSSL.txt</string>
+	<key>OpenSourceModifications</key>
+	<array>
+		<string>OSX root certificates</string>
+		<string>Data Pig Fix</string>
+		<string>Manpage Tweaks</string>
+		<string>Load versioned libraries and engines</string>
+		<string>Fix pkcs12 crash</string>
+		<string>llvm build fixes</string>
+		<string>Disable IDEA code</string>
+		<string>Disable default SSL compression methods</string>
+		<string>DEPRECATED OSX 10.7 and later</string>
+	</array>
+	<key>OpenSourceProject</key>
+	<string>OpenSSL</string>
+	<key>OpenSourceVersion</key>
+	<string>0.9.8za</string>
+	<key>OpenSourceWebsiteURL</key>
+	<string>http://www.openssl.org/</string>
+</dict>
+</plist>

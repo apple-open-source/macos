@@ -27,7 +27,6 @@
 #import "PluginInformation.h"
 
 #import "PluginModuleInfo.h"
-#import "PluginSandboxProfile.h"
 #import "StringUtilities.h"
 #import "WebNumber.h"
 #import "WebString.h"
@@ -41,7 +40,7 @@ void getPlatformPluginModuleInformation(const PluginModuleInfo& plugin, Immutabl
     map.set(pluginInformationBundleVersionKey(), WebString::create(plugin.versionString));
     map.set(pluginInformationBundleShortVersionKey(), WebString::create(plugin.shortVersionString));
     map.set(pluginInformationUpdatePastLastBlockedVersionIsKnownAvailableKey(), WebBoolean::create(WKIsPluginUpdateAvailable(nsStringFromWebCoreString(plugin.bundleIdentifier))));
-    map.set(pluginInformationHasSandboxProfileKey(), WebBoolean::create(pluginHasSandboxProfile(plugin.bundleIdentifier)));
+    map.set(pluginInformationHasSandboxProfileKey(), WebBoolean::create(plugin.hasSandboxProfile));
 }
 
 } // namespace WebKit

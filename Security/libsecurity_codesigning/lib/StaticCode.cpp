@@ -35,6 +35,7 @@
 #include "detachedrep.h"
 #include "csdatabase.h"
 #include "csutilities.h"
+#include "dirscanner.h"
 #include <CoreFoundation/CFURLAccess.h>
 #include <Security/SecPolicyPriv.h>
 #include <Security/SecTrustPriv.h>
@@ -48,6 +49,8 @@
 #include <security_utilities/cfmunge.h>
 #include <Security/CMSDecoder.h>
 #include <security_utilities/logging.h>
+#include <dirent.h>
+#include <sstream>
 
 
 namespace Security {
@@ -117,7 +120,7 @@ bool SecStaticCode::equal(SecCFObject &secOther)
 	if (mine || his)
 		return mine && his && CFEqual(mine, his);
 	else
-		return CFEqual(this->canonicalPath(), other->canonicalPath());
+		return CFEqual(CFRef<CFURLRef>(this->copyCanonicalPath()), CFRef<CFURLRef>(other->copyCanonicalPath()));
 }
 
 CFHashCode SecStaticCode::hash()
@@ -125,7 +128,7 @@ CFHashCode SecStaticCode::hash()
 	if (CFDataRef h = this->cdHash())
 		return CFHash(h);
 	else
-		return CFHash(this->canonicalPath());
+		return CFHash(CFRef<CFURLRef>(this->copyCanonicalPath()));
 }
 
 
@@ -138,6 +141,30 @@ CFTypeRef SecStaticCode::reportEvent(CFStringRef stage, CFDictionaryRef info)
 		return mMonitor(this->handle(false), stage, info);
 	else
 		return NULL;
+}
+	
+	
+//
+// Set validation conditions for fine-tuning legacy tolerance
+//
+static void addError(CFTypeRef cfError, void* context)
+{
+	if (CFGetTypeID(cfError) == CFNumberGetTypeID()) {
+		int64_t error;
+		CFNumberGetValue(CFNumberRef(cfError), kCFNumberSInt64Type, (void*)&error);
+		MacOSErrorSet* errors = (MacOSErrorSet*)context;
+		errors->insert(OSStatus(error));
+	}
+}
+
+void SecStaticCode::setValidationModifiers(CFDictionaryRef conditions)
+{
+	if (conditions) {
+		CFDictionary source(conditions, errSecCSDbCorrupt);
+		mAllowOmissions = source.get<CFArrayRef>("omissions");
+		if (CFArrayRef errors = source.get<CFArrayRef>("errors"))
+			CFArrayApplyFunction(errors, CFRangeMake(0, CFArrayGetCount(errors)), addError, &this->mTolerateErrors);
+	}
 }
 
 
@@ -691,7 +718,7 @@ void SecStaticCode::validateResources(SecCSFlags flags)
 		try {
 			// sanity first
 			CFDictionaryRef sealedResources = resourceDictionary();
-			if (this->resourceBase())		// disk has resources
+			if (this->resourceBase())	// disk has resources
 				if (sealedResources)
 					/* go to work below */;
 				else
@@ -722,11 +749,17 @@ void SecStaticCode::validateResources(SecCSFlags flags)
 			}
 			if (!rules || !files)
 				MacOSError::throwMe(errSecCSResourcesInvalid);
+			// check for weak resource rules
+			bool strict = flags & kSecCSStrictValidate;
+			if (strict && (version == 1 || hasWeakResourceRules(rules, mAllowOmissions)))
+				if (mTolerateErrors.find(errSecCSWeakResourceRules) == mTolerateErrors.end())
+					MacOSError::throwMe(errSecCSWeakResourceRules);
 			__block CFRef<CFMutableDictionaryRef> resourceMap = makeCFMutableDictionary(files);
-			ResourceBuilder resources(cfString(this->resourceBase()), rules, codeDirectory()->hashType);
+			string base = cfString(this->resourceBase());
+			ResourceBuilder resources(base, base, rules, codeDirectory()->hashType, strict, mTolerateErrors);
 			diskRep()->adjustResources(resources);
 			resources.scan(^(FTSENT *ent, uint32_t ruleFlags, const char *relpath, ResourceBuilder::Rule *rule) {
-				validateResource(files, relpath, *mResourcesValidContext, flags, version);
+				validateResource(files, relpath, ent->fts_info == FTS_SL, *mResourcesValidContext, flags, version);
 				CFDictionaryRemoveValue(resourceMap, CFTempString(relpath));
 			});
 			
@@ -773,6 +806,42 @@ void SecStaticCode::checkOptionalResource(CFTypeRef key, CFTypeRef value, void *
 			ctx->reportProblem(errSecCSBadResource, kSecCFErrorResourceSeal, key);
 		}
 	}
+}
+
+
+static bool isOmitRule(CFTypeRef value)
+{
+	if (CFGetTypeID(value) == CFBooleanGetTypeID())
+		return value == kCFBooleanFalse;
+	CFDictionary rule(value, errSecCSResourceRulesInvalid);
+	return rule.get<CFBooleanRef>("omit") == kCFBooleanTrue;
+}
+
+bool SecStaticCode::hasWeakResourceRules(CFDictionaryRef rulesDict, CFArrayRef allowedOmissions)
+{
+	// compute allowed omissions
+	CFRef<CFArrayRef> defaultOmissions = this->diskRep()->allowedResourceOmissions();
+	assert(defaultOmissions);
+	CFRef<CFMutableArrayRef> allowed = CFArrayCreateMutableCopy(NULL, 0, defaultOmissions);
+	if (allowedOmissions)
+		CFArrayAppendArray(allowed, allowedOmissions, CFRangeMake(0, CFArrayGetCount(allowedOmissions)));
+	CFRange range = CFRangeMake(0, CFArrayGetCount(allowed));
+	
+	// check all resource rules for weakness
+	__block bool coversAll = false;
+	__block bool forbiddenOmission = false;
+	CFDictionary rules(rulesDict, errSecCSResourceRulesInvalid);
+	rules.apply(^(CFStringRef key, CFTypeRef value) {
+		string pattern = cfString(key, errSecCSResourceRulesInvalid);
+		if (pattern == "^.*" && value == kCFBooleanTrue) {
+			coversAll = true;
+			return;
+		}
+		if (isOmitRule(value))
+			forbiddenOmission |= !CFArrayContainsValue(allowed, range, key);
+	});
+
+	return !coversAll || forbiddenOmission;
 }
 
 
@@ -909,7 +978,7 @@ CFDataRef SecStaticCode::resource(string path)
 }
 
 
-void SecStaticCode::validateResource(CFDictionaryRef files, string path, ValidationContext &ctx, SecCSFlags flags, uint32_t version)
+void SecStaticCode::validateResource(CFDictionaryRef files, string path, bool isSymlink, ValidationContext &ctx, SecCSFlags flags, uint32_t version)
 {
 	if (!resourceBase())	// no resources in DiskRep
 		MacOSError::throwMe(errSecCSResourcesNotFound);
@@ -917,7 +986,12 @@ void SecStaticCode::validateResource(CFDictionaryRef files, string path, Validat
 	if (CFTypeRef file = CFDictionaryGetValue(files, CFTempString(path))) {
 		ResourceSeal seal = file;
 		if (seal.nested()) {
-			validateNestedCode(fullpath, seal, flags);
+			if (isSymlink)
+				return ctx.reportProblem(errSecCSBadResource, kSecCFErrorResourceAltered, fullpath); // changed type
+			string suffix = ".framework";
+			bool isFramework = (path.length() > suffix.length())
+				&& (path.compare(path.length()-suffix.length(), suffix.length(), suffix) == 0);
+			validateNestedCode(fullpath, seal, flags, isFramework);
 		} else if (seal.link()) {
 			char target[PATH_MAX];
 			ssize_t len = ::readlink(cfString(fullpath).c_str(), target, sizeof(target)-1);
@@ -953,7 +1027,7 @@ void SecStaticCode::validateResource(CFDictionaryRef files, string path, Validat
 	ctx.reportProblem(errSecCSBadResource, kSecCFErrorResourceAdded, CFTempURL(path, false, resourceBase()));
 }
 
-void SecStaticCode::validateNestedCode(CFURLRef path, const ResourceSeal &seal, SecCSFlags flags)
+void SecStaticCode::validateNestedCode(CFURLRef path, const ResourceSeal &seal, SecCSFlags flags, bool isFramework)
 {
 	CFRef<SecRequirementRef> req;
 	if (SecRequirementCreateWithString(seal.requirement(), kSecCSDefaultFlags, &req.aref()))
@@ -966,6 +1040,16 @@ void SecStaticCode::validateNestedCode(CFURLRef path, const ResourceSeal &seal, 
 		SecPointer<SecStaticCode> code = new SecStaticCode(DiskRep::bestGuess(cfString(path)));
 		code->setMonitor(this->monitor());
 		code->staticValidate(flags, SecRequirement::required(req));
+
+		if (isFramework && (flags & kSecCSStrictValidate))
+			try {
+				validateOtherVersions(path, flags, req, code);
+			} catch (const CSError &err) {
+				MacOSError::throwMe(errSecCSBadFrameworkVersion);
+			} catch (const MacOSError &err) {
+				MacOSError::throwMe(errSecCSBadFrameworkVersion);
+			}
+
 	} catch (CSError &err) {
 		if (err.error == errSecCSReqFailed) {
 			mResourcesValidContext->reportProblem(errSecCSBadNestedCode, kSecCFErrorResourceAltered, path);
@@ -979,6 +1063,52 @@ void SecStaticCode::validateNestedCode(CFURLRef path, const ResourceSeal &seal, 
 			return;
 		}
 		CSError::throwMe(err.error, kSecCFErrorPath, path);
+	}
+}
+
+void SecStaticCode::validateOtherVersions(CFURLRef path, SecCSFlags flags, SecRequirementRef req, SecStaticCode *code)
+{
+	// Find out what current points to and do not revalidate
+	std::string mainPath = cfStringRelease(code->diskRep()->copyCanonicalPath());
+
+	char main_path[PATH_MAX];
+	bool foundTarget = false;
+
+	/* If it failed to get the target of the symlink, do not fail. It is a performance loss,
+	 not a security hole */
+	if (realpath(mainPath.c_str(), main_path) != NULL)
+		foundTarget = true;
+
+	std::ostringstream versionsPath;
+	versionsPath << cfString(path) << "/Versions/";
+
+	DirScanner scanner(versionsPath.str());
+
+	if (scanner.initialized()) {
+		struct dirent *entry = NULL;
+		while ((entry = scanner.getNext()) != NULL) {
+			std::ostringstream fullPath;
+
+			if (entry->d_type != DT_DIR ||
+				strcmp(entry->d_name, ".") == 0 ||
+				strcmp(entry->d_name, "..") == 0 ||
+				strcmp(entry->d_name, "Current") == 0)
+				continue;
+
+			fullPath << versionsPath.str() << entry->d_name;
+
+			char real_full_path[PATH_MAX];
+			if (realpath(fullPath.str().c_str(), real_full_path) == NULL)
+				UnixError::check(-1);
+
+			// Do case insensitive comparions because realpath() was called for both paths
+			if (foundTarget && strcmp(main_path, real_full_path) == 0)
+				continue;
+
+			SecPointer<SecStaticCode> frameworkVersion = new SecStaticCode(DiskRep::bestGuess(real_full_path));
+			frameworkVersion->setMonitor(this->monitor());
+			frameworkVersion->staticValidate(flags, SecRequirement::required(req));
+		}
 	}
 }
 
@@ -1318,9 +1448,16 @@ void SecStaticCode::staticValidate(SecCSFlags flags, const SecRequirement *req)
 			subcode->staticValidateCore(flags, req);
 		});
 	
+	// allow monitor intervention in source validation phase
+	reportEvent(CFSTR("prepared"), NULL);
+	
 	// resources: once for all architectures
 	if (!(flags & kSecCSDoNotValidateResources))
 		this->validateResources(flags);
+
+	// perform strict validation if desired
+	if (flags & kSecCSStrictValidate)
+		mRep->strictValidate(mTolerateErrors);
 
 	// allow monitor intervention
 	if (CFRef<CFTypeRef> veto = reportEvent(CFSTR("validated"), NULL)) {
@@ -1375,6 +1512,9 @@ void SecStaticCode::handleOtherArchitectures(void (^handle)(SecStaticCode* other
 			size_t activeOffset = fat->archOffset();
 			for (Universal::Architectures::const_iterator arch = architectures.begin(); arch != architectures.end(); ++arch) {
 				ctx.offset = fat->archOffset(*arch);
+				if (ctx.offset > SIZE_MAX)
+					MacOSError::throwMe(errSecCSInternalError);
+				ctx.size = fat->lengthOfSlice((size_t)ctx.offset);
 				if (ctx.offset != activeOffset) {	// inactive architecture; check it
 					SecPointer<SecStaticCode> subcode = new SecStaticCode(DiskRep::bestGuess(this->mainExecutablePath(), &ctx));
 					subcode->detachedSignature(this->mDetachedSig); // carry over explicit (but not implicit) detached signature

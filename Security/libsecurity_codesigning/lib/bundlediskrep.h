@@ -56,8 +56,9 @@ public:
 	CFDataRef component(CodeDirectory::SpecialSlot slot);
 	CFDataRef identification();
 	std::string mainExecutablePath();
-	CFURLRef canonicalPath();
+	CFURLRef copyCanonicalPath();
 	std::string resourcesRootPath();
+	std::string resourcesRelativePath();
 	void adjustResources(ResourceBuilder &builder);
 	Universal *mainExecutableImage();
 	size_t signingBase();
@@ -71,6 +72,9 @@ public:
 	CFDictionaryRef defaultResourceRules(const SigningContext &ctx);
 	const Requirements *defaultRequirements(const Architecture *arch, const SigningContext &ctx);
 	size_t pageSize(const SigningContext &ctx);
+
+	void strictValidate(const ToleratedErrors& tolerated);
+	CFArrayRef allowedResourceOmissions();
 
 	CFBundleRef bundle() const { return mBundle; }
 	
@@ -87,6 +91,9 @@ protected:
 private:
 	void setup(const Context *ctx);			// shared init
 	void checkModifiedFile(CFMutableArrayRef files, CodeDirectory::SpecialSlot slot);
+	CFDataRef loadRegularFile(CFURLRef url);
+	void recordStrictError(OSStatus error);
+	void validateFrameworkRoot(std::string root);
 
 private:
 	CFRef<CFBundleRef> mBundle;
@@ -96,6 +103,7 @@ private:
 	bool mInstallerPackage;					// is an installer (not executable) bundle
 	string mFormat;							// format description string
 	RefPointer<DiskRep> mExecRep;			// DiskRep for main executable file
+	std::set<OSStatus> mStrictErrors;		// strict validation errors encountered
 };
 
 

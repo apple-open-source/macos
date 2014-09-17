@@ -402,10 +402,22 @@ SecKeyRef SecTrustCopyPublicKey(SecTrustRef trust)
 	OSStatus __secapiresult = errSecSuccess;
 	try {
 		Trust *trustObj = Trust::required(trust);
-		if (trustObj->result() == kSecTrustResultInvalid)
-			MacOSError::throwMe(errSecTrustNotAvailable);
-		if (trustObj->evidence() == nil)
+		if (trustObj->result() == kSecTrustResultInvalid) {
+			// Trust hasn't been evaluated; attempt to retrieve public key from leaf.
+			SecCertificateRef cert = SecTrustGetCertificateAtIndex(trust, 0);
+			__secapiresult = SecCertificateCopyPublicKey(cert, &pubKey);
+			if (pubKey) {
+				return pubKey;
+			}
+			// Otherwise, we must evaluate first.
+			trustObj->evaluate();
+			if (trustObj->result() == kSecTrustResultInvalid) {
+				MacOSError::throwMe(errSecTrustNotAvailable);
+			}
+		}
+		if (trustObj->evidence() == nil) {
 			trustObj->buildEvidence(certChain, TPEvidenceInfo::overlayVar(statusChain));
+		}
 		evidenceChain = trustObj->evidence();
 	}
 	catch (const MacOSError &err) { __secapiresult=err.osStatus(); }
@@ -470,12 +482,27 @@ SecCertificateRef SecTrustGetCertificateAtIndex(SecTrustRef trust, CFIndex ix)
 	try {
 		Trust *trustObj = Trust::required(trust);
 		if (trustObj->result() == kSecTrustResultInvalid) {
+			// If caller is asking for the leaf, we can return it without
+			// having to evaluate the entire chain. Note that we don't retain
+			// the cert as it's owned by the trust and this is a 'Get' API.
+			if (ix == 0) {
+				CFArrayRef certs = trustObj->certificates();
+				if (certs && (CFArrayGetCount(certs) > 0)) {
+					certificate = (SecCertificateRef) CFArrayGetValueAtIndex(certs, 0);
+					if (certificate) {
+						return certificate;
+					}
+				}
+			}
+			// Otherwise, we must evaluate first.
 			trustObj->evaluate();
-			if (trustObj->result() == kSecTrustResultInvalid)
+			if (trustObj->result() == kSecTrustResultInvalid) {
 				MacOSError::throwMe(errSecTrustNotAvailable);
+			}
 		}
-		if (trustObj->evidence() == nil)
+		if (trustObj->evidence() == nil) {
 			trustObj->buildEvidence(certChain, TPEvidenceInfo::overlayVar(statusChain));
+		}
 		evidenceChain = trustObj->evidence();
 	}
 	catch (const MacOSError &err) { __secapiresult=err.osStatus(); }

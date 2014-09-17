@@ -71,6 +71,11 @@
 		18B9658B1472FC5B005A4D2E /* reqparser.h in Headers */ = {isa = PBXBuildFile; fileRef = C2D383340A237F47005C63A2 /* reqparser.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		18B9658C1472FC9E005A4D2E /* codedirectory.h in Headers */ = {isa = PBXBuildFile; fileRef = C2D383170A237F47005C63A2 /* codedirectory.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		18B965951472FE30005A4D2E /* cdbuilder.h in Headers */ = {isa = PBXBuildFile; fileRef = C2D383150A237F47005C63A2 /* cdbuilder.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		7A078F651996C1C2003D68DA /* dirscanner.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 7A078F631996C1C2003D68DA /* dirscanner.cpp */; };
+		7A078F661996C1C2003D68DA /* dirscanner.h in Headers */ = {isa = PBXBuildFile; fileRef = 7A078F641996C1C2003D68DA /* dirscanner.h */; };
+		7A9DA65C1948D1BA004635E6 /* opaquewhitelist.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 7A9DA65A1948D1BA004635E6 /* opaquewhitelist.cpp */; };
+		7A9DA65D1948D1BA004635E6 /* opaquewhitelist.h in Headers */ = {isa = PBXBuildFile; fileRef = 7A9DA65B1948D1BA004635E6 /* opaquewhitelist.h */; };
+		7ACF261219958B6F00849B25 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C2CC30A00B8519CC005FA59D /* CoreFoundation.framework */; };
 		BEC3A75C16F78D21003E5634 /* SecTaskPriv.h in Headers */ = {isa = PBXBuildFile; fileRef = BEC3A75B16F78D21003E5634 /* SecTaskPriv.h */; };
 		C200424D15D425D9004AE0A1 /* libsecurity_codesigning.a in Frameworks */ = {isa = PBXBuildFile; fileRef = C200424915D425B7004AE0A1 /* libsecurity_codesigning.a */; };
 		C200424E15D425D9004AE0A1 /* libsecurity_utilities.a in Frameworks */ = {isa = PBXBuildFile; fileRef = C200424A15D425B7004AE0A1 /* libsecurity_utilities.a */; };
@@ -365,6 +370,10 @@
 		184461A1146E9AD100B12992 /* lib.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = lib.xcconfig; sourceTree = "<group>"; };
 		184461A2146E9AD100B12992 /* release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = release.xcconfig; sourceTree = "<group>"; };
 		4CA1FEBE052A3C8100F22E42 /* libsecurity_codesigning.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; path = libsecurity_codesigning.a; sourceTree = BUILT_PRODUCTS_DIR; };
+		7A078F631996C1C2003D68DA /* dirscanner.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = dirscanner.cpp; sourceTree = "<group>"; };
+		7A078F641996C1C2003D68DA /* dirscanner.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = dirscanner.h; sourceTree = "<group>"; };
+		7A9DA65A1948D1BA004635E6 /* opaquewhitelist.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = opaquewhitelist.cpp; sourceTree = "<group>"; };
+		7A9DA65B1948D1BA004635E6 /* opaquewhitelist.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = opaquewhitelist.h; sourceTree = "<group>"; };
 		BEC3A75B16F78D21003E5634 /* SecTaskPriv.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SecTaskPriv.h; sourceTree = "<group>"; };
 		C200424915D425B7004AE0A1 /* libsecurity_codesigning.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libsecurity_codesigning.a; path = ../../../usr/local/lib/libsecurity_codesigning.a; sourceTree = "<group>"; };
 		C200424A15D425B7004AE0A1 /* libsecurity_utilities.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libsecurity_utilities.a; path = ../../../usr/local/lib/libsecurity_utilities.a; sourceTree = "<group>"; };
@@ -372,7 +381,7 @@
 		C2093AA70BB0948000EB8599 /* reqreader.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = reqreader.h; sourceTree = "<group>"; };
 		C209696015BF52040093035F /* gkunpack */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = gkunpack; sourceTree = BUILT_PRODUCTS_DIR; };
 		C209696315BF52040093035F /* gkunpack.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = gkunpack.cpp; sourceTree = "<group>"; };
-		C209697215BF57EB0093035F /* libsecurity_utilities.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libsecurity_utilities.a; sourceTree = "<group>"; };
+		C209697215BF57EB0093035F /* libsecurity_utilities.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = libsecurity_utilities.a; sourceTree = "<group>"; };
 		C2110704158BF5C8001D7F76 /* gkmerge */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.python; path = gkmerge; sourceTree = "<group>"; };
 		C21CFC5D0A250D1C006CD5B1 /* reqdumper.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = reqdumper.cpp; sourceTree = "<group>"; };
 		C21CFC5E0A250D1C006CD5B1 /* reqdumper.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = reqdumper.h; sourceTree = "<group>"; };
@@ -622,6 +631,7 @@
 			files = (
 				C200424D15D425D9004AE0A1 /* libsecurity_codesigning.a in Frameworks */,
 				C200424E15D425D9004AE0A1 /* libsecurity_utilities.a in Frameworks */,
+				7ACF261219958B6F00849B25 /* CoreFoundation.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -738,6 +748,8 @@
 			children = (
 				C273606D1433F09000A9A5FF /* SecAssessment.h */,
 				C273606C1433F09000A9A5FF /* SecAssessment.cpp */,
+				7A9DA65B1948D1BA004635E6 /* opaquewhitelist.h */,
+				7A9DA65A1948D1BA004635E6 /* opaquewhitelist.cpp */,
 				C24EABAA1421432800C16AA9 /* policydb.h */,
 				C24EABAC1421433700C16AA9 /* policydb.cpp */,
 				C273601D1432A60B00A9A5FF /* policyengine.h */,
@@ -948,6 +960,8 @@
 				C2353410145F1B110073F964 /* xar++.cpp */,
 				C2F4439914C626D4000A01E6 /* quarantine++.h */,
 				C2F4439814C626D4000A01E6 /* quarantine++.cpp */,
+				7A078F641996C1C2003D68DA /* dirscanner.h */,
+				7A078F631996C1C2003D68DA /* dirscanner.cpp */,
 			);
 			name = "Local Utilities";
 			sourceTree = "<group>";
@@ -1147,6 +1161,7 @@
 				18B965861472FBF6005A4D2E /* reqdumper.h in Headers */,
 				18B965871472FC5B005A4D2E /* requirement.h in Headers */,
 				18B965881472FC5B005A4D2E /* reqmaker.h in Headers */,
+				7A9DA65D1948D1BA004635E6 /* opaquewhitelist.h in Headers */,
 				18B965891472FC5B005A4D2E /* reqreader.h in Headers */,
 				18B9658A1472FC5B005A4D2E /* reqinterp.h in Headers */,
 				18B9658B1472FC5B005A4D2E /* reqparser.h in Headers */,
@@ -1175,6 +1190,7 @@
 				C2A436160F2133B2007A41A6 /* slcrep.h in Headers */,
 				C24EABAB1421432800C16AA9 /* policydb.h in Headers */,
 				C2F4439B14C626D4000A01E6 /* quarantine++.h in Headers */,
+				7A078F661996C1C2003D68DA /* dirscanner.h in Headers */,
 				C26763D814FD9EBE00A46EDF /* drmaker.h in Headers */,
 				EBDAF050166D65FA0042CDCE /* piddiskrep.h in Headers */,
 			);
@@ -1499,6 +1515,7 @@
 				C2D3834F0A237F47005C63A2 /* SecRequirement.cpp in Sources */,
 				C2D383510A237F47005C63A2 /* diskrep.cpp in Sources */,
 				C2D383550A237F47005C63A2 /* filediskrep.cpp in Sources */,
+				7A078F651996C1C2003D68DA /* dirscanner.cpp in Sources */,
 				C2D383570A237F47005C63A2 /* Code.cpp in Sources */,
 				C2D383590A237F47005C63A2 /* kerneldiskrep.cpp in Sources */,
 				C2D3835B0A237F47005C63A2 /* StaticCode.cpp in Sources */,
@@ -1528,6 +1545,7 @@
 				C2A436150F2133B2007A41A6 /* slcrep.cpp in Sources */,
 				FEB30C9310DAC89D00557BA2 /* SecTask.c in Sources */,
 				C24EABAD1421433700C16AA9 /* policydb.cpp in Sources */,
+				7A9DA65C1948D1BA004635E6 /* opaquewhitelist.cpp in Sources */,
 				C273606E1433F09000A9A5FF /* SecAssessment.cpp in Sources */,
 				C27360D51436866D00A9A5FF /* xpcengine.cpp in Sources */,
 				C2DC2DCA145F594000AD2A3A /* xar++.cpp in Sources */,

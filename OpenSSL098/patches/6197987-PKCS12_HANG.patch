@@ -1,0 +1,29 @@
+diff -Nur openssl-0.9.8za/src/crypto/pkcs12/p12_crt.c ./crypto/pkcs12/p12_crt.c
+--- openssl-0.9.8za/src/crypto/pkcs12/p12_crt.c	2014-06-05 01:09:08.000000000 -0700
++++ ./crypto/pkcs12/p12_crt.c	2014-07-09 17:55:16.000000000 -0700
+@@ -91,6 +91,7 @@
+ 	int i;
+ 	unsigned char keyid[EVP_MAX_MD_SIZE];
+ 	unsigned int keyidlen = 0;
++	unsigned int namelen = name ? strlen(name) : -1;
+ 
+ 	/* Set defaults */
+ 	if (!nid_cert)
+@@ -129,7 +130,7 @@
+ 	if (cert)
+ 		{
+ 		bag = PKCS12_add_cert(&bags, cert);
+-		if(name && !PKCS12_add_friendlyname(bag, name, -1))
++		if(name && !PKCS12_add_friendlyname(bag, name, namelen))
+ 			goto err;
+ 		if(keyidlen && !PKCS12_add_localkeyid(bag, keyid, keyidlen))
+ 			goto err;
+@@ -160,7 +161,7 @@
+ 		if (!copy_bag_attr(bag, pkey, NID_LocalKeySet))
+ 			goto err;
+ 
+-		if(name && !PKCS12_add_friendlyname(bag, name, -1))
++		if(name && !PKCS12_add_friendlyname(bag, name, namelen))
+ 			goto err;
+ 		if(keyidlen && !PKCS12_add_localkeyid(bag, keyid, keyidlen))
+ 			goto err;
